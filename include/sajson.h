@@ -37,47 +37,37 @@
 #define SAJSON_UNLIKELY(x) __builtin_expect(!!(x), 0)
 
 namespace sajson {
-    class type {
-    public:
-        enum {
-            integer = 0,
-            double_ = 1,
-            null = 2,
-            false_ = 3,
-            true_ = 4,
-            string = 5,
-            array = 6,
-            object = 7,
-        };
-
-        type() {}
-        type(unsigned v): v(v) {}
-        operator unsigned() const { return v; }
-        
-    private:
-        unsigned v;
+    enum type {
+        TYPE_INTEGER = 0,
+        TYPE_DOUBLE = 1,
+        TYPE_NULL = 2,
+        TYPE_FALSE = 3,
+        TYPE_TRUE = 4,
+        TYPE_STRING = 5,
+        TYPE_ARRAY = 6,
+        TYPE_OBJECT = 7,
     };
 
     inline std::ostream& operator<<(std::ostream& os, type t) {
         switch (t) {
-            case type::integer: return os << "<integer>";
-            case type::double_: return os << "<double>";
-            case type::null:    return os << "<null>";
-            case type::false_:  return os << "<false>";
-            case type::true_:   return os << "<true>";
-            case type::string:  return os << "<string>";
-            case type::array:   return os << "<array>";
-            case type::object:  return os << "<object>";
+            case TYPE_INTEGER: return os << "<integer>";
+            case TYPE_DOUBLE: return os << "<double>";
+            case TYPE_NULL:    return os << "<null>";
+            case TYPE_FALSE:  return os << "<false>";
+            case TYPE_TRUE:   return os << "<true>";
+            case TYPE_STRING:  return os << "<string>";
+            case TYPE_ARRAY:   return os << "<array>";
+            case TYPE_OBJECT:  return os << "<object>";
             default:            return os << "<unknown type";
         }
     }
 
-    constexpr size_t TYPE_BITS = 3;
-    constexpr size_t TYPE_SHIFT = sizeof(size_t) * 8 - TYPE_BITS;
-    constexpr size_t TYPE_MASK = (1 << TYPE_BITS) - 1;
-    constexpr size_t VALUE_MASK = (~size_t(0u)) >> TYPE_BITS;
+    static const size_t TYPE_BITS = 3;
+    static const size_t TYPE_SHIFT = sizeof(size_t) * 8 - TYPE_BITS;
+    static const size_t TYPE_MASK = (1 << TYPE_BITS) - 1;
+    static const size_t VALUE_MASK = (~size_t(0u)) >> TYPE_BITS;
 
-    constexpr size_t ROOT_MARKER = size_t(-1) & VALUE_MASK;
+    static const size_t ROOT_MARKER = size_t(-1) & VALUE_MASK;
 
     inline type get_element_type(size_t s) {
         return static_cast<type>((s >> TYPE_SHIFT) & TYPE_MASK);
@@ -95,8 +85,6 @@ namespace sajson {
 
     class string {
     public:
-        string() = delete;
-
         string(const char* text, size_t length)
             : text(text)
             , _length(length)
@@ -117,6 +105,8 @@ namespace sajson {
     private:
         const char* const text;
         const size_t _length;
+
+        string(); /*=delete*/
     };
 
     class literal : public string {
@@ -130,15 +120,19 @@ namespace sajson {
         int i;
         size_t u;
     };
-    static_assert(sizeof(integer_storage) == sizeof(size_t), "integer_storage must have same size as one structure slot");
+    // TODO: reinstate with c++03 implementation
+    //static_assert(sizeof(integer_storage) == sizeof(size_t), "integer_storage must have same size as one structure slot");
 
     union double_storage {
-        static constexpr size_t word_length = sizeof(double) / sizeof(size_t);
+        enum {
+            word_length = sizeof(double) / sizeof(size_t)
+        };
 
         double d;
         size_t u[word_length];
     };
-    static_assert(sizeof(double_storage) == sizeof(double), "double_storage should have same size as double");
+    // TODO: reinstate with c++03 implementation
+    //static_assert(sizeof(double_storage) == sizeof(double), "double_storage should have same size as double");
 
     class value {
     public:
@@ -152,37 +146,37 @@ namespace sajson {
             return value_type;
         }
 
-        // valid iff get_type() is type::array or type::object
+        // valid iff get_type() is TYPE_ARRAY or TYPE_OBJECT
         size_t get_length() const {
             return payload[0];
         }
 
-        // valid iff get_type() is type::array
+        // valid iff get_type() is TYPE_ARRAY
         value get_array_element(size_t index) const {
             size_t element = payload[1 + index];
             return value(get_element_type(element), payload + get_element_value(element), text);
         }
 
-        // valid iff get_type() is type::object
+        // valid iff get_type() is TYPE_OBJECT
         string get_object_key(size_t index) const {
             const size_t* s = payload + 1 + index * 3;
             return string(text + s[0], s[1] - s[0]);
         }
 
-        // valid iff get_type() is type::object
+        // valid iff get_type() is TYPE_OBJECT
         value get_object_value(size_t index) const {
             size_t element = payload[3 + index * 3];
             return value(get_element_type(element), payload + get_element_value(element), text);
         }
 
-        // valid iff get_type() is type::integer
+        // valid iff get_type() is TYPE_INTEGER
         int get_integer_value() const {
             integer_storage s;
             s.u = payload[0];
             return s.i;
         }
 
-        // valid iff get_type() is type::double_
+        // valid iff get_type() is TYPE_DOUBLE
         double get_double_value() const {
             double_storage s;
             for (unsigned i = 0; i < double_storage::word_length; ++i) {
@@ -191,21 +185,21 @@ namespace sajson {
             return s.d;
         }
 
-        // valid iff get_type() is type::integer or type::double_
+        // valid iff get_type() is TYPE_INTEGER or TYPE_DOUBLE
         double get_number_value() const {
-            if (get_type() == type::integer) {
+            if (get_type() == TYPE_INTEGER) {
                 return get_integer_value();
             } else {
                 return get_double_value();
             }
         }
 
-        // valid iff get_type() is type::string
+        // valid iff get_type() is TYPE_STRING
         size_t get_string_length() const {
             return payload[1] - payload[0];
         }
 
-        // valid iff get_type() is type::string
+        // valid iff get_type() is TYPE_STRING
         std::string as_string() const {
             return std::string(text + payload[0], text + payload[1]);
         }
@@ -270,8 +264,10 @@ namespace sajson {
             , structure(structure)
             , p(input)
             , temp(structure)
-            , root_type(type::null)
+            , root_type(TYPE_NULL)
             , out(structure + length)
+            , error_line(0)
+            , error_column(0)
         {}
 
         document get_document() {
@@ -279,7 +275,7 @@ namespace sajson {
                 return document(input, structure, root_type, out, 0, 0, std::string());
             } else {
                 delete[] structure;
-                return document(0, 0, type::null, 0, error_line, error_column, error_message);
+                return document(0, 0, TYPE_NULL, 0, error_line, error_column, error_message);
             }
         }
 
@@ -295,7 +291,7 @@ namespace sajson {
                 : success(false)
             {}
 
-            parse_result(unsigned t)
+            parse_result(type t)
                 : success(true)
                 , value_type(t)
             {}
@@ -356,9 +352,9 @@ namespace sajson {
 
             type current_structure_type;
             if (c == '[') {
-                current_structure_type = type::array;
+                current_structure_type = TYPE_ARRAY;
             } else if (c == '{') {
-                current_structure_type = type::object;
+                current_structure_type = TYPE_OBJECT;
             } else {
                 return error("document root must be object or array");
             }
@@ -370,7 +366,7 @@ namespace sajson {
             parse_result result = error_result();
             
             for (;;) {
-                char closing_bracket = (current_structure_type == type::object ? '}' : ']');
+                char closing_bracket = (current_structure_type == TYPE_OBJECT ? '}' : ']');
 
                 c = peek_structure();
                 if (temp > current_base + 1) {
@@ -384,7 +380,7 @@ namespace sajson {
                     }
                 }
 
-                if (current_structure_type == type::object && c != '}') {
+                if (current_structure_type == TYPE_OBJECT && c != '}') {
                     if (c != '"') {
                         return error("object key must be quoted");
                     }
@@ -396,10 +392,10 @@ namespace sajson {
                     temp += 2;
                 }
 
-                type next_type;
-                parse_result (parser::*structure_installer)(size_t* base);
-
                 switch (peek_structure()) {
+                    type next_type;
+                    parse_result (parser::*structure_installer)(size_t* base);
+
                     case 0:
                         return error("unexpected end of input");
                     case 'n':
@@ -429,10 +425,10 @@ namespace sajson {
                         break;
 
                     case '[':
-                        next_type = type::array;
+                        next_type = TYPE_ARRAY;
                         goto push;
                     case '{':
-                        next_type = type::object;
+                        next_type = TYPE_OBJECT;
                         goto push;
                     push: {
                         ++p;
@@ -444,14 +440,14 @@ namespace sajson {
                     }
 
                     case ']':
-                        if (current_structure_type == type::array) {
+                        if (current_structure_type == TYPE_ARRAY) {
                             structure_installer = &parser::install_array;
                             goto pop;
                         } else {
                             return error("expected }");
                         }
                     case '}':
-                        if (current_structure_type == type::object) {
+                        if (current_structure_type == TYPE_OBJECT) {
                             structure_installer = &parser::install_object;
                             goto pop;
                         } else {
@@ -502,7 +498,7 @@ namespace sajson {
                 return error("expected 'null'");
             }
             p += 4;
-            return type::null;
+            return TYPE_NULL;
         }
 
         parse_result parse_false() {
@@ -517,7 +513,7 @@ namespace sajson {
                 return error("expected 'false'");
             }
             p += 5;
-            return type::false_;
+            return TYPE_FALSE;
         }
 
         parse_result parse_true() {
@@ -531,7 +527,7 @@ namespace sajson {
                 return error("expected 'true'");
             }
             p += 4;
-            return type::true_;
+            return TYPE_TRUE;
         }
         
         parse_result parse_number() {
@@ -630,13 +626,13 @@ namespace sajson {
                 for (int i = 0; i < ns.word_length; ++i) {
                     out[i] = ns.u[i];
                 }
-                return type::double_;
+                return TYPE_DOUBLE;
             } else {
                 integer_storage is;
                 is.i = i;
 
                 *--out = is.u;
-                return type::integer;
+                return TYPE_INTEGER;
             }
         }
 
@@ -649,7 +645,7 @@ namespace sajson {
             }
             *(--out) = length;
 
-            return type::array;
+            return TYPE_ARRAY;
         }
 
         struct ObjectItemRecord {
@@ -658,24 +654,34 @@ namespace sajson {
             size_t value;
         };
 
+        struct ObjectItemRecordComparator {
+            ObjectItemRecordComparator(const char* input)
+                : input(input)
+            {}
+
+            bool operator()(const ObjectItemRecord& left, const ObjectItemRecord& right) const {
+                size_t left_length = left.key_end - left.key_start;
+                size_t right_length = right.key_end - right.key_start;
+                if (left_length < right_length) {
+                    return true;
+                } else if (left_length > right_length) {
+                    return false;
+                } else {
+                    return memcmp(input + left.key_start, input + right.key_start, left_length) < 0;
+                }
+            }
+
+        private:
+            const char* input;
+        };
+
         parse_result install_object(size_t* object_base) {
             const size_t length = (temp - object_base) / 3;
             ObjectItemRecord* oir = reinterpret_cast<ObjectItemRecord*>(object_base);
             std::sort(
                 oir,
                 oir + length,
-                [=](const ObjectItemRecord& left, const ObjectItemRecord& right) -> bool {
-                    size_t left_length = left.key_end - left.key_start;
-                    size_t right_length = right.key_end - right.key_start;
-                    if (left_length < right_length) {
-                        return true;
-                    } else if (left_length > right_length) {
-                        return false;
-                    } else {
-                        return memcmp(input + left.key_start, input + right.key_start, left_length) < 0;
-                    }
-                }
-            );
+                ObjectItemRecordComparator(input));
 
             size_t* const new_base = out - length * 3 - 1;
             size_t i = length;
@@ -687,7 +693,7 @@ namespace sajson {
             }
             *(--out) = length;
 
-            return type::object;
+            return TYPE_OBJECT;
         }
 
         parse_result parse_string(size_t* tag = 0) {
@@ -702,7 +708,7 @@ namespace sajson {
                     tag[0] = start;
                     tag[1] = p - input;
                     consume();
-                    return type::string;
+                    return TYPE_STRING;
                 } else {
                     consume();
                 }
@@ -717,8 +723,8 @@ namespace sajson {
         size_t* temp;
         type root_type;
         size_t* out;
-        size_t error_line = 0;
-        size_t error_column = 0;
+        size_t error_line;
+        size_t error_column;
         std::string error_message;
     };
 

@@ -11,313 +11,313 @@ inline bool success(const document& doc) {
 }
 
 TEST(empty_array) {
-    const auto& document = parse(literal("[]"));
+    const sajson::document& document = parse(literal("[]"));
     assert(success(document));
-    const auto& root = document.get_root();
+    const value& root = document.get_root();
     CHECK_EQUAL(true, document.is_valid());
-    CHECK_EQUAL(type::array, root.get_type());
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(0, root.get_length());
 }
 
 TEST(array_whitespace) {
-    const auto& document = parse(literal(" [ ] "));
+    const sajson::document& document = parse(literal(" [ ] "));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::array, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(0, root.get_length());
 }
 
 TEST(array_zero) {
-    const auto& document = parse(literal("[0]"));
+    const sajson::document& document = parse(literal("[0]"));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::array, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(1, root.get_length());
 
-    const auto& e0 = root.get_array_element(0);
-    CHECK_EQUAL(type::integer, e0.get_type());
+    const value& e0 = root.get_array_element(0);
+    CHECK_EQUAL(TYPE_INTEGER, e0.get_type());
     CHECK_EQUAL(0, e0.get_number_value());
 }
 
 TEST(nested_array) {
-    const auto& document = parse(literal("[[]]"));
+    const sajson::document& document = parse(literal("[[]]"));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::array, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(1, root.get_length());
         
-    const auto& e1 = root.get_array_element(0);
-    CHECK_EQUAL(type::array, e1.get_type());
+    const value& e1 = root.get_array_element(0);
+    CHECK_EQUAL(TYPE_ARRAY, e1.get_type());
     CHECK_EQUAL(0, e1.get_length());
 }
 
 TEST(packed_arrays) {
-    const auto& document = parse(literal("[0,[0,[0],0],0]"));
+    const sajson::document& document = parse(literal("[0,[0,[0],0],0]"));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::array, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(3, root.get_length());
 
-    const auto& root0 = root.get_array_element(0);
-    CHECK_EQUAL(type::integer, root0.get_type());
+    const value& root0 = root.get_array_element(0);
+    CHECK_EQUAL(TYPE_INTEGER, root0.get_type());
     CHECK_EQUAL(0, root0.get_number_value());
 
-    const auto& root2 = root.get_array_element(2);
-    CHECK_EQUAL(type::integer, root2.get_type());
+    const value& root2 = root.get_array_element(2);
+    CHECK_EQUAL(TYPE_INTEGER, root2.get_type());
     CHECK_EQUAL(0, root2.get_number_value());
 
-    const auto& root1 = root.get_array_element(1);
-    CHECK_EQUAL(type::array, root1.get_type());
+    const value& root1 = root.get_array_element(1);
+    CHECK_EQUAL(TYPE_ARRAY, root1.get_type());
     CHECK_EQUAL(3, root1.get_length());
 
-    const auto& sub0 = root1.get_array_element(0);
-    CHECK_EQUAL(type::integer, sub0.get_type());
+    const value& sub0 = root1.get_array_element(0);
+    CHECK_EQUAL(TYPE_INTEGER, sub0.get_type());
     CHECK_EQUAL(0, sub0.get_number_value());
 
-    const auto& sub2 = root1.get_array_element(2);
-    CHECK_EQUAL(type::integer, sub2.get_type());
+    const value& sub2 = root1.get_array_element(2);
+    CHECK_EQUAL(TYPE_INTEGER, sub2.get_type());
     CHECK_EQUAL(0, sub2.get_number_value());
 
-    const auto& sub1 = root1.get_array_element(1);
-    CHECK_EQUAL(type::array, sub1.get_type());
+    const value& sub1 = root1.get_array_element(1);
+    CHECK_EQUAL(TYPE_ARRAY, sub1.get_type());
     CHECK_EQUAL(1, sub1.get_length());
 
-    const auto& inner = sub1.get_array_element(0);
-    CHECK_EQUAL(type::integer, inner.get_type());
+    const value& inner = sub1.get_array_element(0);
+    CHECK_EQUAL(TYPE_INTEGER, inner.get_type());
     CHECK_EQUAL(0, inner.get_number_value());
 }
 
 TEST(deep_nesting) {
-    const auto& document = parse(literal("[[[[]]]]"));
+    const sajson::document& document = parse(literal("[[[[]]]]"));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::array, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(1, root.get_length());
         
-    const auto& e1 = root.get_array_element(0);
-    CHECK_EQUAL(type::array, e1.get_type());
+    const value& e1 = root.get_array_element(0);
+    CHECK_EQUAL(TYPE_ARRAY, e1.get_type());
     CHECK_EQUAL(1, e1.get_length());
 
-    const auto& e2 = e1.get_array_element(0);
-    CHECK_EQUAL(type::array, e2.get_type());
+    const value& e2 = e1.get_array_element(0);
+    CHECK_EQUAL(TYPE_ARRAY, e2.get_type());
     CHECK_EQUAL(1, e2.get_length());
 
-    const auto& e3 = e2.get_array_element(0);
-    CHECK_EQUAL(type::array, e3.get_type());
+    const value& e3 = e2.get_array_element(0);
+    CHECK_EQUAL(TYPE_ARRAY, e3.get_type());
     CHECK_EQUAL(0, e3.get_length());
 }
 
 TEST(negative_and_positive_integers) {
-    const auto& document = parse(literal(" [ 0, -1, 22] "));
+    const sajson::document& document = parse(literal(" [ 0, -1, 22] "));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::array, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(3, root.get_length());
 
-    const auto& e0 = root.get_array_element(0);
-    CHECK_EQUAL(type::integer, e0.get_type());
+    const value& e0 = root.get_array_element(0);
+    CHECK_EQUAL(TYPE_INTEGER, e0.get_type());
     CHECK_EQUAL(0, e0.get_integer_value());
     CHECK_EQUAL(0, e0.get_number_value());
 
-    const auto& e1 = root.get_array_element(1);
-    CHECK_EQUAL(type::integer, e1.get_type());
+    const value& e1 = root.get_array_element(1);
+    CHECK_EQUAL(TYPE_INTEGER, e1.get_type());
     CHECK_EQUAL(-1, e1.get_integer_value());
     CHECK_EQUAL(-1, e1.get_number_value());
 
-    const auto& e2 = root.get_array_element(2);
-    CHECK_EQUAL(type::integer, e2.get_type());
+    const value& e2 = root.get_array_element(2);
+    CHECK_EQUAL(TYPE_INTEGER, e2.get_type());
     CHECK_EQUAL(22, e2.get_integer_value());
     CHECK_EQUAL(22, e2.get_number_value());
 }
 
 TEST(integer_whitespace) {
-    const auto& document = parse(literal(" [ 0 , 0 ] "));
+    const sajson::document& document = parse(literal(" [ 0 , 0 ] "));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::array, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(2, root.get_length());
-    const auto& element = root.get_array_element(1);
-    CHECK_EQUAL(type::integer, element.get_type());
+    const value& element = root.get_array_element(1);
+    CHECK_EQUAL(TYPE_INTEGER, element.get_type());
     CHECK_EQUAL(0, element.get_integer_value());
 }
 
 TEST(more_array_integer_packing) {
-    const auto& document = parse(literal("[[[[0]]]]"));
+    const sajson::document& document = parse(literal("[[[[0]]]]"));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::array, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(1, root.get_length());
         
-    const auto& e1 = root.get_array_element(0);
-    CHECK_EQUAL(type::array, e1.get_type());
+    const value& e1 = root.get_array_element(0);
+    CHECK_EQUAL(TYPE_ARRAY, e1.get_type());
     CHECK_EQUAL(1, e1.get_length());
 
-    const auto& e2 = e1.get_array_element(0);
-    CHECK_EQUAL(type::array, e2.get_type());
+    const value& e2 = e1.get_array_element(0);
+    CHECK_EQUAL(TYPE_ARRAY, e2.get_type());
     CHECK_EQUAL(1, e2.get_length());
 
-    const auto& e3 = e2.get_array_element(0);
-    CHECK_EQUAL(type::array, e3.get_type());
+    const value& e3 = e2.get_array_element(0);
+    CHECK_EQUAL(TYPE_ARRAY, e3.get_type());
     CHECK_EQUAL(1, e3.get_length());
 
-    const auto& e4 = e3.get_array_element(0);
-    CHECK_EQUAL(type::integer, e4.get_type());
+    const value& e4 = e3.get_array_element(0);
+    CHECK_EQUAL(TYPE_INTEGER, e4.get_type());
     CHECK_EQUAL(0, e4.get_integer_value());
 }
 
 TEST(unit_types) {
-    const auto& document = parse(literal("[ true , false , null ]"));
+    const sajson::document& document = parse(literal("[ true , false , null ]"));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::array, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(3, root.get_length());
 
-    const auto& e0 = root.get_array_element(0);
-    CHECK_EQUAL(type::true_, e0.get_type());
+    const value& e0 = root.get_array_element(0);
+    CHECK_EQUAL(TYPE_TRUE, e0.get_type());
 
-    const auto& e1 = root.get_array_element(1);
-    CHECK_EQUAL(type::false_, e1.get_type());
+    const value& e1 = root.get_array_element(1);
+    CHECK_EQUAL(TYPE_FALSE, e1.get_type());
         
-    const auto& e2 = root.get_array_element(2);
-    CHECK_EQUAL(type::null, e2.get_type());
+    const value& e2 = root.get_array_element(2);
+    CHECK_EQUAL(TYPE_NULL, e2.get_type());
 }
 
 TEST(integers) {
-    const auto& document = parse(literal("[0,1,2,3,4,5,6,7,8,9,10]"));
+    const sajson::document& document = parse(literal("[0,1,2,3,4,5,6,7,8,9,10]"));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::array, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(11, root.get_length());
 
     for (int i = 0; i < 11; ++i) {
-        const auto& e = root.get_array_element(i);
-        CHECK_EQUAL(type::integer, e.get_type());
+        const value& e = root.get_array_element(i);
+        CHECK_EQUAL(TYPE_INTEGER, e.get_type());
         CHECK_EQUAL(i, e.get_integer_value());
     }
 }
 
 TEST(doubles) {
-    const auto& document = parse(literal("[-0,-1,-34.25]"));
+    const sajson::document& document = parse(literal("[-0,-1,-34.25]"));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::array, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(3, root.get_length());
 
-    const auto& e0 = root.get_array_element(0);
-    CHECK_EQUAL(type::integer, e0.get_type());
+    const value& e0 = root.get_array_element(0);
+    CHECK_EQUAL(TYPE_INTEGER, e0.get_type());
     CHECK_EQUAL(-0, e0.get_integer_value());
 
-    const auto& e1 = root.get_array_element(1);
-    CHECK_EQUAL(type::integer, e1.get_type());
+    const value& e1 = root.get_array_element(1);
+    CHECK_EQUAL(TYPE_INTEGER, e1.get_type());
     CHECK_EQUAL(-1, e1.get_integer_value());
 
-    const auto& e2 = root.get_array_element(2);
-    CHECK_EQUAL(type::double_, e2.get_type());
+    const value& e2 = root.get_array_element(2);
+    CHECK_EQUAL(TYPE_DOUBLE, e2.get_type());
     CHECK_EQUAL(-34.25, e2.get_double_value());
 }
 
 TEST(exponents) {
-    const auto& document = parse(literal("[2e+3,0.5E-5,10E+22]"));
+    const sajson::document& document = parse(literal("[2e+3,0.5E-5,10E+22]"));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::array, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(3, root.get_length());
 
-    const auto& e0 = root.get_array_element(0);
-    CHECK_EQUAL(type::double_, e0.get_type());
+    const value& e0 = root.get_array_element(0);
+    CHECK_EQUAL(TYPE_DOUBLE, e0.get_type());
     CHECK_EQUAL(2000, e0.get_double_value());
 
-    const auto& e1 = root.get_array_element(1);
-    CHECK_EQUAL(type::double_, e1.get_type());
+    const value& e1 = root.get_array_element(1);
+    CHECK_EQUAL(TYPE_DOUBLE, e1.get_type());
     CHECK_EQUAL(0.000005, e1.get_double_value());
 
-    const auto& e2 = root.get_array_element(2);
-    CHECK_EQUAL(type::double_, e2.get_type());
+    const value& e2 = root.get_array_element(2);
+    CHECK_EQUAL(TYPE_DOUBLE, e2.get_type());
     CHECK_EQUAL(10e22, e2.get_double_value());
 }
 
 TEST(strings) {
-    const auto& document = parse(literal("[\"\", \"foobar\"]"));
+    const sajson::document& document = parse(literal("[\"\", \"foobar\"]"));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::array, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(2, root.get_length());
         
-    const auto& e0 = root.get_array_element(0);
-    CHECK_EQUAL(type::string, e0.get_type());
+    const value& e0 = root.get_array_element(0);
+    CHECK_EQUAL(TYPE_STRING, e0.get_type());
     CHECK_EQUAL(0, e0.get_string_length());
     CHECK_EQUAL("", e0.as_string());
         
-    const auto& e1 = root.get_array_element(1);
-    CHECK_EQUAL(type::string, e1.get_type());
+    const value& e1 = root.get_array_element(1);
+    CHECK_EQUAL(TYPE_STRING, e1.get_type());
     CHECK_EQUAL(6, e1.get_string_length());
     CHECK_EQUAL("foobar", e1.as_string());
 }
 
 TEST(empty_object) {
-    const auto& document = parse(literal("{}"));
+    const sajson::document& document = parse(literal("{}"));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::object, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_OBJECT, root.get_type());
     CHECK_EQUAL(0, root.get_length());
 }
 
 TEST(nested_object) {
-    const auto& document = parse(literal("{\"a\":{\"b\":{}}} "));
+    const sajson::document& document = parse(literal("{\"a\":{\"b\":{}}} "));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::object, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_OBJECT, root.get_type());
     CHECK_EQUAL(1, root.get_length());
 
-    const auto& key = root.get_object_key(0);
+    const string& key = root.get_object_key(0);
     CHECK_EQUAL("a", key.as_string());
 
-    const auto& element = root.get_object_value(0);
-    CHECK_EQUAL(type::object, element.get_type());
+    const value& element = root.get_object_value(0);
+    CHECK_EQUAL(TYPE_OBJECT, element.get_type());
     CHECK_EQUAL("b", element.get_object_key(0).as_string());
 
-    const auto& inner = element.get_object_value(0);
-    CHECK_EQUAL(type::object, inner.get_type());
+    const value& inner = element.get_object_value(0);
+    CHECK_EQUAL(TYPE_OBJECT, inner.get_type());
     CHECK_EQUAL(0, inner.get_length());
 }
 
 TEST(object_whitespace) {
-    const auto& document = parse(literal(" { \"a\" : 0 } "));
+    const sajson::document& document = parse(literal(" { \"a\" : 0 } "));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::object, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_OBJECT, root.get_type());
     CHECK_EQUAL(1, root.get_length());
 
-    const auto& key = root.get_object_key(0);
+    const string& key = root.get_object_key(0);
     CHECK_EQUAL("a", key.as_string());
 
-    const auto& element = root.get_object_value(0);
-    CHECK_EQUAL(type::integer, element.get_type());
+    const value& element = root.get_object_value(0);
+    CHECK_EQUAL(TYPE_INTEGER, element.get_type());
     CHECK_EQUAL(0, element.get_integer_value());
 }
 
 TEST(object_keys_are_sorted) {
-    const auto& document = parse(literal(" { \"b\" : 1 , \"a\" : 0 } "));
+    const sajson::document& document = parse(literal(" { \"b\" : 1 , \"a\" : 0 } "));
     assert(success(document));
-    const auto& root = document.get_root();
-    CHECK_EQUAL(type::object, root.get_type());
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_OBJECT, root.get_type());
     CHECK_EQUAL(2, root.get_length());
         
-    const auto& k0 = root.get_object_key(0);
-    const auto& e0 = root.get_object_value(0);
+    const string& k0 = root.get_object_key(0);
+    const value& e0 = root.get_object_value(0);
     CHECK_EQUAL("a", k0.as_string());
-    CHECK_EQUAL(type::integer, e0.get_type());
+    CHECK_EQUAL(TYPE_INTEGER, e0.get_type());
     CHECK_EQUAL(0, e0.get_integer_value());
 
-    const auto& k1 = root.get_object_key(1);
-    const auto& e1 = root.get_object_value(1);
+    const string& k1 = root.get_object_key(1);
+    const value& e1 = root.get_object_value(1);
     CHECK_EQUAL("b", k1.as_string());
-    CHECK_EQUAL(type::integer, e1.get_type());
+    CHECK_EQUAL(TYPE_INTEGER, e1.get_type());
     CHECK_EQUAL(1, e1.get_integer_value());
 }
 
 TEST(empty_file_is_invalid) {
-    const auto& document = parse(literal(""));
+    const sajson::document& document = parse(literal(""));
     CHECK_EQUAL(false, document.is_valid());
     CHECK_EQUAL(1, document.get_error_line());
     CHECK_EQUAL(1, document.get_error_column());
@@ -325,7 +325,7 @@ TEST(empty_file_is_invalid) {
 }
 
 TEST(two_roots_are_invalid) {
-    const auto& document = parse(literal("[][]"));
+    const sajson::document& document = parse(literal("[][]"));
     CHECK_EQUAL(false, document.is_valid());
     CHECK_EQUAL(1, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
@@ -333,7 +333,7 @@ TEST(two_roots_are_invalid) {
 }
 
 TEST(root_must_be_object_or_array) {
-    const auto& document = parse(literal("0"));
+    const sajson::document& document = parse(literal("0"));
     CHECK_EQUAL(false, document.is_valid());
     CHECK_EQUAL(1, document.get_error_line());
     CHECK_EQUAL(1, document.get_error_column());
@@ -341,7 +341,7 @@ TEST(root_must_be_object_or_array) {
 }
 
 TEST(commas_are_necessary_between_elements) {
-    const auto& document = parse(literal("[0 0]"));
+    const sajson::document& document = parse(literal("[0 0]"));
     CHECK_EQUAL(false, document.is_valid());
     CHECK_EQUAL(1, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
@@ -349,7 +349,7 @@ TEST(commas_are_necessary_between_elements) {
 }
 
 TEST(keys_must_be_strings) {
-    const auto& document = parse(literal("{0:0}"));
+    const sajson::document& document = parse(literal("{0:0}"));
     CHECK_EQUAL(false, document.is_valid());
     CHECK_EQUAL(1, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
@@ -357,7 +357,7 @@ TEST(keys_must_be_strings) {
 }
 
 TEST(objects_must_have_keys) {
-    const auto& document = parse(literal("{\"0\"}"));
+    const sajson::document& document = parse(literal("{\"0\"}"));
     CHECK_EQUAL(false, document.is_valid());
     CHECK_EQUAL(1, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
@@ -365,7 +365,7 @@ TEST(objects_must_have_keys) {
 }
 
 TEST(invalid_true_literal) {
-    const auto& document = parse(literal("[truf"));
+    const sajson::document& document = parse(literal("[truf"));
     CHECK_EQUAL(false, document.is_valid());
     CHECK_EQUAL(1, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
@@ -373,7 +373,7 @@ TEST(invalid_true_literal) {
 }
 
 TEST(incomplete_true_literal) {
-    const auto& document = parse(literal("[tru"));
+    const sajson::document& document = parse(literal("[tru"));
     CHECK_EQUAL(false, document.is_valid());
     CHECK_EQUAL(1, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
@@ -381,7 +381,7 @@ TEST(incomplete_true_literal) {
 }
 
 TEST(must_close_array_with_square_bracket) {
-    const auto& document = parse(literal("[}"));
+    const sajson::document& document = parse(literal("[}"));
     CHECK_EQUAL(false, document.is_valid());
     CHECK_EQUAL(1, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
@@ -389,7 +389,7 @@ TEST(must_close_array_with_square_bracket) {
 }
 
 TEST(must_close_object_with_curly_brace) {
-    const auto& document = parse(literal("{]"));
+    const sajson::document& document = parse(literal("{]"));
     CHECK_EQUAL(false, document.is_valid());
     CHECK_EQUAL(1, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
