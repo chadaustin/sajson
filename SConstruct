@@ -23,8 +23,6 @@ def cpp11(env):
 
 env = Environment(
     ENV=os.environ,
-    CC='clang-mp-3.1',
-    CXX='clang++-mp-3.1',
     CCFLAGS=['-g', '-O2'],
     LINKFLAGS=['-O2'],
     CXXFLAGS=['-Wall', '-Werror'])

@@ -542,7 +542,7 @@ namespace sajson {
             bool try_double = false;
 
             int i = 0;
-            double d;
+            double d = 0.0; // gcc complains that d might be used uninitialized which actually isn't true. but appease the warning.
             for (;;) {
                 // TODO: eof check
 

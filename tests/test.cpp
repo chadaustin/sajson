@@ -16,7 +16,7 @@ TEST(empty_array) {
     const value& root = document.get_root();
     CHECK_EQUAL(true, document.is_valid());
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(0, root.get_length());
+    CHECK_EQUAL(0u, root.get_length());
 }
 
 TEST(array_whitespace) {
@@ -24,7 +24,7 @@ TEST(array_whitespace) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(0, root.get_length());
+    CHECK_EQUAL(0u, root.get_length());
 }
 
 TEST(array_zero) {
@@ -32,7 +32,7 @@ TEST(array_zero) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(1, root.get_length());
+    CHECK_EQUAL(1u, root.get_length());
 
     const value& e0 = root.get_array_element(0);
     CHECK_EQUAL(TYPE_INTEGER, e0.get_type());
@@ -44,11 +44,11 @@ TEST(nested_array) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(1, root.get_length());
+    CHECK_EQUAL(1u, root.get_length());
         
     const value& e1 = root.get_array_element(0);
     CHECK_EQUAL(TYPE_ARRAY, e1.get_type());
-    CHECK_EQUAL(0, e1.get_length());
+    CHECK_EQUAL(0u, e1.get_length());
 }
 
 TEST(packed_arrays) {
@@ -56,7 +56,7 @@ TEST(packed_arrays) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(3, root.get_length());
+    CHECK_EQUAL(3u, root.get_length());
 
     const value& root0 = root.get_array_element(0);
     CHECK_EQUAL(TYPE_INTEGER, root0.get_type());
@@ -68,7 +68,7 @@ TEST(packed_arrays) {
 
     const value& root1 = root.get_array_element(1);
     CHECK_EQUAL(TYPE_ARRAY, root1.get_type());
-    CHECK_EQUAL(3, root1.get_length());
+    CHECK_EQUAL(3u, root1.get_length());
 
     const value& sub0 = root1.get_array_element(0);
     CHECK_EQUAL(TYPE_INTEGER, sub0.get_type());
@@ -80,7 +80,7 @@ TEST(packed_arrays) {
 
     const value& sub1 = root1.get_array_element(1);
     CHECK_EQUAL(TYPE_ARRAY, sub1.get_type());
-    CHECK_EQUAL(1, sub1.get_length());
+    CHECK_EQUAL(1u, sub1.get_length());
 
     const value& inner = sub1.get_array_element(0);
     CHECK_EQUAL(TYPE_INTEGER, inner.get_type());
@@ -92,19 +92,19 @@ TEST(deep_nesting) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(1, root.get_length());
+    CHECK_EQUAL(1u, root.get_length());
         
     const value& e1 = root.get_array_element(0);
     CHECK_EQUAL(TYPE_ARRAY, e1.get_type());
-    CHECK_EQUAL(1, e1.get_length());
+    CHECK_EQUAL(1u, e1.get_length());
 
     const value& e2 = e1.get_array_element(0);
     CHECK_EQUAL(TYPE_ARRAY, e2.get_type());
-    CHECK_EQUAL(1, e2.get_length());
+    CHECK_EQUAL(1u, e2.get_length());
 
     const value& e3 = e2.get_array_element(0);
     CHECK_EQUAL(TYPE_ARRAY, e3.get_type());
-    CHECK_EQUAL(0, e3.get_length());
+    CHECK_EQUAL(0u, e3.get_length());
 }
 
 TEST(negative_and_positive_integers) {
@@ -112,7 +112,7 @@ TEST(negative_and_positive_integers) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(3, root.get_length());
+    CHECK_EQUAL(3u, root.get_length());
 
     const value& e0 = root.get_array_element(0);
     CHECK_EQUAL(TYPE_INTEGER, e0.get_type());
@@ -135,7 +135,7 @@ TEST(integer_whitespace) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(2, root.get_length());
+    CHECK_EQUAL(2u, root.get_length());
     const value& element = root.get_array_element(1);
     CHECK_EQUAL(TYPE_INTEGER, element.get_type());
     CHECK_EQUAL(0, element.get_integer_value());
@@ -146,19 +146,19 @@ TEST(more_array_integer_packing) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(1, root.get_length());
+    CHECK_EQUAL(1u, root.get_length());
         
     const value& e1 = root.get_array_element(0);
     CHECK_EQUAL(TYPE_ARRAY, e1.get_type());
-    CHECK_EQUAL(1, e1.get_length());
+    CHECK_EQUAL(1u, e1.get_length());
 
     const value& e2 = e1.get_array_element(0);
     CHECK_EQUAL(TYPE_ARRAY, e2.get_type());
-    CHECK_EQUAL(1, e2.get_length());
+    CHECK_EQUAL(1u, e2.get_length());
 
     const value& e3 = e2.get_array_element(0);
     CHECK_EQUAL(TYPE_ARRAY, e3.get_type());
-    CHECK_EQUAL(1, e3.get_length());
+    CHECK_EQUAL(1u, e3.get_length());
 
     const value& e4 = e3.get_array_element(0);
     CHECK_EQUAL(TYPE_INTEGER, e4.get_type());
@@ -170,7 +170,7 @@ TEST(unit_types) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(3, root.get_length());
+    CHECK_EQUAL(3u, root.get_length());
 
     const value& e0 = root.get_array_element(0);
     CHECK_EQUAL(TYPE_TRUE, e0.get_type());
@@ -187,7 +187,7 @@ TEST(integers) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(11, root.get_length());
+    CHECK_EQUAL(11u, root.get_length());
 
     for (int i = 0; i < 11; ++i) {
         const value& e = root.get_array_element(i);
@@ -201,7 +201,7 @@ TEST(doubles) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(3, root.get_length());
+    CHECK_EQUAL(3u, root.get_length());
 
     const value& e0 = root.get_array_element(0);
     CHECK_EQUAL(TYPE_INTEGER, e0.get_type());
@@ -221,7 +221,7 @@ TEST(exponents) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(3, root.get_length());
+    CHECK_EQUAL(3u, root.get_length());
 
     const value& e0 = root.get_array_element(0);
     CHECK_EQUAL(TYPE_DOUBLE, e0.get_type());
@@ -241,16 +241,16 @@ TEST(strings) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
-    CHECK_EQUAL(2, root.get_length());
+    CHECK_EQUAL(2u, root.get_length());
         
     const value& e0 = root.get_array_element(0);
     CHECK_EQUAL(TYPE_STRING, e0.get_type());
-    CHECK_EQUAL(0, e0.get_string_length());
+    CHECK_EQUAL(0u, e0.get_string_length());
     CHECK_EQUAL("", e0.as_string());
         
     const value& e1 = root.get_array_element(1);
     CHECK_EQUAL(TYPE_STRING, e1.get_type());
-    CHECK_EQUAL(6, e1.get_string_length());
+    CHECK_EQUAL(6u, e1.get_string_length());
     CHECK_EQUAL("foobar", e1.as_string());
 }
 
@@ -259,7 +259,7 @@ TEST(empty_object) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_OBJECT, root.get_type());
-    CHECK_EQUAL(0, root.get_length());
+    CHECK_EQUAL(0u, root.get_length());
 }
 
 TEST(nested_object) {
@@ -267,7 +267,7 @@ TEST(nested_object) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_OBJECT, root.get_type());
-    CHECK_EQUAL(1, root.get_length());
+    CHECK_EQUAL(1u, root.get_length());
 
     const string& key = root.get_object_key(0);
     CHECK_EQUAL("a", key.as_string());
@@ -278,7 +278,7 @@ TEST(nested_object) {
 
     const value& inner = element.get_object_value(0);
     CHECK_EQUAL(TYPE_OBJECT, inner.get_type());
-    CHECK_EQUAL(0, inner.get_length());
+    CHECK_EQUAL(0u, inner.get_length());
 }
 
 TEST(object_whitespace) {
@@ -286,7 +286,7 @@ TEST(object_whitespace) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_OBJECT, root.get_type());
-    CHECK_EQUAL(1, root.get_length());
+    CHECK_EQUAL(1u, root.get_length());
 
     const string& key = root.get_object_key(0);
     CHECK_EQUAL("a", key.as_string());
@@ -301,7 +301,7 @@ TEST(object_keys_are_sorted) {
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_OBJECT, root.get_type());
-    CHECK_EQUAL(2, root.get_length());
+    CHECK_EQUAL(2u, root.get_length());
         
     const string& k0 = root.get_object_key(0);
     const value& e0 = root.get_object_value(0);
@@ -319,15 +319,15 @@ TEST(object_keys_are_sorted) {
 TEST(empty_file_is_invalid) {
     const sajson::document& document = parse(literal(""));
     CHECK_EQUAL(false, document.is_valid());
-    CHECK_EQUAL(1, document.get_error_line());
-    CHECK_EQUAL(1, document.get_error_column());
+    CHECK_EQUAL(1u, document.get_error_line());
+    CHECK_EQUAL(1u, document.get_error_column());
     CHECK_EQUAL("no root element", document.get_error_message());
 }
 
 TEST(two_roots_are_invalid) {
     const sajson::document& document = parse(literal("[][]"));
     CHECK_EQUAL(false, document.is_valid());
-    CHECK_EQUAL(1, document.get_error_line());
+    CHECK_EQUAL(1u, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
     CHECK_EQUAL("expected end of input", document.get_error_message());
 }
@@ -335,15 +335,15 @@ TEST(two_roots_are_invalid) {
 TEST(root_must_be_object_or_array) {
     const sajson::document& document = parse(literal("0"));
     CHECK_EQUAL(false, document.is_valid());
-    CHECK_EQUAL(1, document.get_error_line());
-    CHECK_EQUAL(1, document.get_error_column());
+    CHECK_EQUAL(1u, document.get_error_line());
+    CHECK_EQUAL(1u, document.get_error_column());
     CHECK_EQUAL("document root must be object or array", document.get_error_message());
 }
 
 TEST(commas_are_necessary_between_elements) {
     const sajson::document& document = parse(literal("[0 0]"));
     CHECK_EQUAL(false, document.is_valid());
-    CHECK_EQUAL(1, document.get_error_line());
+    CHECK_EQUAL(1u, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
     CHECK_EQUAL("expected ,", document.get_error_message());
 }
@@ -351,7 +351,7 @@ TEST(commas_are_necessary_between_elements) {
 TEST(keys_must_be_strings) {
     const sajson::document& document = parse(literal("{0:0}"));
     CHECK_EQUAL(false, document.is_valid());
-    CHECK_EQUAL(1, document.get_error_line());
+    CHECK_EQUAL(1u, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
     CHECK_EQUAL("object key must be quoted", document.get_error_message());
 }
@@ -359,7 +359,7 @@ TEST(keys_must_be_strings) {
 TEST(objects_must_have_keys) {
     const sajson::document& document = parse(literal("{\"0\"}"));
     CHECK_EQUAL(false, document.is_valid());
-    CHECK_EQUAL(1, document.get_error_line());
+    CHECK_EQUAL(1u, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
     CHECK_EQUAL("expected :", document.get_error_message());
 }
@@ -367,7 +367,7 @@ TEST(objects_must_have_keys) {
 TEST(invalid_true_literal) {
     const sajson::document& document = parse(literal("[truf"));
     CHECK_EQUAL(false, document.is_valid());
-    CHECK_EQUAL(1, document.get_error_line());
+    CHECK_EQUAL(1u, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
     CHECK_EQUAL("expected 'true'", document.get_error_message());
 }
@@ -375,7 +375,7 @@ TEST(invalid_true_literal) {
 TEST(incomplete_true_literal) {
     const sajson::document& document = parse(literal("[tru"));
     CHECK_EQUAL(false, document.is_valid());
-    CHECK_EQUAL(1, document.get_error_line());
+    CHECK_EQUAL(1u, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
     CHECK_EQUAL("unexpected end of input", document.get_error_message());
 }
@@ -383,7 +383,7 @@ TEST(incomplete_true_literal) {
 TEST(must_close_array_with_square_bracket) {
     const sajson::document& document = parse(literal("[}"));
     CHECK_EQUAL(false, document.is_valid());
-    CHECK_EQUAL(1, document.get_error_line());
+    CHECK_EQUAL(1u, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
     CHECK_EQUAL("expected ]", document.get_error_message());
 }
@@ -391,7 +391,7 @@ TEST(must_close_array_with_square_bracket) {
 TEST(must_close_object_with_curly_brace) {
     const sajson::document& document = parse(literal("{]"));
     CHECK_EQUAL(false, document.is_valid());
-    CHECK_EQUAL(1, document.get_error_line());
+    CHECK_EQUAL(1u, document.get_error_line());
     //CHECK_EQUAL(3, document.get_error_column());
     CHECK_EQUAL("object key must be quoted", document.get_error_message());
 }
