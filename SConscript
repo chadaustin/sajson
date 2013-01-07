@@ -26,5 +26,3 @@ unittestpp_env.Library(
 
 test_env = env.Clone(tools=[cpp11, unittestpp, sajson])
 test_env.Program('test', ['tests/test.cpp'])
-
-

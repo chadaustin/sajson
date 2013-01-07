@@ -37,15 +37,25 @@
 #define SAJSON_UNLIKELY(x) __builtin_expect(!!(x), 0)
 
 namespace sajson {
-    enum class type : unsigned char {
-        integer = 0,
-        double_ = 1,
-        null = 2,
-        false_ = 3,
-        true_ = 4,
-        string = 5,
-        array = 6,
-        object = 7,
+    class type {
+    public:
+        enum {
+            integer = 0,
+            double_ = 1,
+            null = 2,
+            false_ = 3,
+            true_ = 4,
+            string = 5,
+            array = 6,
+            object = 7,
+        };
+
+        type() {}
+        type(unsigned v): v(v) {}
+        operator unsigned() const { return v; }
+        
+    private:
+        unsigned v;
     };
 
     inline std::ostream& operator<<(std::ostream& os, type t) {
@@ -285,7 +295,7 @@ namespace sajson {
                 : success(false)
             {}
 
-            parse_result(type t)
+            parse_result(unsigned t)
                 : success(true)
                 , value_type(t)
             {}
@@ -386,10 +396,10 @@ namespace sajson {
                     temp += 2;
                 }
 
-                switch (peek_structure()) {
-                    type next_type;
-                    parse_result (parser::*structure_installer)(size_t* base);
+                type next_type;
+                parse_result (parser::*structure_installer)(size_t* base);
 
+                switch (peek_structure()) {
                     case 0:
                         return error("unexpected end of input");
                     case 'n':
