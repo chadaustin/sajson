@@ -29,13 +29,11 @@ env = Environment(
     LINKFLAGS=['-O2'],
     CXXFLAGS=['-Wall', '-Werror'])
 
-# 32-bit
 env32 = env.Clone()
 env32.Append(
     BUILDDIR='build32',
     CCFLAGS=['-m32'],
     LINKFLAGS=['-m32'])
-
 SConscript('SConscript', variant_dir='build32', duplicate=0, exports={'env': env32})
 
 env64 = env.Clone()
@@ -43,5 +41,4 @@ env64.Append(
     BUILDDIR='build64',
     CCFLAGS=['-m64'],
     LINKFLAGS=['-m64'])
-
 SConscript('SConscript', variant_dir='build64', duplicate=0, exports={'env': env64})
