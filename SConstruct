@@ -16,13 +16,18 @@ def unittestpp(env):
         LIBPATH=['#/${BUILDDIR}/libraries'],
         LIBS=['unittestpp'])
 
+@export
+def cpp11(env):
+    env.Append(
+        CXXFLAGS=['-std=c++0x'])
+
 env = Environment(
     ENV=os.environ,
     CC='clang-mp-3.1',
     CXX='clang++-mp-3.1',
     CCFLAGS=['-g', '-O2'],
     LINKFLAGS=['-O2'],
-    CXXFLAGS=['-std=c++0x', '-Wall', '-Werror'])
+    CXXFLAGS=['-Wall', '-Werror'])
 
 # 32-bit
 env32 = env.Clone()

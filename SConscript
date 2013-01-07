@@ -24,8 +24,7 @@ unittestpp_env.Library(
       'third-party/UnitTest++/src/Posix/SignalTranslator.cpp',
       'third-party/UnitTest++/src/Posix/TimeHelpers.cpp' ])
 
-
-test_env = env.Clone(tools=[unittestpp, sajson])
+test_env = env.Clone(tools=[cpp11, unittestpp, sajson])
 test_env.Program('test', ['tests/test.cpp'])
 
 
