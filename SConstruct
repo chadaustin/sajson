@@ -1,13 +1,19 @@
 import os
 
+def export(fn):
+    Export({fn.__name__: fn})
+    return fn
+
+@export
 def sajson(env):
     env.Append(
         CPPPATH=['#/include'])
 
+@export
 def unittestpp(env):
     env.Append(
         CPPPATH=['#/third-party/UnitTest++/src'],
-        LIBPATH=['#/build/libraries'],
+        LIBPATH=['#/${BUILDDIR}/libraries'],
         LIBS=['unittestpp'])
 
 env = Environment(
@@ -17,44 +23,20 @@ env = Environment(
     CCFLAGS=['-g', '-O2'],
     LINKFLAGS=['-O2'],
     CXXFLAGS=['-std=c++0x', '-Wall', '-Werror'])
-sajson(env)
 
+# 32-bit
 env32 = env.Clone()
 env32.Append(
+    BUILDDIR='build32',
     CCFLAGS=['-m32'],
     LINKFLAGS=['-m32'])
 
+SConscript('SConscript', variant_dir='build32', duplicate=0, exports={'env': env32})
+
 env64 = env.Clone()
 env64.Append(
+    BUILDDIR='build64',
     CCFLAGS=['-m64'],
     LINKFLAGS=['-m64'])
 
-unittestpp_env = env32.Clone()
-unittestpp_env.Append(
-    CPPPATH=['#/third-party/UnitTest++/src'])
-unittestpp_env.Library(
-    'build/libraries/unittestpp',
-    [ 'third-party/UnitTest++/src/AssertException.cpp',
-      'third-party/UnitTest++/src/Checks.cpp',
-      'third-party/UnitTest++/src/CurrentTest.cpp',
-      'third-party/UnitTest++/src/DeferredTestReporter.cpp',
-      'third-party/UnitTest++/src/DeferredTestResult.cpp',
-      'third-party/UnitTest++/src/MemoryOutStream.cpp',
-      'third-party/UnitTest++/src/ReportAssert.cpp',
-      'third-party/UnitTest++/src/Test.cpp',
-      'third-party/UnitTest++/src/TestDetails.cpp',
-      'third-party/UnitTest++/src/TestList.cpp',
-      'third-party/UnitTest++/src/TestReporter.cpp',
-      'third-party/UnitTest++/src/TestReporterStdout.cpp',
-      'third-party/UnitTest++/src/TestResults.cpp',
-      'third-party/UnitTest++/src/TestRunner.cpp',
-      'third-party/UnitTest++/src/TimeConstraint.cpp',
-      'third-party/UnitTest++/src/XmlTestReporter.cpp',
-      'third-party/UnitTest++/src/Posix/SignalTranslator.cpp',
-      'third-party/UnitTest++/src/Posix/TimeHelpers.cpp' ])
-
-
-test_env = env32.Clone(tools=[unittestpp])
-test_env.Program('build/test', ['tests/test.cpp'])
-
-
+SConscript('SConscript', variant_dir='build64', duplicate=0, exports={'env': env64})
