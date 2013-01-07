@@ -29,6 +29,7 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
+#include <ostream>
 
 #include <string> // for error messages.  kill someday?
 
@@ -46,6 +47,20 @@ namespace sajson {
         array = 6,
         object = 7,
     };
+
+    inline std::ostream& operator<<(std::ostream& os, type t) {
+        switch (t) {
+            case type::integer: return os << "<integer>";
+            case type::double_: return os << "<double>";
+            case type::null:    return os << "<null>";
+            case type::false_:  return os << "<false>";
+            case type::true_:   return os << "<true>";
+            case type::string:  return os << "<string>";
+            case type::array:   return os << "<array>";
+            case type::object:  return os << "<object>";
+            default:            return os << "<unknown type";
+        }
+    }
 
     constexpr size_t TYPE_BITS = 3;
     constexpr size_t TYPE_SHIFT = sizeof(size_t) * 8 - TYPE_BITS;
