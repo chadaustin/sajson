@@ -51,21 +51,21 @@ namespace sajson {
     inline std::ostream& operator<<(std::ostream& os, type t) {
         switch (t) {
             case TYPE_INTEGER: return os << "<integer>";
-            case TYPE_DOUBLE: return os << "<double>";
+            case TYPE_DOUBLE:  return os << "<double>";
             case TYPE_NULL:    return os << "<null>";
-            case TYPE_FALSE:  return os << "<false>";
-            case TYPE_TRUE:   return os << "<true>";
+            case TYPE_FALSE:   return os << "<false>";
+            case TYPE_TRUE:    return os << "<true>";
             case TYPE_STRING:  return os << "<string>";
             case TYPE_ARRAY:   return os << "<array>";
             case TYPE_OBJECT:  return os << "<object>";
-            default:            return os << "<unknown type";
+            default:           return os << "<unknown type";
         }
     }
 
     static const size_t TYPE_BITS = 3;
     static const size_t TYPE_SHIFT = sizeof(size_t) * 8 - TYPE_BITS;
     static const size_t TYPE_MASK = (1 << TYPE_BITS) - 1;
-    static const size_t VALUE_MASK = (~size_t(0u)) >> TYPE_BITS;
+    static const size_t VALUE_MASK = size_t(-1) >> TYPE_BITS;
 
     static const size_t ROOT_MARKER = size_t(-1) & VALUE_MASK;
 
@@ -114,6 +114,68 @@ namespace sajson {
         explicit literal(const char* text)
             : string(text, strlen(text))
         {}
+    };
+
+    class refcount {
+    public:
+        refcount()
+            : pn(new size_t(1))
+        {}
+
+        refcount(const refcount& rc)
+            : pn(rc.pn)
+        {
+            ++*pn;
+        }
+
+        ~refcount() {
+            if (--*pn == 0) {
+                delete pn;
+            }
+        }
+
+        size_t count() const {
+            return *pn;
+        }
+
+    private:
+        size_t* pn;
+
+        refcount& operator=(const refcount&);
+    };
+
+    class mutable_string_view {
+    public:
+        mutable_string_view()
+            : length(0)
+            , data(0)
+        {}
+
+        mutable_string_view(literal s)
+            : length(s.length())
+        {
+            data = new char[length];
+            memcpy(data, s.data(), length);
+        }
+
+        ~mutable_string_view() {
+            if (uses.count() == 1) {
+                delete[] data;
+            }
+        }
+
+        size_t get_length() const {
+            return length;
+        }
+
+        char* get_data() const {
+            return data;
+        }
+        
+    private:
+        refcount uses;
+        size_t length;
+        char* data;
     };
 
     union integer_storage {
@@ -212,8 +274,8 @@ namespace sajson {
 
     class document {
     public:
-        explicit document(const char* text, const size_t* structure, type root_type, const size_t* root, size_t error_line, size_t error_column, const std::string& error_message)
-            : text(text)
+        explicit document(mutable_string_view& input, const size_t* structure, type root_type, const size_t* root, size_t error_line, size_t error_column, const std::string& error_message)
+            : input(input)
             , structure(structure)
             , root_type(root_type)
             , root(root)
@@ -231,7 +293,7 @@ namespace sajson {
         }
 
         value get_root() const {
-            return value(root_type, root, text);
+            return value(root_type, root, input.get_data());
         }
 
         size_t get_error_line() const {
@@ -247,7 +309,7 @@ namespace sajson {
         }
 
     private:
-        const char* const text;
+        mutable_string_view input;
         const size_t* const structure;
         const type root_type;
         const size_t* const root;
@@ -258,14 +320,14 @@ namespace sajson {
 
     class parser {
     public:
-        parser(const char* input, size_t length, size_t* structure)
-            : input(input)
-            , input_end(input + length)
+        parser(const mutable_string_view& msv, size_t* structure)
+            : input(msv)
+            , input_end(input.get_data() + input.get_length())
             , structure(structure)
-            , p(input)
+            , p(input.get_data())
             , temp(structure)
             , root_type(TYPE_NULL)
-            , out(structure + length)
+            , out(structure + input.get_length())
             , error_line(0)
             , error_column(0)
         {}
@@ -275,7 +337,7 @@ namespace sajson {
                 return document(input, structure, root_type, out, 0, 0, std::string());
             } else {
                 delete[] structure;
-                return document(0, 0, TYPE_NULL, 0, error_line, error_column, error_message);
+                return document(input, 0, TYPE_NULL, 0, error_line, error_column, error_message);
             }
         }
 
@@ -681,7 +743,7 @@ namespace sajson {
             std::sort(
                 oir,
                 oir + length,
-                ObjectItemRecordComparator(input));
+                ObjectItemRecordComparator(input.get_data()));
 
             size_t* const new_base = out - length * 3 - 1;
             size_t i = length;
@@ -697,29 +759,88 @@ namespace sajson {
         }
 
         parse_result parse_string(size_t* tag = 0) {
-            consume();
-            size_t start = p - input;
+            if (!tag) {
+                out -= 2;
+                tag = out;
+            }
+
+            ++p; // "
+            size_t start = p - input.get_data();
             for (;;) {
-                if ('"' == peek()) {
-                    if (!tag) {
-                        out -= 2;
-                        tag = out;
-                    }
-                    tag[0] = start;
-                    tag[1] = p - input;
-                    consume();
-                    return TYPE_STRING;
-                } else {
-                    consume();
+                if (SAJSON_UNLIKELY(p >= input_end)) {
+                    return error("unexpected end of input");
+                }
+                switch (*p) {
+                    case '"':
+                        tag[0] = start;
+                        tag[1] = p - input.get_data();
+                        ++p;
+                        return TYPE_STRING;
+                        
+                    case '\\':
+                        return parse_string_slow(tag, start);
+
+                    default:
+                        ++p;
+                        break;
                 }
             }
         }
 
-        const char* const input;
-        const char* const input_end;
+        parse_result parse_string_slow(size_t* tag, size_t start) {
+            char* end = p;
+            
+            for (;;) {
+                if (SAJSON_UNLIKELY(p >= input_end)) {
+                    return error("unexpected end of input");
+                }
+            
+                switch (*p) {
+                    case '"':
+                        tag[0] = start;
+                        tag[1] = end - input.get_data();
+                        ++p;
+                        return TYPE_STRING;
+
+                    case '\\':
+                        ++p;
+                        if (SAJSON_UNLIKELY(p >= input_end)) {
+                            return error("unexpected end of input");
+                        }
+
+                        char replacement;
+                        switch (*p) {
+                            case '"': replacement = '"'; goto replace;
+                            case '\\': replacement = '\\'; goto replace;
+                            case '/': replacement = '/'; goto replace; 
+                            case 'b': replacement = '\b'; goto replace;
+                            case 'f': replacement = '\f'; goto replace;
+                            case 'n': replacement = '\n'; goto replace;
+                            case 'r': replacement = '\r'; goto replace;
+                            case 't': replacement = '\t'; goto replace;
+                            replace:
+                                *end++ = replacement;
+                                ++p;
+                                break;
+                            case 'u':
+                                return error("unsupported");
+                            default:
+                                return error("unknown escape");
+                        }
+                        break;
+                        
+                    default:
+                        *end++ = *p++;
+                        break;
+                }
+            }
+        }
+
+        mutable_string_view input;
+        char* const input_end;
         size_t* const structure;
 
-        const char* p;
+        char* p;
         size_t* temp;
         type root_type;
         size_t* out;
@@ -730,9 +851,11 @@ namespace sajson {
 
     template<typename StringType>
     document parse(const StringType& string) {
+        mutable_string_view ms(string);
+
         size_t length = string.length();
         size_t* structure = new size_t[length];
 
-        return parser(string.data(), length, structure).get_document();
+        return parser(ms, structure).get_document();
     }
 }
