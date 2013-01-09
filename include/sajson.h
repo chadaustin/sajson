@@ -770,6 +770,11 @@ namespace sajson {
                 if (SAJSON_UNLIKELY(p >= input_end)) {
                     return error("unexpected end of input");
                 }
+
+                if (SAJSON_UNLIKELY(*p < 0x20)) {
+                    return error("illegal unprintable codepoint in string");
+                }
+            
                 switch (*p) {
                     case '"':
                         tag[0] = start;
@@ -793,6 +798,10 @@ namespace sajson {
             for (;;) {
                 if (SAJSON_UNLIKELY(p >= input_end)) {
                     return error("unexpected end of input");
+                }
+
+                if (SAJSON_UNLIKELY(*p < 0x20)) {
+                    return error("illegal unprintable codepoint in string");
                 }
             
                 switch (*p) {
