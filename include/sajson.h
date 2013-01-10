@@ -549,8 +549,12 @@ namespace sajson {
             }
         }
 
+        bool has_remaining_characters(ptrdiff_t remaining) {
+            return input_end - p >= remaining;
+        }
+
         parse_result parse_null() {
-            if (SAJSON_UNLIKELY(4 > input_end - p)) {
+            if (SAJSON_UNLIKELY(!has_remaining_characters(4))) {
                 return error("unexpected end of input");
             }
             char p1 = p[1];
@@ -564,7 +568,7 @@ namespace sajson {
         }
 
         parse_result parse_false() {
-            if (SAJSON_UNLIKELY(5 > input_end - p)) {
+            if (SAJSON_UNLIKELY(!has_remaining_characters(5))) {
                 return error("unexpected end of input");
             }
             char p1 = p[1];
@@ -579,7 +583,7 @@ namespace sajson {
         }
 
         parse_result parse_true() {
-            if (SAJSON_UNLIKELY(4 > input_end - p)) {
+            if (SAJSON_UNLIKELY(!has_remaining_characters(4))) {
                 return error("unexpected end of input");
             }
             char p1 = p[1];
@@ -792,6 +796,46 @@ namespace sajson {
             }
         }
 
+        parse_result read_hex(unsigned& u) {
+            unsigned v = 0;
+            int i = 4;
+            while (i--) {
+                unsigned char c = *p++;
+                if (c >= '0' && c <= '9') {
+                    c -= '0';
+                } else if (c >= 'a' && c <= 'f') {
+                    c = c - 'a' + 10;
+                } else if (c >= 'A' && c <= 'F') {
+                    c = c - 'A' + 10;
+                } else {
+                    return error("invalid character in unicode escape");
+                }
+                v = (v << 4) + c;
+            }
+
+            u = v;
+            return TYPE_NULL; // ???
+        }
+
+        void write_utf8(unsigned codepoint, char*& end) {
+            if (codepoint < 0x80) {
+                *end++ = codepoint;
+            } else if (codepoint < 0x800) {
+                *end++ = 0xC0 | (codepoint >> 6);
+                *end++ = 0x80 | (codepoint & 0x3F);
+            } else if (codepoint < 0x10000) {
+                *end++ = 0xE0 | (codepoint >> 12);
+                *end++ = 0x80 | ((codepoint >> 6) & 0x3F);
+                *end++ = 0x80 | (codepoint & 0x3F);
+            } else {
+                assert(codepoint < 0x200000);
+                *end++ = 0xF0 | (codepoint >> 18);
+                *end++ = 0x80 | ((codepoint >> 12) & 0x3F);
+                *end++ = 0x80 | ((codepoint >> 6) & 0x3F);
+                *end++ = 0x80 | (codepoint & 0x3F);
+            }
+        }
+
         parse_result parse_string_slow(size_t* tag, size_t start) {
             char* end = p;
             
@@ -831,8 +875,40 @@ namespace sajson {
                                 *end++ = replacement;
                                 ++p;
                                 break;
-                            case 'u':
-                                return error("unsupported");
+                            case 'u': {
+                                ++p;
+                                if (SAJSON_UNLIKELY(!has_remaining_characters(4))) {
+                                    return error("unexpected end of input");
+                                }
+                                unsigned u = 0; // gcc's complaining that this could be used uninitialized. wrong.
+                                parse_result result = read_hex(u);
+                                if (!result) {
+                                    return result;
+                                }
+                                if (u >= 0xD800 && u <= 0xDBFF) {
+                                    if (SAJSON_UNLIKELY(!has_remaining_characters(6))) {
+                                        return error("unexpected end of input during UTF-16 surrogate pair");
+                                    }
+                                    char p0 = p[0];
+                                    char p1 = p[1];
+                                    if (p0 != '\\' || p1 != 'u') {
+                                        return error("expected \\u");
+                                    }
+                                    p += 2;
+                                    unsigned v = 0; // gcc's complaining that this could be used uninitialized. wrong.
+                                    result = read_hex(v);
+                                    if (!result) {
+                                        return result;
+                                    }
+
+                                    if (v < 0xDC00 || v > 0xDFFF) {
+                                        return error("invalid UTF-16 trail surrogate");
+                                    }
+                                    u = 0x10000 + (((u - 0xD800) << 10) | (v - 0xDC00));
+                                }
+                                write_utf8(u, end);
+                                break;
+                            }
                             default:
                                 return error("unknown escape");
                         }

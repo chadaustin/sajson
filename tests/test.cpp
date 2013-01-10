@@ -317,6 +317,19 @@ SUITE(strings) {
         //CHECK_EQUAL(3, document.get_error_column());
         CHECK_EQUAL("illegal unprintable codepoint in string", document.get_error_message());
     }
+
+    TEST(utf16_surrogate_pair) {
+        const sajson::document& document = parse(literal("[\"\\ud950\\uDf21\"]"));
+        assert(success(document));
+        const value& root = document.get_root();
+        CHECK_EQUAL(TYPE_ARRAY, root.get_type());
+        CHECK_EQUAL(1u, root.get_length());
+        
+        const value& e0 = root.get_array_element(0);
+        CHECK_EQUAL(TYPE_STRING, e0.get_type());
+        CHECK_EQUAL(4u, e0.get_string_length());
+        CHECK_EQUAL("\xf1\xa4\x8c\xa1", e0.as_string());
+    }
 }
 
 SUITE(objects) {
