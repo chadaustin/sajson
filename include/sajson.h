@@ -151,7 +151,14 @@ namespace sajson {
             , data(0)
         {}
 
-        mutable_string_view(literal s)
+        mutable_string_view(const literal& s)
+            : length(s.length())
+        {
+            data = new char[length];
+            memcpy(data, s.data(), length);
+        }
+
+        mutable_string_view(const string& s)
             : length(s.length())
         {
             data = new char[length];
