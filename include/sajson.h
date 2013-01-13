@@ -782,7 +782,7 @@ namespace sajson {
                     return error("unexpected end of input");
                 }
 
-                if (SAJSON_UNLIKELY(*p < 0x20)) {
+                if (SAJSON_UNLIKELY(*p >= 0 && *p < 0x20)) {
                     return error("illegal unprintable codepoint in string");
                 }
             
