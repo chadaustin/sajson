@@ -30,6 +30,7 @@
 #include <math.h>
 #include <limits.h>
 #include <ostream>
+#include <algorithm>
 
 #include <string> // for error messages.  kill someday?
 
