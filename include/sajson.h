@@ -34,8 +34,13 @@
 
 #include <string> // for error messages.  kill someday?
 
+#if defined(__GNUC__) || defined(__clang__)
 #define SAJSON_LIKELY(x) __builtin_expect(!!(x), 1)
 #define SAJSON_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+#define SAJSON_LIKELY(x) x
+#define SAJSON_UNLIKELY(x) x
+#endif
 
 namespace sajson {
     enum type {
@@ -198,8 +203,34 @@ namespace sajson {
             word_length = sizeof(double) / sizeof(size_t)
         };
 
+#if defined(_M_IX86) || defined(__i386__) || defined(_X86_)
+        static double load(const size_t* location) {
+            return *reinterpret_cast<const double*>(location);
+        }
+        static void store(size_t* location, double value) {
+            *reinterpret_cast<double*>(location) = value;
+        }
+#else
+        static double load(const size_t* location) {
+            double_storage s;
+            for (unsigned i = 0; i < double_storage::word_length; ++i) {
+                s.u[i] = location[i];
+            }
+            return s.d;
+        }
+
+        static void store(size_t* location, double value) {
+            double_storage ns;
+            ns.d = value;
+
+            for (int i = 0; i < ns.word_length; ++i) {
+                location[i] = ns.u[i];
+            }
+        }
+
         double d;
         size_t u[word_length];
+#endif
     };
     // TODO: reinstate with c++03 implementation
     //static_assert(sizeof(double_storage) == sizeof(double), "double_storage should have same size as double");
@@ -248,11 +279,7 @@ namespace sajson {
 
         // valid iff get_type() is TYPE_DOUBLE
         double get_double_value() const {
-            double_storage s;
-            for (unsigned i = 0; i < double_storage::word_length; ++i) {
-                s.u[i] = payload[i];
-            }
-            return s.d;
+            return double_storage::load(payload);
         }
 
         // valid iff get_type() is TYPE_INTEGER or TYPE_DOUBLE
@@ -693,13 +720,8 @@ namespace sajson {
             }
 
             if (try_double) {
-                double_storage ns;
-                ns.d = d;
-
-                out -= ns.word_length;
-                for (int i = 0; i < ns.word_length; ++i) {
-                    out[i] = ns.u[i];
-                }
+                out -= double_storage::word_length;
+                double_storage::store(out, d);
                 return TYPE_DOUBLE;
             } else {
                 integer_storage is;
