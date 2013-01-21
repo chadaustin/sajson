@@ -238,6 +238,22 @@ SUITE(doubles) {
         CHECK_EQUAL(TYPE_DOUBLE, e2.get_type());
         CHECK_EQUAL(10e22, e2.get_double_value());
     }
+
+    TEST(long_no_exponent) {
+        const sajson::document& document = parse(literal("[9999999999,99999999999]"));
+        assert(success(document));
+        const value& root = document.get_root();
+        CHECK_EQUAL(TYPE_ARRAY, root.get_type());
+        CHECK_EQUAL(2u, root.get_length());
+        
+        const value& e0 = root.get_array_element(0);
+        CHECK_EQUAL(TYPE_DOUBLE, e0.get_type());
+        CHECK_EQUAL(9999999999.0, e0.get_double_value());
+
+        const value& e1 = root.get_array_element(1);
+        CHECK_EQUAL(TYPE_DOUBLE, e1.get_type());
+        CHECK_EQUAL(99999999999.0, e1.get_double_value());
+    }
 }
 
 SUITE(strings) {
