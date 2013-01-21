@@ -731,30 +731,23 @@ namespace sajson {
                 }
             }
 
+            int exponent = 0;
+
             if ('.' == peek()) {
                 if (!try_double) {
                     try_double = true;
                     d = i;
                 }
                 consume();
-                double place = 0.1;
                 for (;;) {
                     char c = peek();
                     if (c >= '0' && c <= '9') {
                         consume();
-                        d += (c - '0') * place;
-                        place *= 0.1;
+                        d = d * 10 + (c - '0');
+                        --exponent;
                     } else {
                         break;
                     }
-                }
-            }
-
-            if (negative) {
-                if (try_double) {
-                    d = -d;
-                } else {
-                    i = -i;
                 }
             }
 
@@ -773,17 +766,30 @@ namespace sajson {
                     consume();
                 }
 
-                int exponent = 0;
+                int exp = 0;
                 for (;;) {
                     char c = peek();
                     if (c >= '0' && c <= '9') {
                         consume();
-                        exponent = 10 * exponent + (c - '0');
+                        exp = 10 * exp + (c - '0');
                     } else {
                         break;
                     }
                 }
-                d *= pow10(negativeExponent ? -exponent : exponent);
+                exponent += (negativeExponent ? -exp : exp);
+            }
+
+            if (exponent) {
+                assert(try_double);
+                d *= pow10(exponent);
+            }
+
+            if (negative) {
+                if (try_double) {
+                    d = -d;
+                } else {
+                    i = -i;
+                }
             }
 
             if (try_double) {

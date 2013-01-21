@@ -232,7 +232,7 @@ SUITE(doubles) {
 
         const value& e1 = root.get_array_element(1);
         CHECK_EQUAL(TYPE_DOUBLE, e1.get_type());
-        CHECK_EQUAL(0.000005, e1.get_double_value());
+        CHECK_CLOSE(0.000005, e1.get_double_value(), 1e-20);
 
         const value& e2 = root.get_array_element(2);
         CHECK_EQUAL(TYPE_DOUBLE, e2.get_type());
@@ -253,6 +253,18 @@ SUITE(doubles) {
         const value& e1 = root.get_array_element(1);
         CHECK_EQUAL(TYPE_DOUBLE, e1.get_type());
         CHECK_EQUAL(99999999999.0, e1.get_double_value());
+    }
+
+    TEST(exponent_offset) {
+        const sajson::document& document = parse(literal("[0.005e3]"));
+        assert(success(document));
+        const value& root = document.get_root();
+        CHECK_EQUAL(TYPE_ARRAY, root.get_type());
+        CHECK_EQUAL(1u, root.get_length());
+        
+        const value& e0 = root.get_array_element(0);
+        CHECK_EQUAL(TYPE_DOUBLE, e0.get_type());
+        CHECK_EQUAL(5.0, e0.get_double_value());
     }
 }
 
