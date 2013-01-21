@@ -5,15 +5,18 @@ function findExtreme(direction) {
     while (Math.pow(10, p) !== Math.pow(10, p + direction)) {
         p += direction;
     }
-    return p;
+    return p - direction;
 }
 
 var maximum = findExtreme(1);
 var minimum = findExtreme(-1);
 
 util.print("double pow10(int exponent) {\n");
-util.print("    if (exponent > ", maximum, ") exponent = ", maximum, ";\n");
-util.print("    else if (exponent < ", minimum, ") exponent = ", minimum, ";\n");
+util.print("    if (exponent > ", maximum, ") {\n");
+util.print("        return std::numeric_limits<double>::infinity();\n");
+util.print("    } else if (exponent < ", minimum, ") {\n");
+util.print("        return 0.0;\n");
+util.print("    }\n");
 util.print("    static const double constants[] = {\n");
 var currentLine = "";
 for (var i = minimum; i <= maximum; ++i) {
