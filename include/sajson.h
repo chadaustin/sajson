@@ -765,15 +765,15 @@ namespace sajson {
                     d = i;
                 }
                 consume();
-                double exponentSign = 1;
+                bool negativeExponent = false;
                 if ('-' == peek()) {
                     consume();
-                    exponentSign = -1;
+                    negativeExponent = true;
                 } else if ('+' == peek()) {
                     consume();
                 }
 
-                double exponent = 0;
+                int exponent = 0;
                 for (;;) {
                     char c = peek();
                     if (c >= '0' && c <= '9') {
@@ -783,7 +783,7 @@ namespace sajson {
                         break;
                     }
                 }
-                d *= pow(10.0, exponentSign * exponent);
+                d *= pow10(negativeExponent ? -exponent : exponent);
             }
 
             if (try_double) {
