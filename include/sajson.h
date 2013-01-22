@@ -692,7 +692,10 @@ namespace sajson {
             if ('-' == *p) {
                 ++p;
                 negative = true;
-                // TODO: eof check
+
+                if (at_eof()) {
+                    return error("unexpected end of input");
+                }
             }
 
             bool try_double = false;
@@ -700,14 +703,16 @@ namespace sajson {
             int i = 0;
             double d = 0.0; // gcc complains that d might be used uninitialized which isn't true. appease the warning anyway.
             for (;;) {
-                // TODO: eof check
-
                 char c = *p;
                 if (c < '0' || c > '9') {
                     break;
                 }
                 
                 ++p;
+                if (at_eof()) {
+                    return error("unexpected end of input");
+                }
+
                 char digit = c - '0';
 
                 if (SAJSON_UNLIKELY(!try_double && i > INT_MAX / 10 - 9)) {
@@ -730,15 +735,21 @@ namespace sajson {
                     d = i;
                 }
                 ++p;
+                if (at_eof()) {
+                    return error("unexpected end of input");
+                }
                 for (;;) {
                     char c = *p;
-                    if (c >= '0' && c <= '9') {
-                        ++p;
-                        d = d * 10 + (c - '0');
-                        --exponent;
-                    } else {
+                    if (c < '0' || c > '9') {
                         break;
                     }
+
+                    ++p;
+                    if (at_eof()) {
+                        return error("unexpected end of input");
+                    }
+                    d = d * 10 + (c - '0');
+                    --exponent;
                 }
             }
 
@@ -749,23 +760,37 @@ namespace sajson {
                     d = i;
                 }
                 ++p;
+                if (at_eof()) {
+                    return error("unexpected end of input");
+                }
+
                 bool negativeExponent = false;
                 if ('-' == *p) {
                     ++p;
                     negativeExponent = true;
+                    if (at_eof()) {
+                        return error("unexpected end of input");
+                    }
                 } else if ('+' == *p) {
                     ++p;
+                    if (at_eof()) {
+                        return error("unexpected end of input");
+                    }
                 }
 
                 int exp = 0;
                 for (;;) {
                     char c = *p;
-                    if (c >= '0' && c <= '9') {
-                        ++p;
-                        exp = 10 * exp + (c - '0');
-                    } else {
+                    if (c < '0' || c > '9') {
                         break;
                     }
+
+                    ++p;
+                    if (at_eof()) {
+                        return error("unexpected end of input");
+                    }
+
+                    exp = 10 * exp + (c - '0');
                 }
                 exponent += (negativeExponent ? -exp : exp);
             }

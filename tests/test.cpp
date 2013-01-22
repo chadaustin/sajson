@@ -505,7 +505,23 @@ SUITE(errors) {
         CHECK_EQUAL("object key must be quoted", document.get_error_message());
     }
 
-    
+#define CHECK_PARSE_ERROR(text, error_message)                          \
+    do {                                                                \
+        const sajson::document& document = parse(literal(text));        \
+        CHECK_EQUAL(false, document.is_valid());                        \
+        CHECK_EQUAL(error_message, document.get_error_message());       \
+    } while (0)
+
+    TEST(invalid_number) {
+        CHECK_PARSE_ERROR("[-", "unexpected end of input");
+        CHECK_PARSE_ERROR("[-12", "unexpected end of input");
+        CHECK_PARSE_ERROR("[-12.", "unexpected end of input");
+        CHECK_PARSE_ERROR("[-12.3", "unexpected end of input");
+        CHECK_PARSE_ERROR("[-12e", "unexpected end of input");
+        CHECK_PARSE_ERROR("[-12e-", "unexpected end of input");
+        CHECK_PARSE_ERROR("[-12e+", "unexpected end of input");
+        CHECK_PARSE_ERROR("[-12e3", "unexpected end of input");
+    }
 }
 
 int main() {
