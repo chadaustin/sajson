@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 Chad Austin
+ * Copyright (c) 2012, 2013 Chad Austin
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -424,16 +424,6 @@ namespace sajson {
             }                
         }
 
-        char peek() {
-            assert(p < input_end);
-            return *p;
-        }
-
-        void consume() {
-            assert(p < input_end);
-            ++p;
-        }
-
         error_result error(const char* message) {
             error_line = 1;
             error_column = 1;
@@ -699,12 +689,11 @@ namespace sajson {
 
         parse_result parse_number() {
             bool negative = false;
-            if ('-' == peek()) {
+            if ('-' == *p) {
                 ++p;
                 negative = true;
+                // TODO: eof check
             }
-
-            // TODO: eof check
 
             bool try_double = false;
 
@@ -713,12 +702,12 @@ namespace sajson {
             for (;;) {
                 // TODO: eof check
 
-                char c = peek();
+                char c = *p;
                 if (c < '0' || c > '9') {
                     break;
                 }
                 
-                consume();
+                ++p;
                 char digit = c - '0';
 
                 if (SAJSON_UNLIKELY(!try_double && i > INT_MAX / 10 - 9)) {
@@ -735,16 +724,16 @@ namespace sajson {
 
             int exponent = 0;
 
-            if ('.' == peek()) {
+            if ('.' == *p) {
                 if (!try_double) {
                     try_double = true;
                     d = i;
                 }
-                consume();
+                ++p;
                 for (;;) {
-                    char c = peek();
+                    char c = *p;
                     if (c >= '0' && c <= '9') {
-                        consume();
+                        ++p;
                         d = d * 10 + (c - '0');
                         --exponent;
                     } else {
@@ -753,26 +742,26 @@ namespace sajson {
                 }
             }
 
-            char e = peek();
+            char e = *p;
             if ('e' == e || 'E' == e) {
                 if (!try_double) {
                     try_double = true;
                     d = i;
                 }
-                consume();
+                ++p;
                 bool negativeExponent = false;
-                if ('-' == peek()) {
-                    consume();
+                if ('-' == *p) {
+                    ++p;
                     negativeExponent = true;
-                } else if ('+' == peek()) {
-                    consume();
+                } else if ('+' == *p) {
+                    ++p;
                 }
 
                 int exp = 0;
                 for (;;) {
-                    char c = peek();
+                    char c = *p;
                     if (c >= '0' && c <= '9') {
-                        consume();
+                        ++p;
                         exp = 10 * exp + (c - '0');
                     } else {
                         break;

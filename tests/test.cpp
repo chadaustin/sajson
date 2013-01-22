@@ -504,6 +504,8 @@ SUITE(errors) {
         //CHECK_EQUAL(3, document.get_error_column());
         CHECK_EQUAL("object key must be quoted", document.get_error_message());
     }
+
+    
 }
 
 int main() {
