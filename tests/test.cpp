@@ -422,6 +422,46 @@ SUITE(objects) {
         CHECK_EQUAL(TYPE_INTEGER, e1.get_type());
         CHECK_EQUAL(1, e1.get_integer_value());
     }
+
+    TEST(object_keys_are_sorted_length_first) {
+        const sajson::document& document = parse(literal(" { \"b\" : 1 , \"aa\" : 0 } "));
+        assert(success(document));
+        const value& root = document.get_root();
+        CHECK_EQUAL(TYPE_OBJECT, root.get_type());
+        CHECK_EQUAL(2u, root.get_length());
+        
+        const string& k0 = root.get_object_key(0);
+        const value& e0 = root.get_object_value(0);
+        CHECK_EQUAL("b", k0.as_string());
+        CHECK_EQUAL(TYPE_INTEGER, e0.get_type());
+        CHECK_EQUAL(1, e0.get_integer_value());
+
+        const string& k1 = root.get_object_key(1);
+        const value& e1 = root.get_object_value(1);
+        CHECK_EQUAL("aa", k1.as_string());
+        CHECK_EQUAL(TYPE_INTEGER, e1.get_type());
+        CHECK_EQUAL(0, e1.get_integer_value());
+    }
+
+    TEST(binary_search_for_keys) {
+        const sajson::document& document = parse(literal(" { \"b\" : 1 , \"aa\" : 0 } "));
+        assert(success(document));
+        const value& root = document.get_root();
+        CHECK_EQUAL(TYPE_OBJECT, root.get_type());
+        CHECK_EQUAL(2u, root.get_length());
+
+        const size_t index_b = root.find_object_key(literal("b"));
+        CHECK_EQUAL(0U, index_b);
+
+        const size_t index_aa = root.find_object_key(literal("aa"));
+        CHECK_EQUAL(1U, index_aa);
+
+        const size_t index_c = root.find_object_key(literal("c"));
+        CHECK_EQUAL(2U, index_c);
+
+        const size_t index_ccc = root.find_object_key(literal("ccc"));
+        CHECK_EQUAL(2U, index_ccc);
+    }
 }
 
 SUITE(errors) {
