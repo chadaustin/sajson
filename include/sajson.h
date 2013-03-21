@@ -31,6 +31,8 @@
 #include <limits.h>
 #include <ostream>
 #include <algorithm>
+#include <cstdio>
+#include <limits>
 
 #include <string> // for error messages.  kill someday?
 
@@ -120,6 +122,52 @@ namespace sajson {
         explicit literal(const char* text)
             : string(text, strlen(text))
         {}
+    };
+
+    struct object_key_record
+    {
+        size_t key_start;
+        size_t key_end;
+        size_t value;
+    };
+
+    struct object_key_comparator
+    {
+        object_key_comparator(const char* object_data)
+            : data(object_data)
+        {
+        }
+
+        bool operator()(const object_key_record& lhs, const string& rhs) const {
+            const size_t lhs_length = lhs.key_end - lhs.key_start;
+            const size_t rhs_length = rhs.length();
+            if (lhs_length < rhs_length) {
+                return true;
+            } else if (lhs_length > rhs_length) {
+                return false;
+            }
+            return memcmp(data + lhs.key_start, rhs.data(), lhs_length) < 0;
+        }
+
+        bool operator()(const string& lhs, const object_key_record& rhs) const {
+            return !(*this)(rhs, lhs);
+        }
+
+        bool operator()(const object_key_record& lhs, const
+                object_key_record& rhs)
+        {
+            const size_t lhs_length = lhs.key_end - lhs.key_start;
+            const size_t rhs_length = rhs.key_end - rhs.key_start;
+            if (lhs_length < rhs_length) {
+                return true;
+            } else if (lhs_length > rhs_length) {
+                return false;
+            }
+            return memcmp(data + lhs.key_start, data + rhs.key_start,
+                    lhs_length) < 0;
+        }
+
+        const char* data;
     };
 
     class refcount {
@@ -270,6 +318,16 @@ namespace sajson {
             return value(get_element_type(element), payload + get_element_value(element), text);
         }
 
+
+        // valid iff get_type() is TYPE_OBJECT
+        // return get_length() if there is no such key
+        size_t find_object_key(const string& key) const {
+            const object_key_record* start = reinterpret_cast<const object_key_record*>(payload + 1);
+            const object_key_record* end = start + get_length();
+            const object_key_record* i = std::lower_bound(start, end, key, object_key_comparator(text));
+            return (i != end && memcmp(key.data(), text + i->key_start, key.length()) == 0)? i - start : get_length();
+        }
+
         // valid iff get_type() is TYPE_INTEGER
         int get_integer_value() const {
             integer_storage s;
@@ -305,6 +363,7 @@ namespace sajson {
         const type value_type;
         const size_t* const payload;
         const char* const text;
+
     };
 
     class document {
@@ -833,40 +892,13 @@ namespace sajson {
             return TYPE_ARRAY;
         }
 
-        struct ObjectItemRecord {
-            size_t key_start;
-            size_t key_end;
-            size_t value;
-        };
-
-        struct ObjectItemRecordComparator {
-            ObjectItemRecordComparator(const char* input)
-                : input(input)
-            {}
-
-            bool operator()(const ObjectItemRecord& left, const ObjectItemRecord& right) const {
-                size_t left_length = left.key_end - left.key_start;
-                size_t right_length = right.key_end - right.key_start;
-                if (left_length < right_length) {
-                    return true;
-                } else if (left_length > right_length) {
-                    return false;
-                } else {
-                    return memcmp(input + left.key_start, input + right.key_start, left_length) < 0;
-                }
-            }
-
-        private:
-            const char* input;
-        };
-
         parse_result install_object(size_t* object_base) {
             const size_t length = (temp - object_base) / 3;
-            ObjectItemRecord* oir = reinterpret_cast<ObjectItemRecord*>(object_base);
+            object_key_record* oir = reinterpret_cast<object_key_record*>(object_base);
             std::sort(
                 oir,
                 oir + length,
-                ObjectItemRecordComparator(input.get_data()));
+                object_key_comparator(input.get_data()));
 
             size_t* const new_base = out - length * 3 - 1;
             size_t i = length;
