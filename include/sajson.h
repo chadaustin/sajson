@@ -325,7 +325,9 @@ namespace sajson {
             const object_key_record* start = reinterpret_cast<const object_key_record*>(payload + 1);
             const object_key_record* end = start + get_length();
             const object_key_record* i = std::lower_bound(start, end, key, object_key_comparator(text));
-            return (i != end && memcmp(key.data(), text + i->key_start, key.length()) == 0)? i - start : get_length();
+            return (i != end
+                    && (i->key_end - i->key_start) == key.length()
+                    && memcmp(key.data(), text + i->key_start, key.length()) == 0)? i - start : get_length();
         }
 
         // valid iff get_type() is TYPE_INTEGER

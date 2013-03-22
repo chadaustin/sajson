@@ -462,6 +462,17 @@ SUITE(objects) {
         const size_t index_ccc = root.find_object_key(literal("ccc"));
         CHECK_EQUAL(2U, index_ccc);
     }
+
+    TEST(binary_search_handles_prefix_keys) {
+        const sajson::document& document = parse(literal(" { \"prefix_key\" : 0 } "));
+        assert(success(document));
+        const value& root = document.get_root();
+        CHECK_EQUAL(TYPE_OBJECT, root.get_type());
+        CHECK_EQUAL(1u, root.get_length());
+
+        const size_t index_prefix = root.find_object_key(literal("prefix"));
+        CHECK_EQUAL(1U, index_prefix);
+    }
 }
 
 SUITE(errors) {
