@@ -575,12 +575,24 @@ SUITE(errors) {
     }
 }
 
-TEST(object_array) {
+TEST(object_array_with_integers) {
     const sajson::document& document = parse(literal("[{ \"a\": 123456 }, { \"a\": 7890 }]"));
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(2u, root.get_length());
+
+    const value& e1 = root.get_array_element(0);
+    CHECK_EQUAL(TYPE_OBJECT, e1.get_type());
+    size_t index_a = e1.find_object_key(literal("a"));
+    const value& node = e1.get_object_value(index_a);
+    CHECK_EQUAL(TYPE_INTEGER, node.get_type());
+    CHECK_EQUAL(123456U, node.get_number_value());
+    const value& e2 = root.get_array_element(1);
+    CHECK_EQUAL(TYPE_OBJECT, e2.get_type());
+    index_a = e2.find_object_key(literal("a"));
+    const value& node2 = e2.get_object_value(index_a);
+    CHECK_EQUAL(7890U, node2.get_number_value());
 }
 
 int main() {

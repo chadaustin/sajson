@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013 Chad Austin
+ * Copyright (c) 2012, 2013, 2014 Chad Austin
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -297,23 +297,27 @@ namespace sajson {
 
         // valid iff get_type() is TYPE_ARRAY or TYPE_OBJECT
         size_t get_length() const {
+            assert_type_2(TYPE_ARRAY, TYPE_OBJECT);
             return payload[0];
         }
 
         // valid iff get_type() is TYPE_ARRAY
         value get_array_element(size_t index) const {
+            assert_type(TYPE_ARRAY);
             size_t element = payload[1 + index];
             return value(get_element_type(element), payload + get_element_value(element), text);
         }
 
         // valid iff get_type() is TYPE_OBJECT
         string get_object_key(size_t index) const {
+            assert_type(TYPE_OBJECT);
             const size_t* s = payload + 1 + index * 3;
             return string(text + s[0], s[1] - s[0]);
         }
 
         // valid iff get_type() is TYPE_OBJECT
         value get_object_value(size_t index) const {
+            assert_type(TYPE_OBJECT);
             size_t element = payload[3 + index * 3];
             return value(get_element_type(element), payload + get_element_value(element), text);
         }
@@ -322,6 +326,7 @@ namespace sajson {
         // valid iff get_type() is TYPE_OBJECT
         // return get_length() if there is no such key
         size_t find_object_key(const string& key) const {
+            assert_type(TYPE_OBJECT);
             const object_key_record* start = reinterpret_cast<const object_key_record*>(payload + 1);
             const object_key_record* end = start + get_length();
             const object_key_record* i = std::lower_bound(start, end, key, object_key_comparator(text));
@@ -332,6 +337,7 @@ namespace sajson {
 
         // valid iff get_type() is TYPE_INTEGER
         int get_integer_value() const {
+            assert_type(TYPE_INTEGER);
             integer_storage s;
             s.u = payload[0];
             return s.i;
@@ -339,11 +345,13 @@ namespace sajson {
 
         // valid iff get_type() is TYPE_DOUBLE
         double get_double_value() const {
+            assert_type(TYPE_DOUBLE);
             return double_storage::load(payload);
         }
 
         // valid iff get_type() is TYPE_INTEGER or TYPE_DOUBLE
         double get_number_value() const {
+            assert_type_2(TYPE_INTEGER, TYPE_DOUBLE);
             if (get_type() == TYPE_INTEGER) {
                 return get_integer_value();
             } else {
@@ -353,15 +361,25 @@ namespace sajson {
 
         // valid iff get_type() is TYPE_STRING
         size_t get_string_length() const {
+            assert_type(TYPE_STRING);
             return payload[1] - payload[0];
         }
 
         // valid iff get_type() is TYPE_STRING
         std::string as_string() const {
+            assert_type(TYPE_STRING);
             return std::string(text + payload[0], text + payload[1]);
         }
 
     private:
+        void assert_type(type expected) const {
+            assert(expected == get_type());
+        }
+
+        void assert_type_2(type e1, type e2) const {
+            assert(e1 == get_type() || e2 == get_type());
+        }
+
         const type value_type;
         const size_t* const payload;
         const char* const text;
@@ -616,7 +634,6 @@ namespace sajson {
                         break;
                     }
                     default:
-                        printf("%c\n", *p);
                         return error("cannot parse unknown value");
                 }
 
@@ -868,7 +885,6 @@ namespace sajson {
                     i = -i;
                 }
             }
-
             if (try_double) {
                 out -= double_storage::word_length;
                 double_storage::store(out, d);
