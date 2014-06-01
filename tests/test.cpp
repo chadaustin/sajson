@@ -575,6 +575,14 @@ SUITE(errors) {
     }
 }
 
+TEST(object_array) {
+    const sajson::document& document = parse(literal("[{ \"a\": 123456 }, { \"a\": 7890 }]"));
+    assert(success(document));
+    const value& root = document.get_root();
+    CHECK_EQUAL(TYPE_ARRAY, root.get_type());
+    CHECK_EQUAL(2u, root.get_length());
+}
+
 int main() {
     return UnitTest::RunAllTests();
 }
