@@ -25,7 +25,7 @@ env = Environment(
     ENV=os.environ,
     CCFLAGS=['-g', '-O2'],
     LINKFLAGS=['-O2'],
-    CXXFLAGS=['-Wall', '-Werror'])
+    CXXFLAGS=['-Wall', '-Werror', '-Wno-unused-private-field'])
 
 env32 = env.Clone()
 env32.Append(
