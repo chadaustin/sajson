@@ -5,6 +5,6 @@ set -e
 
 for a in $(ls build); do
     echo "$a:"
-    build/$a/test
+    valgrind -q build/$a/test
     echo
 done
