@@ -16,27 +16,48 @@ def unittestpp(env):
         LIBPATH=['#/${BUILDDIR}/libraries'],
         LIBS=['unittestpp'])
 
-@export
-def cpp11(env):
+def gcc(env):
+    env['CC'] = 'gcc'
+    env['CXX'] = 'g++'
+
+def clang(env):
+    env['CC'] = 'clang'
+    env['CXX'] = 'clang++'
+
+def dbg(env):
+    env.Append(CCFLAGS=['-g'])
+
+def opt(env):
     env.Append(
-        CXXFLAGS=['-std=c++0x'])
+        CCFLAGS=['-O2'],
+        LINKFLAGS=['-O2', '-s'])
+
+def m32(env):
+    env.Append(
+        CCFLAGS=['-m32'],
+        LINKFLAGS=['-m32'])
+
+def m64(env):
+    env.Append(
+        CCFLAGS=['-m64'],
+        LINKFLAGS=['-m64'])
 
 env = Environment(
     ENV=os.environ,
-    CCFLAGS=['-g', '-O2'],
-    LINKFLAGS=['-O2'],
-    CXXFLAGS=['-Wall', '-Werror', '-Wno-unused-private-field'])
+    CXXFLAGS=['-std=c++11', '-Wall', '-Werror', '-Wno-unused-private-field'])
 
-env32 = env.Clone()
-env32.Append(
-    BUILDDIR='build32',
-    CCFLAGS=['-m32'],
-    LINKFLAGS=['-m32'])
-SConscript('SConscript', variant_dir='build32', duplicate=0, exports={'env': env32})
+builds = [
+    ('gcc-32-opt', [gcc, m32, opt]),
+    ('gcc-32-dbg', [gcc, m32, dbg]),
+    ('gcc-64-opt', [gcc, m64, opt]),
+    ('gcc-64-dbg', [gcc, m64, dbg]),
+    #('clang-32-opt', [clang, m32, opt]),
+    #('clang-32-dbg', [clang, m32, dbg]),
+    ('clang-64-opt', [clang, m64, opt]),
+    ('clang-64-dbg', [clang, m64, dbg]),
+]
 
-env64 = env.Clone()
-env64.Append(
-    BUILDDIR='build64',
-    CCFLAGS=['-m64'],
-    LINKFLAGS=['-m64'])
-SConscript('SConscript', variant_dir='build64', duplicate=0, exports={'env': env64})
+for name, tools in builds:
+    e = env.Clone(tools=tools)
+    e.Append(BUILDDIR=os.path.join('build', name))
+    e.SConscript('SConscript', variant_dir='$BUILDDIR', duplicate=0, exports={'env': e})

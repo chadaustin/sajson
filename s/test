@@ -3,5 +3,8 @@ cd `dirname "$0"`/..
 
 set -e
 
-build32/test
-build64/test
+for a in $(ls build); do
+    echo "$a:"
+    build/$a/test
+    echo
+done
