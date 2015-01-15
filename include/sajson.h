@@ -195,7 +195,7 @@ namespace sajson {
     private:
         size_t* pn;
 
-        refcount& operator=(const refcount&);
+        refcount& operator=(const refcount&) = delete;
     };
 
     class mutable_string_view {
@@ -398,6 +398,22 @@ namespace sajson {
             , error_message(error_message)
         {}
 
+        document(const document&) = delete;
+        void operator=(const document&) = delete;
+
+        document(document&& rhs)
+            : input(rhs.input)
+            , structure(rhs.structure)
+            , root_type(rhs.root_type)
+            , root(rhs.root)
+            , error_line(rhs.error_line)
+            , error_column(rhs.error_column)
+            , error_message(rhs.error_message)
+        {
+            rhs.structure = 0;
+            // should rhs's fields be zeroed too?
+        }
+
         ~document() {
             delete[] structure;
         }
@@ -424,7 +440,7 @@ namespace sajson {
 
     private:
         mutable_string_view input;
-        const size_t* const structure;
+        const size_t* structure;
         const type root_type;
         const size_t* const root;
         const size_t error_line;
