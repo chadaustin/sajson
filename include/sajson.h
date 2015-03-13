@@ -567,6 +567,9 @@ namespace sajson {
                         return error("object key must be quoted");
                     }
                     result = parse_string(temp);
+                    if (!result) {
+                        return error("invalid object key");
+                    }
                     if (peek_structure() != ':') {
                         return error("expected :");
                     }
