@@ -335,15 +335,14 @@ SUITE(strings) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         //CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL("illegal unprintable codepoint in string", document.get_error_message());
+        CHECK_EQUAL("illegal unprintable codepoint in string: 25", document.get_error_message());
     }
 
     TEST(unprintables_are_not_valid_in_strings_after_escapes) {
         const sajson::document& document = parse(literal("[\"\\n\x01\"]"));
         CHECK_EQUAL(false, document.is_valid());
-        CHECK_EQUAL(1u, document.get_error_line());
-        //CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL("illegal unprintable codepoint in string", document.get_error_message());
+        CHECK_EQUAL(2, document.get_error_column());
+        CHECK_EQUAL("illegal unprintable codepoint in string: 1", document.get_error_message());
     }
 
     TEST(utf16_surrogate_pair) {
@@ -504,7 +503,7 @@ SUITE(errors) {
         const sajson::document& document = parse(literal("{\"\\:0}"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
-        CHECK_EQUAL(1u, document.get_error_column());
+        CHECK_EQUAL(4u, document.get_error_column());
         CHECK_EQUAL("invalid object key", document.get_error_message());
     }
 
