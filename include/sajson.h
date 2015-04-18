@@ -25,6 +25,7 @@
 #pragma once
 
 #include <assert.h>
+#include <stdarg.h>
 #include <stddef.h>
 #include <string.h>
 #include <math.h>
@@ -519,10 +520,40 @@ namespace sajson {
             }                
         }
 
-        error_result error(const char* message) {
+        error_result error(const char* format, ...) {
             error_line = 1;
             error_column = 1;
-            error_message = message;
+            
+            char* c = input.get_data();
+            while (c < p) {
+                if (*c == '\r') {
+                    if (c + 1 < p && c[1] == '\n') {
+                        ++error_line;
+                        error_column = 1;
+                        ++c;
+                    } else {
+                        ++error_line;
+                        error_column = 1;
+                    }
+                } else if (*c == '\n') {
+                    ++error_line;
+                    error_column = 1;
+                } else {
+                    // TODO: count UTF-8 characters
+                    ++error_column;
+                }
+                ++c;
+            }
+
+            
+            char buf[1024];
+            buf[1023] = 0;
+            va_list ap;
+            va_start(ap, format);
+            vsnprintf(buf, 1023, format, ap);
+            va_end(ap);
+
+            error_message = buf;
             return error_result();
         }
 
@@ -964,7 +995,7 @@ namespace sajson {
                 }
 
                 if (SAJSON_UNLIKELY(*p >= 0 && *p < 0x20)) {
-                    return error("illegal unprintable codepoint in string");
+                    return error("illegal unprintable codepoint in string: %d", static_cast<int>(*p));
                 }
             
                 switch (*p) {
@@ -1032,8 +1063,8 @@ namespace sajson {
                     return error("unexpected end of input");
                 }
 
-                if (SAJSON_UNLIKELY(*p < 0x20)) {
-                    return error("illegal unprintable codepoint in string");
+                if (SAJSON_UNLIKELY(*p >= 0 && *p < 0x20)) {
+                    return error("illegal unprintable codepoint in string: %d", static_cast<int>(*p));
                 }
             
                 switch (*p) {
