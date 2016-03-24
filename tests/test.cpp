@@ -462,6 +462,27 @@ SUITE(objects) {
         CHECK_EQUAL(2U, index_ccc);
     }
 
+    TEST(get_value) {
+        const sajson::document& document = parse(literal(" { \"b\" : 123 , \"aa\" : 456 } "));
+        assert(success(document));
+        const value& root = document.get_root();
+        CHECK_EQUAL(TYPE_OBJECT, root.get_type());
+        CHECK_EQUAL(2u, root.get_length());
+
+        const value& vb = root.get_value_of_key(literal("b"));
+        CHECK_EQUAL(TYPE_INTEGER, vb.get_type());
+
+        const value& vaa = root.get_value_of_key(literal("aa"));
+        CHECK_EQUAL(TYPE_INTEGER, vaa.get_type());
+
+        int ib = root.get_value_of_key(literal("b")).get_integer_value();
+        CHECK_EQUAL(123, ib);
+        
+        int iaa = root.get_value_of_key(literal("aa")).get_integer_value();
+        CHECK_EQUAL(456, iaa);
+    }
+
+
     TEST(binary_search_handles_prefix_keys) {
         const sajson::document& document = parse(literal(" { \"prefix_key\" : 0 } "));
         assert(success(document));
@@ -602,6 +623,7 @@ TEST(object_array_with_integers) {
     CHECK_EQUAL(7890U, node2.get_number_value());
 }
 
-int main() {
+int main()
+{
     return UnitTest::RunAllTests();
 }

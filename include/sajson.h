@@ -323,6 +323,13 @@ namespace sajson {
             return value(get_element_type(element), payload + get_element_value(element), text);
         }
 
+        // valid iff get_type() is TYPE_OBJECT
+        value get_value_of_key(const string& key) const {
+            assert_type(TYPE_OBJECT);
+            size_t i = find_object_key(key);
+            assert_in_bounds(i);
+            return get_object_value(i);
+        }
 
         // valid iff get_type() is TYPE_OBJECT
         // return get_length() if there is no such key
@@ -379,6 +386,10 @@ namespace sajson {
 
         void assert_type_2(type e1, type e2) const {
             assert(e1 == get_type() || e2 == get_type());
+        }
+
+        void assert_in_bounds(size_t i) const {
+            assert(i < get_length());
         }
 
         const type value_type;
