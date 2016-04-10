@@ -341,7 +341,7 @@ SUITE(strings) {
     TEST(unprintables_are_not_valid_in_strings_after_escapes) {
         const sajson::document& document = parse(literal("[\"\\n\x01\"]"));
         CHECK_EQUAL(false, document.is_valid());
-        CHECK_EQUAL(2, document.get_error_column());
+        CHECK_EQUAL(2u, document.get_error_column());
         CHECK_EQUAL("illegal unprintable codepoint in string: 1", document.get_error_message());
     }
 
