@@ -274,6 +274,22 @@ SUITE(doubles) {
         CHECK_EQUAL(TYPE_DOUBLE, e0.get_type());
         CHECK_EQUAL(5.0, e0.get_double_value());
     }
+
+    TEST(missing_exponent) {
+        const sajson::document& document = parse(literal("[0e]"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(4u, document.get_error_column());
+        CHECK_EQUAL("missing exponent", document.get_error_message());
+    }
+
+    TEST(missing_exponent_plus) {
+        const sajson::document& document = parse(literal("[0e+]"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(5u, document.get_error_column());
+        CHECK_EQUAL("missing exponent", document.get_error_message());
+    }
 }
 
 SUITE(commas) {

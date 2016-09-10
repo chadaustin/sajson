@@ -917,8 +917,8 @@ namespace sajson {
 
                 bool negativeExponent = false;
                 if ('-' == *p) {
-                    ++p;
                     negativeExponent = true;
+                    ++p;
                     if (at_eof()) {
                         return error("unexpected end of input");
                     }
@@ -930,18 +930,23 @@ namespace sajson {
                 }
 
                 int exp = 0;
+
+                char c = *p;
+                if (SAJSON_UNLIKELY(c < '0' || c > '9')) {
+                    return error("missing exponent");
+                }
                 for (;;) {
-                    char c = *p;
-                    if (c < '0' || c > '9') {
-                        break;
-                    }
+                    exp = 10 * exp + (c - '0');
 
                     ++p;
                     if (at_eof()) {
                         return error("unexpected end of input");
                     }
 
-                    exp = 10 * exp + (c - '0');
+                    c = *p;
+                    if (c < '0' || c > '9') {
+                        break;
+                    }
                 }
                 exponent += (negativeExponent ? -exp : exp);
             }
