@@ -322,11 +322,19 @@ SUITE(strings) {
         CHECK_EQUAL("unexpected comma", document.get_error_message());
     }
 
-    TEST(trailing_comma) {
+    TEST(trailing_comma_array) {
         const sajson::document& document = parse(literal("[1,2,]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(6u, document.get_error_column());
+        CHECK_EQUAL("trailing commas not allowed", document.get_error_message());
+    }
+
+    TEST(trailing_comma_object) {
+        const sajson::document& document = parse(literal("{\"key\": 0,}"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(11u, document.get_error_column());
         CHECK_EQUAL("trailing commas not allowed", document.get_error_message());
     }
 
