@@ -9,6 +9,12 @@ character.  On 64-bit platforms, sajson allocates 8 bytes per input character.
 
 Its performance is similar to rapidjson and vjson.
 
+Other benefits of sajson:
+
+* O(1) stack usage.  No document will overflow the stack.
+* Does not require input buffer to have terminate with NUL.  Parse straight from your network buffer.
+* Only two number types: 32-bit ints and doubles.
+
 Implementation details are available at: http://chadaustin.me/tag/sajson/
 
 sajson does not support UTF-16 or UTF-32.  To use sajson on non-UTF-8
