@@ -21,8 +21,8 @@ def gcc(env):
     env['CXX'] = 'g++'
 
 def clang(env):
-    env['CC'] = 'clang-3.5'
-    env['CXX'] = 'clang++-3.5'
+    env['CC'] = 'clang'
+    env['CXX'] = 'clang++'
 
 def dbg(env):
     env.Append(CCFLAGS=['-g'])

@@ -314,6 +314,22 @@ SUITE(strings) {
         CHECK_EQUAL("foo\tbar", e0.as_string());
     }
 
+    TEST(leading_comma) {
+        const sajson::document& document = parse(literal("[,1]"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(2u, document.get_error_column());
+        CHECK_EQUAL("unexpected comma", document.get_error_message());
+    }
+
+    TEST(trailing_comma) {
+        const sajson::document& document = parse(literal("[1,2,]"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(6u, document.get_error_column());
+        CHECK_EQUAL("trailing commas not allowed", document.get_error_message());
+    }
+
     TEST(unfinished_string) {
         const sajson::document& document = parse(literal("[\""));
         CHECK_EQUAL(false, document.is_valid());

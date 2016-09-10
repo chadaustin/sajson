@@ -590,17 +590,22 @@ namespace sajson {
             parse_result result = error_result();
             
             for (;;) {
-                char closing_bracket = (current_structure_type == TYPE_OBJECT ? '}' : ']');
+                const char closing_bracket = (current_structure_type == TYPE_OBJECT ? '}' : ']');
+                const bool is_first_element = temp == current_base + 1;
+                bool had_comma = false;
 
                 c = peek_structure();
-                if (temp > current_base + 1) {
-                    if (c != closing_bracket) {
-                        if (c == ',') {
-                            ++p;
-                            c = peek_structure();
-                        } else {
-                            return error("expected ,");
-                        }
+                if (is_first_element) {
+                    if (c == ',') {
+                        return error("unexpected comma");
+                    }
+                } else {
+                    if (c == ',') {
+                        ++p;
+                        c = peek_structure();
+                        had_comma = true;
+                    } else if (c != closing_bracket) {
+                        return error("expected ,");
                     }
                 }
 
@@ -681,6 +686,9 @@ namespace sajson {
                             return error("expected ]");
                         }
                     pop: {
+                        if (had_comma) {
+                            return error("trailing commas not allowed");
+                        }
                         ++p;
                         size_t element = *current_base;
                         result = (this->*structure_installer)(current_base + 1);
@@ -694,6 +702,8 @@ namespace sajson {
                         current_structure_type = get_element_type(element);
                         break;
                     }
+                    case ',':
+                        return error("unexpected comma");
                     default:
                         return error("cannot parse unknown value");
                 }
