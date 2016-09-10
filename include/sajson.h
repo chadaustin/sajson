@@ -851,14 +851,16 @@ namespace sajson {
 
             int i = 0;
             double d = 0.0; // gcc complains that d might be used uninitialized which isn't true. appease the warning anyway.
-            for (;;) {
+            if (*p == '0') {
+                ++p;
+            } else for (;;) {
                 char c = *p;
                 if (c < '0' || c > '9') {
                     break;
                 }
                 
                 ++p;
-                if (at_eof()) {
+                if (SAJSON_UNLIKELY(at_eof())) {
                     return error("unexpected end of input");
                 }
 

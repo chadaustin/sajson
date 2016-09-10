@@ -179,6 +179,14 @@ SUITE(integers) {
         CHECK_EQUAL(TYPE_INTEGER, element.get_type());
         CHECK_EQUAL(0, element.get_integer_value());
     }
+
+    TEST(leading_zeroes_disallowed) {
+        const sajson::document& document = parse(literal("[01]"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(3u, document.get_error_column());
+        CHECK_EQUAL("expected ,", document.get_error_message());
+    }
 }
 
 TEST(unit_types) {
@@ -268,6 +276,40 @@ SUITE(doubles) {
     }
 }
 
+SUITE(commas) {
+    TEST(leading_comma_array) {
+        const sajson::document& document = parse(literal("[,1]"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(2u, document.get_error_column());
+        CHECK_EQUAL("unexpected comma", document.get_error_message());
+    }
+
+    TEST(leading_comma_object) {
+        const sajson::document& document = parse(literal("{,}"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(2u, document.get_error_column());
+        CHECK_EQUAL("unexpected comma", document.get_error_message());
+    }
+
+    TEST(trailing_comma_array) {
+        const sajson::document& document = parse(literal("[1,2,]"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(6u, document.get_error_column());
+        CHECK_EQUAL("trailing commas not allowed", document.get_error_message());
+    }
+
+    TEST(trailing_comma_object) {
+        const sajson::document& document = parse(literal("{\"key\": 0,}"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(11u, document.get_error_column());
+        CHECK_EQUAL("trailing commas not allowed", document.get_error_message());
+    }
+}
+
 SUITE(strings) {
     TEST(strings) {
         const sajson::document& document = parse(literal("[\"\", \"foobar\"]"));
@@ -312,30 +354,6 @@ SUITE(strings) {
         CHECK_EQUAL(TYPE_STRING, e0.get_type());
         CHECK_EQUAL(7u, e0.get_string_length());
         CHECK_EQUAL("foo\tbar", e0.as_string());
-    }
-
-    TEST(leading_comma) {
-        const sajson::document& document = parse(literal("[,1]"));
-        CHECK_EQUAL(false, document.is_valid());
-        CHECK_EQUAL(1u, document.get_error_line());
-        CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL("unexpected comma", document.get_error_message());
-    }
-
-    TEST(trailing_comma_array) {
-        const sajson::document& document = parse(literal("[1,2,]"));
-        CHECK_EQUAL(false, document.is_valid());
-        CHECK_EQUAL(1u, document.get_error_line());
-        CHECK_EQUAL(6u, document.get_error_column());
-        CHECK_EQUAL("trailing commas not allowed", document.get_error_message());
-    }
-
-    TEST(trailing_comma_object) {
-        const sajson::document& document = parse(literal("{\"key\": 0,}"));
-        CHECK_EQUAL(false, document.is_valid());
-        CHECK_EQUAL(1u, document.get_error_line());
-        CHECK_EQUAL(11u, document.get_error_column());
-        CHECK_EQUAL("trailing commas not allowed", document.get_error_message());
     }
 
     TEST(unfinished_string) {
