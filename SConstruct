@@ -51,8 +51,8 @@ builds = [
     ('gcc-32-dbg', [gcc, m32, dbg]),
     ('gcc-64-opt', [gcc, m64, opt]),
     ('gcc-64-dbg', [gcc, m64, dbg]),
-    #('clang-32-opt', [clang, m32, opt]),
-    #('clang-32-dbg', [clang, m32, dbg]),
+    ('clang-32-opt', [clang, m32, opt]),
+    ('clang-32-dbg', [clang, m32, dbg]),
     ('clang-64-opt', [clang, m64, opt]),
     ('clang-64-dbg', [clang, m64, dbg]),
 ]
