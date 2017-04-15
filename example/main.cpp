@@ -12,7 +12,7 @@ inline bool success(const document& doc) {
 }
 
 int main(int argc, char** argv) {
-    const sajson::document& document = parse(literal(argv[0]));
+    const sajson::document& document = parse(literal(argv[1]));
     assert(success(document));
     const value& root = document.get_root();
     (void)root;
