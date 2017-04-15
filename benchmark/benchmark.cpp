@@ -47,7 +47,7 @@ void run_benchmark(size_t max_string_length, const char* filename) {
 
     clock_t start = clock();
 
-    const size_t N = 1000;
+    const size_t N = 300;
     for (size_t i = 0; i < N; ++i) {
         clock_t before_each = clock();
         sajson::parse(sajson::string(buffer.data(), buffer.size()));
