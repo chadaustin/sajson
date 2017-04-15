@@ -40,13 +40,15 @@
 #if defined(__GNUC__) || defined(__clang__)
 #define SAJSON_LIKELY(x) __builtin_expect(!!(x), 1)
 #define SAJSON_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#define SAJSON_ALWAYS_INLINE __attribute__((always_inline))
 #else
 #define SAJSON_LIKELY(x) x
 #define SAJSON_UNLIKELY(x) x
+#define SAJSON_ALWAYS_INLINE __forceinline
 #endif
 
 namespace sajson {
-    enum type {
+    enum type: uint8_t {
         TYPE_INTEGER = 0,
         TYPE_DOUBLE = 1,
         TYPE_NULL = 2,
