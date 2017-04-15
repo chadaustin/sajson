@@ -26,3 +26,7 @@ unittestpp_env.Library(
 
 test_env = env.Clone(tools=[unittestpp, sajson])
 test_env.Program('test', ['tests/test.cpp'])
+
+bench_env = env.Clone(tools=[sajson])
+bench_env.Program('bench', ['benchmark/benchmark.cpp'])
+
