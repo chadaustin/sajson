@@ -48,6 +48,45 @@
 #endif
 
 namespace sajson {
+    namespace internal {
+        // This template utilizes the One Definition Rule to create global arrays in a header.
+        // This trick courtesy of Rich Geldrich's Purple JSON parser.
+        template<typename unused=void>
+        struct globals_struct {
+            static const unsigned char s_parse_flags[256];
+        };
+        typedef globals_struct<> globals;
+
+        // bit 0 (1) - set if: \0 cr lf \ "
+        // bit 1 (2) - set if: \0 cr lf
+        // bit 2 (4) - set if: whitespace
+        // bit 3 (8) - set if: 0-9
+        // bit 4 (0x10) - set if: 0-9 e E .
+        template<typename unused>
+        const uint8_t globals_struct<unused>::s_parse_flags[256] = {
+         // 0    1    2    3    4    5    6    7      8    9    A    B    C    D    E    F
+            3,   0,   0,   0,   0,   0,   0,   0,     0,   4,   4,   0,   0,   4,   0,   0, // 0
+            0,   0,   0,   0,   0,   0,   0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 1
+            4,   0,   1,   0,   0,   0,   0,   0,     0,   0,   0,   0,   0,   0,   0x10,0, // 2
+            0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18,  0x18,0x18,0,   0,   0,   0,   0,   0, // 3
+            0,   0,   0,   0,   0,   0x10,0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 4
+            0,   0,   0,   0,   0,   0,   0,   0,     0,   0,   0,   0,   1,   0,   0,   0, // 5
+            0,   0,   0,   0,   0,   0x10,0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 6
+            0,   0,   0,   0,   0,   0,   0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 7
+
+         // 128-255
+            0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0
+        };
+
+        inline bool is_whitespace(char c) {
+            //return c == '\r' || c == '\n' || c == '\t' || c == ' ';
+            return (globals::s_parse_flags[static_cast<unsigned char>(c)] & 4) != 0;
+        }
+    }
+
     enum type: uint8_t {
         TYPE_INTEGER = 0,
         TYPE_DOUBLE = 1,
@@ -513,27 +552,24 @@ namespace sajson {
             return p == input_end;
         }
 
-        char peek_structure(char*& p) {
+        char* skip_whitespace(char* p) {
             for (;;) {
-                if (p == input_end) {
-                    // 0 is never legal as a structural character in json text so treat it as eof
-					return 0;
+                if (SAJSON_LIKELY(p != input_end && !internal::is_whitespace(*p))) {
+                    return p;
+                } else {
+                    if (p == input_end) {
+                        return 0;
+                    }
+                    ++p;
                 }
-				char c = *p;
-                switch (c) {
-                    case 0x20:
-                    case 0x09:
-                    case 0x0A:
-                    case 0x0D:
-                        ++p;
-                        continue;
-                    default:
-						return c;
-                }
-            }                
+            }
         }
 
         error_result error(char* p, const char* format, ...) {
+            if (!p) {
+                p = input_end;
+            }
+
             error_line = 1;
             error_column = 1;
             
@@ -571,12 +607,13 @@ namespace sajson {
         }
 
         bool parse() {
-			char* p = input.get_data();
+            char* p = input.get_data();
 
-            char c = peek_structure(p);
-            if (c == 0) {
+            p = skip_whitespace(p);
+            if (p == 0) {
                 return error(p, "no root element");
             }
+            char c = *p;
 
             type current_structure_type;
             if (c == '[') {
@@ -598,15 +635,16 @@ namespace sajson {
                 const bool is_first_element = temp == current_base + 1;
                 bool had_comma = false;
 
-				char c = peek_structure(p);
+                p = skip_whitespace(p);
+                char c = p ? *p : 0;
                 if (is_first_element) {
                     if (c == ',') {
                         return error(p, "unexpected comma");
                     }
                 } else {
                     if (c == ',') {
-                        ++p;
-						c = peek_structure(p);
+                        p = skip_whitespace(p + 1);
+                        c = p ? *p : 0;
                         had_comma = true;
                     } else if (c != closing_bracket) {
                         return error(p, "expected ,");
@@ -621,14 +659,16 @@ namespace sajson {
                     if (!result) {
                         return error(p, "invalid object key");
                     }
-                    if (peek_structure(p) != ':') {
+                    p = skip_whitespace(p);
+                    if (!p || *p != ':') {
                         return error(p, "expected :");
                     }
                     ++p;
                     temp += 2;
                 }
 
-                switch (peek_structure(p)) {
+                p = skip_whitespace(p);
+                switch (p ? *p : 0) {
                     type next_type;
                     parse_result (parser::*structure_installer)(size_t* base);
 
@@ -720,7 +760,8 @@ namespace sajson {
             }
 
         done:
-            if (0 == peek_structure(p)) {
+            p = skip_whitespace(p);
+            if (0 == p) {
                 return true;
             } else {
                 return error(p, "expected end of input");
