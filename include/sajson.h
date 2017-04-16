@@ -881,13 +881,15 @@ namespace sajson {
             return constants[exponent + 323];
         }
 
-        parse_result parse_number(char*& p) {
+        parse_result parse_number(char*& p_) {
+            char* p = p_;
             bool negative = false;
             if ('-' == *p) {
                 ++p;
                 negative = true;
 
-                if (at_eof(p)) {
+                if (SAJSON_UNLIKELY(at_eof(p))) {
+                    p_ = p;
                     return error(p, "unexpected end of input");
                 }
             }
@@ -899,17 +901,18 @@ namespace sajson {
             if (*p == '0') {
                 ++p;
             } else for (;;) {
-                char c = *p;
+                unsigned char c = *p;
                 if (c < '0' || c > '9') {
                     break;
                 }
                 
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
+                    p_ = p;
                     return error(p, "unexpected end of input");
                 }
 
-                char digit = c - '0';
+                unsigned char digit = c - '0';
 
                 if (SAJSON_UNLIKELY(!try_double && i > INT_MAX / 10 - 9)) {
                     // TODO: could split this into two loops
@@ -931,7 +934,8 @@ namespace sajson {
                     d = i;
                 }
                 ++p;
-                if (at_eof(p)) {
+                if (SAJSON_UNLIKELY(at_eof(p))) {
+                    p_ = p;
                     return error(p, "unexpected end of input");
                 }
                 for (;;) {
@@ -941,7 +945,8 @@ namespace sajson {
                     }
 
                     ++p;
-                    if (at_eof(p)) {
+                    if (SAJSON_UNLIKELY(at_eof(p))) {
+                        p_ = p;
                         return error(p, "unexpected end of input");
                     }
                     d = d * 10 + (c - '0');
@@ -956,7 +961,8 @@ namespace sajson {
                     d = i;
                 }
                 ++p;
-                if (at_eof(p)) {
+                if (SAJSON_UNLIKELY(at_eof(p))) {
+                    p_ = p;
                     return error(p, "unexpected end of input");
                 }
 
@@ -964,12 +970,14 @@ namespace sajson {
                 if ('-' == *p) {
                     negativeExponent = true;
                     ++p;
-                    if (at_eof(p)) {
+                    if (SAJSON_UNLIKELY(at_eof(p))) {
+                        p_ = p;
                         return error(p, "unexpected end of input");
                     }
                 } else if ('+' == *p) {
                     ++p;
-                    if (at_eof(p)) {
+                    if (SAJSON_UNLIKELY(at_eof(p))) {
+                        p_ = p;
                         return error(p, "unexpected end of input");
                     }
                 }
@@ -978,13 +986,15 @@ namespace sajson {
 
                 char c = *p;
                 if (SAJSON_UNLIKELY(c < '0' || c > '9')) {
+                    p_ = p;
                     return error(p, "missing exponent");
                 }
                 for (;;) {
                     exp = 10 * exp + (c - '0');
 
                     ++p;
-                    if (at_eof(p)) {
+                    if (SAJSON_UNLIKELY(at_eof(p))) {
+                        p_ = p;
                         return error(p, "unexpected end of input");
                     }
 
@@ -1011,12 +1021,14 @@ namespace sajson {
             if (try_double) {
                 out -= double_storage::word_length;
                 double_storage::store(out, d);
+                p_ = p;
                 return TYPE_DOUBLE;
             } else {
                 integer_storage is;
                 is.i = i;
 
                 *--out = is.u;
+                p_ = p;
                 return TYPE_INTEGER;
             }
         }

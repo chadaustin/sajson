@@ -29,8 +29,8 @@ def dbg(env):
 
 def opt(env):
     env.Append(
-        CCFLAGS=['-O2'],
-        LINKFLAGS=['-O2', '-s'])
+        CCFLAGS=['-O2', '-g'],
+        LINKFLAGS=['-O2', '-g'])
 
 def m32(env):
     env.Append(
