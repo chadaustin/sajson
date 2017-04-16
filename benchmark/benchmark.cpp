@@ -13,6 +13,7 @@ const char* files[] = {
     "testdata/truenull.json",
     "testdata/twitter.json",
     "testdata/update-center.json",
+    "testdata/whitespace.json",
 };
 const size_t files_count = sizeof(files) / sizeof(*files);
 
