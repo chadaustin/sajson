@@ -9,7 +9,7 @@ set -e
 for a in $(ls build); do
     if [[ "$a" == *-opt ]]; then
         echo "$a:"
-        valgrind -q build/$a/bench
+        build/$a/bench
         echo
     fi
 done

@@ -1013,7 +1013,8 @@ namespace sajson {
             return TYPE_OBJECT;
         }
 
-        parse_result parse_string(char*& p, size_t* tag = 0) {
+        parse_result parse_string(char*& p_, size_t* tag = 0) {
+            char* p = p_;
             if (!tag) {
                 out -= 2;
                 tag = out;
@@ -1023,10 +1024,12 @@ namespace sajson {
             size_t start = p - input.get_data();
             for (;;) {
                 if (SAJSON_UNLIKELY(p >= input_end)) {
+                    p_ = p;
                     return error(p, "unexpected end of input");
                 }
 
                 if (SAJSON_UNLIKELY(*p >= 0 && *p < 0x20)) {
+                    p_ = p;
                     return error(p, "illegal unprintable codepoint in string: %d", static_cast<int>(*p));
                 }
             
@@ -1035,10 +1038,12 @@ namespace sajson {
                         tag[0] = start;
                         tag[1] = p - input.get_data();
                         ++p;
+                        p_ = p;
                         return TYPE_STRING;
                         
                     case '\\':
-                        return parse_string_slow(p, tag, start);
+                        p_ = p;
+                        return parse_string_slow(p_, tag, start);
 
                     default:
                         ++p;
