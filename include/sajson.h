@@ -57,22 +57,22 @@ namespace sajson {
         };
         typedef globals_struct<> globals;
 
-        // bit 0 (1) - set if: \0 cr lf \ "
-        // bit 1 (2) - set if: \0 cr lf
-        // bit 2 (4) - set if: whitespace
-        // bit 3 (8) - set if: 0-9
+        // bit 0 (1) - set if: plain ASCII string character
+        // bit 1 (2) - set if: whitespace
+        // bit 2 (4) - set if:
+        // bit 3 (8) - set if:
         // bit 4 (0x10) - set if: 0-9 e E .
         template<typename unused>
         const uint8_t globals_struct<unused>::s_parse_flags[256] = {
          // 0    1    2    3    4    5    6    7      8    9    A    B    C    D    E    F
-            3,   0,   0,   0,   0,   0,   0,   0,     0,   4,   4,   0,   0,   4,   0,   0, // 0
+            0,   0,   0,   0,   0,   0,   0,   0,     0,   2,   2,   0,   0,   2,   0,   0, // 0
             0,   0,   0,   0,   0,   0,   0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 1
-            4,   0,   1,   0,   0,   0,   0,   0,     0,   0,   0,   0,   0,   0,   0x10,0, // 2
-            0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18,  0x18,0x18,0,   0,   0,   0,   0,   0, // 3
-            0,   0,   0,   0,   0,   0x10,0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 4
-            0,   0,   0,   0,   0,   0,   0,   0,     0,   0,   0,   0,   1,   0,   0,   0, // 5
-            0,   0,   0,   0,   0,   0x10,0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 6
-            0,   0,   0,   0,   0,   0,   0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 7
+            3,   1,   0,   1,   1,   1,   1,   1,     1,   1,   1,   1,   1,   1,   0x11,1, // 2
+            0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,  0x11,0x11,1,   1,   1,   1,   1,   1, // 3
+            1,   1,   1,   1,   1,   0x11,1,   1,     1,   1,   1,   1,   1,   1,   1,   1, // 4
+            1,   1,   1,   1,   1,   1,   1,   1,     1,   1,   1,   1,   0,   1,   1,   1, // 5
+            1,   1,   1,   1,   1,   0x11,1,   1,     1,   1,   1,   1,   1,   1,   1,   1, // 6
+            1,   1,   1,   1,   1,   1,   1,   1,     1,   1,   1,   1,   1,   1,   1,   1, // 7
 
          // 128-255
             0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,
@@ -81,9 +81,14 @@ namespace sajson {
             0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0
         };
 
+        inline bool is_plain_string_character(char c) {
+            //return c >= 0x20 && c <= 0x7f && c != 0x22 && c != 0x5c;
+            return (globals::s_parse_flags[static_cast<unsigned char>(c)] & 1) != 0;
+        }
+
         inline bool is_whitespace(char c) {
             //return c == '\r' || c == '\n' || c == '\t' || c == ' ';
-            return (globals::s_parse_flags[static_cast<unsigned char>(c)] & 4) != 0;
+            return (globals::s_parse_flags[static_cast<unsigned char>(c)] & 2) != 0;
         }
     }
 
@@ -1084,27 +1089,28 @@ namespace sajson {
                     return error(p, "unexpected end of input");
                 }
 
-                if (SAJSON_UNLIKELY(*p >= 0 && *p < 0x20)) {
-                    p_ = p;
-                    return error(p, "illegal unprintable codepoint in string: %d", static_cast<int>(*p));
+                if (!internal::is_plain_string_character(*p)) {
+                    break;
                 }
-            
-                switch (*p) {
-                    case '"':
-                        tag[0] = start;
-                        tag[1] = p - input.get_data();
-                        ++p;
-                        p_ = p;
-                        return TYPE_STRING;
-                        
-                    case '\\':
-                        p_ = p;
-                        return parse_string_slow(p_, tag, start);
 
-                    default:
-                        ++p;
-                        break;
-                }
+                ++p;
+            }
+
+            if (SAJSON_LIKELY(*p == '"')) {
+                tag[0] = start;
+                tag[1] = p - input.get_data();
+                ++p;
+                p_ = p;
+                return TYPE_STRING;
+            }
+
+            if (*p >= 0 && *p < 0x20) {
+                p_ = p;
+                return error(p, "illegal unprintable codepoint in string: %d", static_cast<int>(*p));
+            } else {
+                // backslash or >0x7f
+                p_ = p;
+                return parse_string_slow(p_, tag, start);
             }
         }
 
