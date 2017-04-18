@@ -674,7 +674,7 @@ namespace sajson {
                 p = skip_whitespace(p);
                 switch (p ? *p : 0) {
                     type next_type;
-                    parse_result (parser::*structure_installer)(size_t* base);
+                    size_t element;
 
                     case 0:
                         return error(p, "unexpected end of input");
@@ -720,26 +720,28 @@ namespace sajson {
                     }
 
                     case ']':
-                        if (current_structure_type == TYPE_ARRAY) {
-                            structure_installer = &parser::install_array;
-                            goto pop;
-                        } else {
+                        if (SAJSON_UNLIKELY(current_structure_type != TYPE_ARRAY)) {
                             return error(p, "expected }");
                         }
-                    case '}':
-                        if (current_structure_type == TYPE_OBJECT) {
-                            structure_installer = &parser::install_object;
-                            goto pop;
-                        } else {
-                            return error(p, "expected ]");
-                        }
-                    pop: {
                         if (had_comma) {
                             return error(p, "trailing commas not allowed");
                         }
                         ++p;
-                        size_t element = *current_base;
-                        result = (this->*structure_installer)(current_base + 1);
+                        element = *current_base;
+                        result = install_array(current_base + 1);
+                        goto pop;
+                    case '}':
+                        if (SAJSON_UNLIKELY(current_structure_type != TYPE_OBJECT)) {
+                            return error(p, "expected ]");
+                        }
+                        if (had_comma) {
+                            return error(p, "trailing commas not allowed");
+                        }
+                        ++p;
+                        element = *current_base;
+                        result = install_object(current_base + 1);
+                        goto pop;
+                    pop: {
                         size_t parent = get_element_value(element);
                         if (parent == ROOT_MARKER) {
                             root_type = result.value_type;
