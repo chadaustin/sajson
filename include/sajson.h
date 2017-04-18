@@ -554,9 +554,10 @@ namespace sajson {
 
         char* skip_whitespace(char* p) {
             // There is an opportunity to make better use of superscalar
-            // hardware here but if someone cares about JSON parsing
+            // hardware here* but if someone cares about JSON parsing
             // performance the first thing they do is minify, so prefer
             // to optimize for code size here.
+            // * https://github.com/chadaustin/Web-Benchmarks/blob/master/json/third-party/pjson/pjson.h#L1873
             for (;;) {
                 if (SAJSON_UNLIKELY(p == input_end)) {
                     return 0;
