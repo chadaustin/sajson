@@ -553,14 +553,17 @@ namespace sajson {
         }
 
         char* skip_whitespace(char* p) {
+            // There is an opportunity to make better use of superscalar
+            // hardware here but if someone cares about JSON parsing
+            // performance the first thing they do is minify, so prefer
+            // to optimize for code size here.
             for (;;) {
-                if (SAJSON_LIKELY(p != input_end && !internal::is_whitespace(*p))) {
-                    return p;
-                } else {
-                    if (p == input_end) {
-                        return 0;
-                    }
+                if (SAJSON_UNLIKELY(p == input_end)) {
+                    return 0;
+                } else if (internal::is_whitespace(*p)) {
                     ++p;
+                } else {
+                    return p;
                 }
             }
         }
