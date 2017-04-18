@@ -701,7 +701,8 @@ namespace sajson {
                         result = parse_number(p);
                         break;
                     case '"':
-                        result = parse_string(p);
+                        out -= 2;
+                        result = parse_string(p, out);
                         break;
 
                     case '[':
@@ -1072,12 +1073,8 @@ namespace sajson {
             return TYPE_OBJECT;
         }
 
-        parse_result parse_string(char*& p_, size_t* tag = 0) {
+        parse_result parse_string(char*& p_, size_t* tag) {
             char* p = p_;
-            if (!tag) {
-                out -= 2;
-                tag = out;
-            }
 
             ++p; // "
             size_t start = p - input.get_data();
