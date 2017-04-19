@@ -2,7 +2,7 @@
 #include <vector>
 #include <sajson.h>
 
-const char* files[] = {
+const char* default_files[] = {
     "testdata/apache_builds.json",
     "testdata/github_events.json",
     "testdata/instruments.json",
@@ -15,7 +15,7 @@ const char* files[] = {
     "testdata/update-center.json",
     "testdata/whitespace.json",
 };
-const size_t files_count = sizeof(files) / sizeof(*files);
+const size_t default_files_count = sizeof(default_files) / sizeof(*default_files);
 
 void run_benchmark(size_t max_string_length, const char* filename) {
     FILE* file = fopen(filename, "rb");
@@ -63,7 +63,7 @@ void run_benchmark(size_t max_string_length, const char* filename) {
     printf("%*s - %0.3f ms - %0.3f ms\n", static_cast<int>(max_string_length), filename, average_elapsed_ms, minimum_elapsed_ms);
 }
 
-int main() {
+void run_all(size_t files_count, const char** files) {
     size_t max_string_length = 0;
     for (size_t i = 0; i < files_count; ++i) {
         max_string_length = std::max(max_string_length, strlen(files[i]));
@@ -72,5 +72,13 @@ int main() {
     printf("%*s - %8s - %8s\n", static_cast<int>(max_string_length), "----", "---", "---");
     for (size_t i = 0; i < files_count; ++i) {
         run_benchmark(max_string_length, files[i]);
+    }
+}
+
+int main(int argc, const char** argv) {
+    if (argc > 1) {
+        run_all(argc - 1, argv + 1);
+    } else {
+        run_all(default_files_count, default_files);
     }
 }
