@@ -1084,6 +1084,17 @@ namespace sajson {
             ++p; // "
             size_t start = p - input.get_data();
             for (;;) {
+                if (SAJSON_UNLIKELY(input_end - p < 4)) {
+                    goto end_of_buffer;
+                }
+                if (!internal::is_plain_string_character(p[0])) { goto found; }
+                if (!internal::is_plain_string_character(p[1])) { p += 1; goto found; }
+                if (!internal::is_plain_string_character(p[2])) { p += 2; goto found; }
+                if (!internal::is_plain_string_character(p[3])) { p += 3; goto found; }
+                p += 4;
+            }
+        end_of_buffer:
+            for (;;) {
                 if (SAJSON_UNLIKELY(p >= input_end)) {
                     p_ = p;
                     return error(p, "unexpected end of input");
@@ -1096,6 +1107,7 @@ namespace sajson {
                 ++p;
             }
 
+        found:
             if (SAJSON_LIKELY(*p == '"')) {
                 tag[0] = start;
                 tag[1] = p - input.get_data();
