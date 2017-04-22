@@ -583,7 +583,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(4u, document.get_error_column());
-        CHECK_EQUAL("invalid object key", document.get_error_message());
+        CHECK_EQUAL("unknown escape", document.get_error_message());
     }
 
     TEST(commas_are_necessary_between_elements) {

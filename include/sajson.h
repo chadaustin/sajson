@@ -543,6 +543,9 @@ namespace sajson {
             operator bool() const {
                 return false;
             }
+            operator char*() const {
+                return 0;
+            }
         };
 
         struct parse_result {
@@ -674,9 +677,9 @@ namespace sajson {
                     if (c != '"') {
                         return error(p, "object key must be quoted");
                     }
-                    result = parse_string(p, temp);
-                    if (!result) {
-                        return error(p, "invalid object key");
+                    p = parse_string(p, temp);
+                    if (!p) {
+                        return false;
                     }
                     p = skip_whitespace(p);
                     if (!p || *p != ':') {
@@ -694,13 +697,25 @@ namespace sajson {
                     case 0:
                         return error(p, "unexpected end of input");
                     case 'n':
-                        result = parse_null(p);
+                        p = parse_null(p);
+                        if (!p) {
+                            return false;
+                        }
+                        result = TYPE_NULL;
                         break;
                     case 'f':
-                        result = parse_false(p);
+                        p = parse_false(p);
+                        if (!p) {
+                            return false;
+                        }
+                        result = TYPE_FALSE;
                         break;
                     case 't':
-                        result = parse_true(p);
+                        p = parse_true(p);
+                        if (!p) {
+                            return false;
+                        }
+                        result = TYPE_TRUE;
                         break;
                     case '0':
                     case '1':
@@ -717,7 +732,11 @@ namespace sajson {
                         break;
                     case '"':
                         out -= 2;
-                        result = parse_string(p, out);
+                        p = parse_string(p, out);
+                        if (!p) {
+                            return false;
+                        }
+                        result = TYPE_STRING;
                         break;
 
                     case '[':
@@ -795,21 +814,22 @@ namespace sajson {
             return input_end - p >= remaining;
         }
 
-        parse_result parse_null(char*& p) {
+        char* parse_null(char* p) {
             if (SAJSON_UNLIKELY(!has_remaining_characters(p, 4))) {
-                return error(p, "unexpected end of input");
+                error(p, "unexpected end of input");
+                return 0;
             }
             char p1 = p[1];
             char p2 = p[2];
             char p3 = p[3];
             if (SAJSON_UNLIKELY(p1 != 'u' || p2 != 'l' || p3 != 'l')) {
-                return error(p, "expected 'null'");
+                error(p, "expected 'null'");
+                return 0;
             }
-            p += 4;
-            return TYPE_NULL;
+            return p + 4;
         }
 
-        parse_result parse_false(char*& p) {
+        char* parse_false(char* p) {
             if (SAJSON_UNLIKELY(!has_remaining_characters(p, 5))) {
                 return error(p, "unexpected end of input");
             }
@@ -820,11 +840,10 @@ namespace sajson {
             if (SAJSON_UNLIKELY(p1 != 'a' || p2 != 'l' || p3 != 's' || p4 != 'e')) {
                 return error(p, "expected 'false'");
             }
-            p += 5;
-            return TYPE_FALSE;
+            return p + 5;
         }
 
-        parse_result parse_true(char*& p) {
+        char* parse_true(char* p) {
             if (SAJSON_UNLIKELY(!has_remaining_characters(p, 4))) {
                 return error(p, "unexpected end of input");
             }
@@ -834,8 +853,7 @@ namespace sajson {
             if (SAJSON_UNLIKELY(p1 != 'r' || p2 != 'u' || p3 != 'e')) {
                 return error(p, "expected 'true'");
             }
-            p += 4;
-            return TYPE_TRUE;
+            return p + 4;
         }
         
         static double pow10(int exponent) {
@@ -1085,9 +1103,7 @@ namespace sajson {
             *(--out) = length;
         }
 
-        parse_result parse_string(char*& p_, size_t* tag) {
-            char* p = p_;
-
+        char* parse_string(char* p, size_t* tag) {
             ++p; // "
             size_t start = p - input.get_data();
             for (;;) {
@@ -1103,7 +1119,6 @@ namespace sajson {
         end_of_buffer:
             for (;;) {
                 if (SAJSON_UNLIKELY(p >= input_end)) {
-                    p_ = p;
                     return error(p, "unexpected end of input");
                 }
 
@@ -1118,22 +1133,18 @@ namespace sajson {
             if (SAJSON_LIKELY(*p == '"')) {
                 tag[0] = start;
                 tag[1] = p - input.get_data();
-                ++p;
-                p_ = p;
-                return TYPE_STRING;
+                return p + 1;
             }
 
             if (*p >= 0 && *p < 0x20) {
-                p_ = p;
                 return error(p, "illegal unprintable codepoint in string: %d", static_cast<int>(*p));
             } else {
                 // backslash or >0x7f
-                p_ = p;
-                return parse_string_slow(p_, tag, start);
+                return parse_string_slow(p, tag, start);
             }
         }
 
-        parse_result read_hex(char*& p, unsigned& u) {
+        char* read_hex(char* p, unsigned& u) {
             unsigned v = 0;
             int i = 4;
             while (i--) {
@@ -1151,7 +1162,7 @@ namespace sajson {
             }
 
             u = v;
-            return TYPE_NULL; // ???
+            return p;
         }
 
         void write_utf8(unsigned codepoint, char*& end) {
@@ -1173,7 +1184,7 @@ namespace sajson {
             }
         }
 
-        parse_result parse_string_slow(char*& p, size_t* tag, size_t start) {
+        char* parse_string_slow(char* p, size_t* tag, size_t start) {
             char* end = p;
             
             for (;;) {
@@ -1189,8 +1200,7 @@ namespace sajson {
                     case '"':
                         tag[0] = start;
                         tag[1] = end - input.get_data();
-                        ++p;
-                        return TYPE_STRING;
+                        return p + 1;
 
                     case '\\':
                         ++p;
@@ -1218,9 +1228,9 @@ namespace sajson {
                                     return error(p, "unexpected end of input");
                                 }
                                 unsigned u = 0; // gcc's complaining that this could be used uninitialized. wrong.
-                                parse_result result = read_hex(p, u);
-                                if (!result) {
-                                    return result;
+                                p = read_hex(p, u);
+                                if (!p) {
+                                    return 0;
                                 }
                                 if (u >= 0xD800 && u <= 0xDBFF) {
                                     if (SAJSON_UNLIKELY(!has_remaining_characters(p, 6))) {
@@ -1233,9 +1243,9 @@ namespace sajson {
                                     }
                                     p += 2;
                                     unsigned v = 0; // gcc's complaining that this could be used uninitialized. wrong.
-                                    result = read_hex(p, v);
-                                    if (!result) {
-                                        return result;
+                                    p = read_hex(p, v);
+                                    if (!p) {
+                                        return p;
                                     }
 
                                     if (v < 0xDC00 || v > 0xDFFF) {
