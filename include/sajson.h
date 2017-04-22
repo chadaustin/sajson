@@ -664,11 +664,9 @@ namespace sajson {
                     if (!p || *p != ':') {
                         return error(p, "expected :");
                     }
-                    ++p;
+		    p = skip_whitespace(p + 1);
                     writep += 2;
                 }
-
-                p = skip_whitespace(p);
 
             next_element:
                 type value_type_result;
