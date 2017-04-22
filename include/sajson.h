@@ -664,7 +664,7 @@ namespace sajson {
                     if (!p || *p != ':') {
                         return error(p, "expected :");
                     }
-		    p = skip_whitespace(p + 1);
+				    p = skip_whitespace(p + 1);
                     writep += 2;
                 }
 
