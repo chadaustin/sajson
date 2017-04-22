@@ -744,7 +744,7 @@ namespace sajson {
                         }
                         ++p;
                         element = *current_base;
-                        result = install_array(current_base + 1);
+                        install_array(current_base + 1);
                         goto pop;
                     case '}':
                         if (SAJSON_UNLIKELY(current_structure_type != TYPE_OBJECT)) {
@@ -755,16 +755,17 @@ namespace sajson {
                         }
                         ++p;
                         element = *current_base;
-                        result = install_object(current_base + 1);
+                        install_object(current_base + 1);
                         goto pop;
                     pop: {
                         size_t parent = get_element_value(element);
                         if (parent == ROOT_MARKER) {
-                            root_type = result.value_type;
+                            root_type = current_structure_type;
                             goto done;
                         }
                         temp = current_base;
                         current_base = structure + parent;
+                        result = current_structure_type;
                         current_structure_type = get_element_type(element);
                         break;
                     }
@@ -1055,7 +1056,7 @@ namespace sajson {
             }
         }
 
-        parse_result install_array(size_t* array_base) {
+        void install_array(size_t* array_base) {
             const size_t length = temp - array_base;
             size_t* const new_base = out - length - 1;
             while (temp > array_base) {
@@ -1063,11 +1064,9 @@ namespace sajson {
                 *(--out) = *(--temp) + (array_base - new_base);
             }
             *(--out) = length;
-
-            return TYPE_ARRAY;
         }
 
-        parse_result install_object(size_t* object_base) {
+        void install_object(size_t* object_base) {
             const size_t length = (temp - object_base) / 3;
             object_key_record* oir = reinterpret_cast<object_key_record*>(object_base);
             std::sort(
@@ -1084,8 +1083,6 @@ namespace sajson {
                 *(--out) = *(--temp);
             }
             *(--out) = length;
-
-            return TYPE_OBJECT;
         }
 
         parse_result parse_string(char*& p_, size_t* tag) {
