@@ -522,7 +522,6 @@ namespace sajson {
             : input(msv)
             , input_end(input.get_data() + input.length())
             , structure(structure)
-            , temp(structure)
             , root_type(TYPE_NULL)
             , out(structure + input.length())
             , error_line(0)
@@ -611,13 +610,18 @@ namespace sajson {
         }
 
         bool parse() {
+            // p points to the character currently being parsed
             char* p = input.get_data();
+            // writep is the output pointer into the AST structure
+            size_t* writep = structure;
 
             p = skip_whitespace(p);
             if (p == 0) {
-                return error(p, "no root element");
+                return error(p, "missing root element");
             }
 
+            // current_base is a pointer to the first element of the current structure (object or array)
+            size_t* current_base = writep;
             type current_structure_type;
             if (*p == '[') {
                 current_structure_type = TYPE_ARRAY;
@@ -627,10 +631,7 @@ namespace sajson {
                 return error(p, "document root must be object or array");
             }
 
-            size_t* current_base = temp;
-            *temp++ = make_element(current_structure_type, ROOT_MARKER);
-
-            type value_type_result;
+            *writep++ = make_element(current_structure_type, ROOT_MARKER);
 
             bool had_comma = false;
             goto after_comma;
@@ -655,7 +656,7 @@ namespace sajson {
                     if (*p != '"') {
                         return error(p, "invalid object key");
                     }
-                    p = parse_string(p, temp);
+                    p = parse_string(p, writep);
                     if (!p) {
                         return false;
                     }
@@ -664,12 +665,13 @@ namespace sajson {
                         return error(p, "expected :");
                     }
                     ++p;
-                    temp += 2;
+                    writep += 2;
                 }
 
                 p = skip_whitespace(p);
 
             next_element:
+                type value_type_result;
                 switch (p ? *p : 0) {
                     type next_type;
                     size_t element;
@@ -733,8 +735,8 @@ namespace sajson {
                         goto push;
                     push: {
                         size_t* previous_base = current_base;
-                        current_base = temp;
-                        *temp++ = make_element(current_structure_type, previous_base - structure);
+                        current_base = writep;
+                        *writep++ = make_element(current_structure_type, previous_base - structure);
                         current_structure_type = next_type;
                         had_comma = false;
                         goto after_comma;
@@ -749,7 +751,7 @@ namespace sajson {
                         }
                         ++p;
                         element = *current_base;
-                        install_array(current_base + 1);
+                        install_array(current_base + 1, writep);
                         goto pop;
                     case '}':
                         if (SAJSON_UNLIKELY(current_structure_type != TYPE_OBJECT)) {
@@ -760,7 +762,7 @@ namespace sajson {
                         }
                         ++p;
                         element = *current_base;
-                        install_object(current_base + 1);
+                        install_object(current_base + 1, writep);
                         goto pop;
                     pop: {
                         size_t parent = get_element_value(element);
@@ -768,7 +770,7 @@ namespace sajson {
                             root_type = current_structure_type;
                             goto done;
                         }
-                        temp = current_base;
+                        writep = current_base;
                         current_base = structure + parent;
                         value_type_result = current_structure_type;
                         current_structure_type = get_element_type(element);
@@ -780,7 +782,7 @@ namespace sajson {
                         return error(p, "cannot parse unknown value");
                 }
 
-                *temp++ = make_element(value_type_result, out - current_base - 1);
+                *writep++ = make_element(value_type_result, out - current_base - 1);
                 had_comma = false;
             }
 
@@ -1045,18 +1047,18 @@ namespace sajson {
             }
         }
 
-        void install_array(size_t* array_base) {
-            const size_t length = temp - array_base;
+        void install_array(size_t* array_base, size_t* array_end) {
+            const size_t length = array_end - array_base;
             size_t* const new_base = out - length - 1;
-            while (temp > array_base) {
+            while (array_end > array_base) {
                 // I think this addition is legal because the tag bits are at the top?
-                *(--out) = *(--temp) + (array_base - new_base);
+                *(--out) = *(--array_end) + (array_base - new_base);
             }
             *(--out) = length;
         }
 
-        void install_object(size_t* object_base) {
-            const size_t length = (temp - object_base) / 3;
+        void install_object(size_t* object_base, size_t* object_end) {
+            const size_t length = (object_end - object_base) / 3;
             object_key_record* oir = reinterpret_cast<object_key_record*>(object_base);
             std::sort(
                 oir,
@@ -1067,9 +1069,9 @@ namespace sajson {
             size_t i = length;
             while (i--) {
                 // I think this addition is legal because the tag bits are at the top?
-                *(--out) = *(--temp) + (object_base - new_base);
-                *(--out) = *(--temp);
-                *(--out) = *(--temp);
+                *(--out) = *(--object_end) + (object_base - new_base);
+                *(--out) = *(--object_end);
+                *(--out) = *(--object_end);
             }
             *(--out) = length;
         }
@@ -1243,7 +1245,6 @@ namespace sajson {
         char* const input_end;
         size_t* const structure;
 
-        size_t* temp;
         type root_type;
         size_t* out;
         size_t error_line;

@@ -559,7 +559,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(1u, document.get_error_column());
-        CHECK_EQUAL("no root element", document.get_error_message());
+        CHECK_EQUAL("missing root element", document.get_error_message());
     }
 
     TEST(two_roots_are_invalid) {
