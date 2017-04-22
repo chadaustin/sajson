@@ -617,47 +617,43 @@ namespace sajson {
             if (p == 0) {
                 return error(p, "no root element");
             }
-            char c = *p;
 
             type current_structure_type;
-            if (c == '[') {
+            if (*p == '[') {
                 current_structure_type = TYPE_ARRAY;
-            } else if (c == '{') {
+            } else if (*p == '{') {
                 current_structure_type = TYPE_OBJECT;
             } else {
                 return error(p, "document root must be object or array");
             }
-            ++p;
 
             size_t* current_base = temp;
             *temp++ = make_element(current_structure_type, ROOT_MARKER);
 
             type value_type_result;
+
+            bool had_comma = false;
+            goto after_comma;
             
             for (;;) {
-                const char closing_bracket = (current_structure_type == TYPE_OBJECT ? '}' : ']');
-                const bool is_first_element = temp == current_base + 1;
-                bool had_comma = false;
-
                 p = skip_whitespace(p);
-                char c = p ? *p : 0;
-                if (is_first_element) {
-                    if (c == ',') {
-                        return error(p, "unexpected comma");
-                    }
-                } else {
-                    if (c == ',') {
-                        p = skip_whitespace(p + 1);
-                        c = p ? *p : 0;
-                        had_comma = true;
-                    } else if (c != closing_bracket) {
-                        return error(p, "expected ,");
-                    }
+                if (SAJSON_UNLIKELY(!p)) {
+                    return error(p, "unexpected end of input");
                 }
 
-                if (current_structure_type == TYPE_OBJECT && c != '}') {
-                    if (c != '"') {
-                        return error(p, "object key must be quoted");
+                if (*p == (current_structure_type == TYPE_OBJECT ? '}' : ']')) {
+                    goto next_element;
+                }
+                if (SAJSON_UNLIKELY(*p != ',')) {
+                    return error(p, "expected ,");
+                }
+                had_comma = true;
+
+            after_comma:
+                p = skip_whitespace(p + 1);
+                if (current_structure_type == TYPE_OBJECT && *p != '}') {
+                    if (*p != '"') {
+                        return error(p, "invalid object key");
                     }
                     p = parse_string(p, temp);
                     if (!p) {
@@ -672,6 +668,8 @@ namespace sajson {
                 }
 
                 p = skip_whitespace(p);
+
+            next_element:
                 switch (p ? *p : 0) {
                     type next_type;
                     size_t element;
@@ -734,12 +732,12 @@ namespace sajson {
                         next_type = TYPE_OBJECT;
                         goto push;
                     push: {
-                        ++p;
                         size_t* previous_base = current_base;
                         current_base = temp;
                         *temp++ = make_element(current_structure_type, previous_base - structure);
                         current_structure_type = next_type;
-                        continue;
+                        had_comma = false;
+                        goto after_comma;
                     }
 
                     case ']':
@@ -783,6 +781,7 @@ namespace sajson {
                 }
 
                 *temp++ = make_element(value_type_result, out - current_base - 1);
+                had_comma = false;
             }
 
         done:

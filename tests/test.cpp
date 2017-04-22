@@ -306,7 +306,7 @@ SUITE(commas) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL("unexpected comma", document.get_error_message());
+        CHECK_EQUAL("invalid object key", document.get_error_message());
     }
 
     TEST(trailing_comma_array) {
@@ -598,15 +598,15 @@ SUITE(errors) {
         const sajson::document& document = parse(literal("{0:0}"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
-        //CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL("object key must be quoted", document.get_error_message());
+        CHECK_EQUAL(2u, document.get_error_column());
+        CHECK_EQUAL("invalid object key", document.get_error_message());
     }
 
     TEST(objects_must_have_keys) {
         const sajson::document& document = parse(literal("{\"0\"}"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
-        //CHECK_EQUAL(3, document.get_error_column());
+        CHECK_EQUAL(5u, document.get_error_column());
         CHECK_EQUAL("expected :", document.get_error_message());
     }
 
@@ -638,8 +638,8 @@ SUITE(errors) {
         const sajson::document& document = parse(literal("{]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
-        //CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL("object key must be quoted", document.get_error_message());
+        CHECK_EQUAL(2u, document.get_error_column());
+        CHECK_EQUAL("invalid object key", document.get_error_message());
     }
 
 #define CHECK_PARSE_ERROR(text, error_message)                          \
