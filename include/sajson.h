@@ -548,24 +548,6 @@ namespace sajson {
             }
         };
 
-        struct parse_result {
-            parse_result(error_result)
-                : success(false)
-            {}
-
-            parse_result(type t)
-                : success(true)
-                , value_type(t)
-            {}
-
-            bool operator!() const {
-                return !success;
-            }
-
-            bool success;
-            type value_type;
-        };
-
         bool at_eof(const char* p) {
             return p == input_end;
         }
@@ -650,7 +632,7 @@ namespace sajson {
             size_t* current_base = temp;
             *temp++ = make_element(current_structure_type, ROOT_MARKER);
 
-            parse_result result = error_result();
+            type value_type_result;
             
             for (;;) {
                 const char closing_bracket = (current_structure_type == TYPE_OBJECT ? '}' : ']');
@@ -701,21 +683,21 @@ namespace sajson {
                         if (!p) {
                             return false;
                         }
-                        result = TYPE_NULL;
+                        value_type_result = TYPE_NULL;
                         break;
                     case 'f':
                         p = parse_false(p);
                         if (!p) {
                             return false;
                         }
-                        result = TYPE_FALSE;
+                        value_type_result = TYPE_FALSE;
                         break;
                     case 't':
                         p = parse_true(p);
                         if (!p) {
                             return false;
                         }
-                        result = TYPE_TRUE;
+                        value_type_result = TYPE_TRUE;
                         break;
                     case '0':
                     case '1':
@@ -727,16 +709,22 @@ namespace sajson {
                     case '7':
                     case '8':
                     case '9':
-                    case '-':
-                        result = parse_number(p);
+                    case '-': {
+                        auto result = parse_number(p);
+                        p = result.first;
+                        if (!p) {
+                            return false;
+                        }
+                        value_type_result = result.second;
                         break;
+                    }
                     case '"':
                         out -= 2;
                         p = parse_string(p, out);
                         if (!p) {
                             return false;
                         }
-                        result = TYPE_STRING;
+                        value_type_result = TYPE_STRING;
                         break;
 
                     case '[':
@@ -784,7 +772,7 @@ namespace sajson {
                         }
                         temp = current_base;
                         current_base = structure + parent;
-                        result = current_structure_type;
+                        value_type_result = current_structure_type;
                         current_structure_type = get_element_type(element);
                         break;
                     }
@@ -794,11 +782,7 @@ namespace sajson {
                         return error(p, "cannot parse unknown value");
                 }
 
-                if (!result) {
-                    return result.success;
-                }
-
-                *temp++ = make_element(result.value_type, out - current_base - 1);
+                *temp++ = make_element(value_type_result, out - current_base - 1);
             }
 
         done:
@@ -922,16 +906,14 @@ namespace sajson {
             return constants[exponent + 323];
         }
 
-        parse_result parse_number(char*& p_) {
-            char* p = p_;
+        std::pair<char*, type> parse_number(char* p) {
             bool negative = false;
             if ('-' == *p) {
                 ++p;
                 negative = true;
 
                 if (SAJSON_UNLIKELY(at_eof(p))) {
-                    p_ = p;
-                    return error(p, "unexpected end of input");
+                    return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
                 }
             }
 
@@ -949,8 +931,7 @@ namespace sajson {
                 
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
-                    p_ = p;
-                    return error(p, "unexpected end of input");
+                    return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
                 }
 
                 unsigned char digit = c - '0';
@@ -976,8 +957,7 @@ namespace sajson {
                 }
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
-                    p_ = p;
-                    return error(p, "unexpected end of input");
+                    return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
                 }
                 for (;;) {
                     char c = *p;
@@ -987,8 +967,7 @@ namespace sajson {
 
                     ++p;
                     if (SAJSON_UNLIKELY(at_eof(p))) {
-                        p_ = p;
-                        return error(p, "unexpected end of input");
+                        return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
                     }
                     d = d * 10 + (c - '0');
                     --exponent;
@@ -1003,8 +982,7 @@ namespace sajson {
                 }
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
-                    p_ = p;
-                    return error(p, "unexpected end of input");
+                    return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
                 }
 
                 bool negativeExponent = false;
@@ -1012,14 +990,12 @@ namespace sajson {
                     negativeExponent = true;
                     ++p;
                     if (SAJSON_UNLIKELY(at_eof(p))) {
-                        p_ = p;
-                        return error(p, "unexpected end of input");
+                        return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
                     }
                 } else if ('+' == *p) {
                     ++p;
                     if (SAJSON_UNLIKELY(at_eof(p))) {
-                        p_ = p;
-                        return error(p, "unexpected end of input");
+                        return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
                     }
                 }
 
@@ -1027,16 +1003,14 @@ namespace sajson {
 
                 char c = *p;
                 if (SAJSON_UNLIKELY(c < '0' || c > '9')) {
-                    p_ = p;
-                    return error(p, "missing exponent");
+                    return std::make_pair(error(p, "missing exponent"), TYPE_NULL);
                 }
                 for (;;) {
                     exp = 10 * exp + (c - '0');
 
                     ++p;
                     if (SAJSON_UNLIKELY(at_eof(p))) {
-                        p_ = p;
-                        return error(p, "unexpected end of input");
+                        return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
                     }
 
                     c = *p;
@@ -1062,15 +1036,13 @@ namespace sajson {
             if (try_double) {
                 out -= double_storage::word_length;
                 double_storage::store(out, d);
-                p_ = p;
-                return TYPE_DOUBLE;
+                return std::make_pair(p, TYPE_DOUBLE);
             } else {
                 integer_storage is;
                 is.i = i;
 
                 *--out = is.u;
-                p_ = p;
-                return TYPE_INTEGER;
+                return std::make_pair(p, TYPE_INTEGER);
             }
         }
 
