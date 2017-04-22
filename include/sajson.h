@@ -522,15 +522,15 @@ namespace sajson {
             : input(msv)
             , input_end(input.get_data() + input.length())
             , structure(structure)
+            , stacktop(structure + input.length())
             , root_type(TYPE_NULL)
-            , out(structure + input.length())
             , error_line(0)
             , error_column(0)
         {}
 
         document get_document() {
             if (parse()) {
-                return document(input, structure, root_type, out, 0, 0, std::string());
+                return document(input, structure, root_type, stacktop, 0, 0, std::string());
             } else {
                 delete[] structure;
                 return document(input, 0, TYPE_NULL, 0, error_line, error_column, error_message);
@@ -717,8 +717,8 @@ namespace sajson {
                         break;
                     }
                     case '"':
-                        out -= 2;
-                        p = parse_string(p, out);
+                        stacktop -= 2;
+                        p = parse_string(p, stacktop);
                         if (!p) {
                             return false;
                         }
@@ -780,7 +780,7 @@ namespace sajson {
                         return error(p, "cannot parse unknown value");
                 }
 
-                *writep++ = make_element(value_type_result, out - current_base - 1);
+                *writep++ = make_element(value_type_result, stacktop - current_base - 1);
                 had_comma = false;
             }
 
@@ -1033,26 +1033,26 @@ namespace sajson {
                 }
             }
             if (try_double) {
-                out -= double_storage::word_length;
-                double_storage::store(out, d);
+                stacktop -= double_storage::word_length;
+                double_storage::store(stacktop, d);
                 return std::make_pair(p, TYPE_DOUBLE);
             } else {
                 integer_storage is;
                 is.i = i;
 
-                *--out = is.u;
+                *--stacktop = is.u;
                 return std::make_pair(p, TYPE_INTEGER);
             }
         }
 
         void install_array(size_t* array_base, size_t* array_end) {
             const size_t length = array_end - array_base;
-            size_t* const new_base = out - length - 1;
+            size_t* const new_base = stacktop - length - 1;
             while (array_end > array_base) {
                 // I think this addition is legal because the tag bits are at the top?
-                *(--out) = *(--array_end) + (array_base - new_base);
+                *(--stacktop) = *(--array_end) + (array_base - new_base);
             }
-            *(--out) = length;
+            *(--stacktop) = length;
         }
 
         void install_object(size_t* object_base, size_t* object_end) {
@@ -1063,15 +1063,15 @@ namespace sajson {
                 oir + length,
                 object_key_comparator(input.get_data()));
 
-            size_t* const new_base = out - length * 3 - 1;
+            size_t* const new_base = stacktop - length * 3 - 1;
             size_t i = length;
             while (i--) {
                 // I think this addition is legal because the tag bits are at the top?
-                *(--out) = *(--object_end) + (object_base - new_base);
-                *(--out) = *(--object_end);
-                *(--out) = *(--object_end);
+                *(--stacktop) = *(--object_end) + (object_base - new_base);
+                *(--stacktop) = *(--object_end);
+                *(--stacktop) = *(--object_end);
             }
-            *(--out) = length;
+            *(--stacktop) = length;
         }
 
         char* parse_string(char* p, size_t* tag) {
@@ -1242,9 +1242,9 @@ namespace sajson {
         mutable_string_view input;
         char* const input_end;
         size_t* const structure;
+        size_t* stacktop;
 
         type root_type;
-        size_t* out;
         size_t error_line;
         size_t error_column;
         std::string error_message;

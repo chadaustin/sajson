@@ -1,4 +1,7 @@
 import os
+import multiprocessing
+
+SetOption('num_jobs', multiprocessing.cpu_count())
 
 def export(fn):
     Export({fn.__name__: fn})
