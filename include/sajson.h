@@ -522,7 +522,8 @@ namespace sajson {
             : input(msv)
             , input_end(input.get_data() + input.length())
             , structure(structure)
-            , stacktop(structure + input.length())
+            , structure_end(structure + input.length())
+            , stacktop(structure_end)
             , root_type(TYPE_NULL)
             , error_line(0)
             , error_column(0)
@@ -780,7 +781,7 @@ namespace sajson {
                         return error(p, "cannot parse unknown value");
                 }
 
-                *writep++ = make_element(value_type_result, stacktop - current_base - 1);
+                *writep++ = make_element(value_type_result, structure_end - stacktop);
                 had_comma = false;
             }
 
@@ -1049,8 +1050,12 @@ namespace sajson {
             const size_t length = array_end - array_base;
             size_t* const new_base = stacktop - length - 1;
             while (array_end > array_base) {
-                // I think this addition is legal because the tag bits are at the top?
-                *(--stacktop) = *(--array_end) + (array_base - new_base);
+                size_t element = *(--array_end);
+                type element_type = get_element_type(element);
+                size_t element_value = get_element_value(element);
+                size_t* element_ptr = structure_end - element_value;
+
+                *(--stacktop) = make_element(element_type, element_ptr - new_base);
             }
             *(--stacktop) = length;
         }
@@ -1066,8 +1071,12 @@ namespace sajson {
             size_t* const new_base = stacktop - length * 3 - 1;
             size_t i = length;
             while (i--) {
-                // I think this addition is legal because the tag bits are at the top?
-                *(--stacktop) = *(--object_end) + (object_base - new_base);
+                size_t element = (*--object_end);
+                type element_type = get_element_type(element);
+                size_t element_value = get_element_value(element);
+                size_t* element_ptr = structure_end - element_value;
+
+                *(--stacktop) = make_element(element_type, element_ptr - new_base);
                 *(--stacktop) = *(--object_end);
                 *(--stacktop) = *(--object_end);
             }
@@ -1242,6 +1251,7 @@ namespace sajson {
         mutable_string_view input;
         char* const input_end;
         size_t* const structure;
+        size_t* const structure_end;
         size_t* stacktop;
 
         type root_type;
