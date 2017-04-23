@@ -516,14 +516,88 @@ namespace sajson {
         const std::string error_message;
     };
 
+    class ownership {
+    public:
+        ownership() = delete;
+        ownership(const ownership&) = delete;
+        void operator=(const ownership&) = delete;
+
+        explicit ownership(size_t* p)
+            : p(p)
+        {}
+
+        ownership(ownership&& p)
+        : p(p.p) {
+            p.p = 0;
+        }
+        
+        ~ownership() {
+            delete[] p;
+        }
+
+    private:
+        size_t* p;
+    };
+
+    class single_allocation {
+    public:
+        single_allocation() = delete;
+        single_allocation(const single_allocation&) = delete;
+        void operator=(const single_allocation&) = delete;
+
+        single_allocation(size_t input_size)
+            : structure(new size_t[input_size])
+            , structure_end(structure + input_size)
+            , stacktop(structure_end)
+        {
+        }
+
+        ~single_allocation() {
+            delete[] structure;
+        }
+
+        size_t* get_stack_head() {
+            return structure;
+        }
+
+        size_t get_offset_of(size_t* p) {
+             return p - structure;
+        }
+
+        size_t* get_pointer_from_offset(size_t offset) {
+            return structure + offset;
+        }
+
+        size_t* reserve(size_t size) {
+            stacktop -= size;
+            return stacktop;
+        }
+
+        size_t* get_ast_root() {
+            return stacktop;
+        }
+
+        ownership transfer_ownership() {
+            auto p = structure;
+            structure = 0;
+            structure_end = 0;
+            stacktop = 0;
+            return ownership(p);
+        }
+
+    private:
+        size_t* structure;
+        size_t* structure_end;
+        size_t* stacktop;
+    };
+
+    template<typename AllocationStrategy>
     class parser {
     public:
-        parser(const mutable_string_view& msv, size_t* structure)
+        parser(const mutable_string_view& msv, AllocationStrategy& allocator)
             : input(msv)
             , input_end(input.get_data() + input.length())
-            , structure(structure)
-            , structure_end(structure + input.length())
-            , stacktop(structure_end)
+            , allocator(allocator)
             , root_type(TYPE_NULL)
             , error_line(0)
             , error_column(0)
@@ -531,10 +605,10 @@ namespace sajson {
 
         document get_document() {
             if (parse()) {
-                return document(input, structure, root_type, stacktop, 0, 0, std::string());
+                size_t* ast_root = allocator.get_ast_root();
+                return document(input, allocator.transfer_ownership(), root_type, ast_root, 0, 0, std::string());
             } else {
-                delete[] structure;
-                return document(input, 0, TYPE_NULL, 0, error_line, error_column, error_message);
+                return document(input, ownership(0), TYPE_NULL, 0, error_line, error_column, error_message);
             }
         }
 
@@ -613,8 +687,9 @@ namespace sajson {
         bool parse() {
             // p points to the character currently being parsed
             char* p = input.get_data();
-            // writep is the output pointer into the AST structure
-            size_t* writep = structure;
+
+            // writep is a temporary output pointer into the AST structure
+            auto writep = allocator.get_stack_head();
 
             p = skip_whitespace(p);
             if (p == 0) {
@@ -718,8 +793,7 @@ namespace sajson {
                         break;
                     }
                     case '"':
-                        stacktop -= 2;
-                        p = parse_string(p, stacktop);
+                        p = parse_string(p, allocator.reserve(2));
                         if (!p) {
                             return false;
                         }
@@ -735,7 +809,7 @@ namespace sajson {
                     push: {
                         size_t* previous_base = current_base;
                         current_base = writep;
-                        *writep++ = make_element(current_structure_type, previous_base - structure);
+                        *writep++ = make_element(current_structure_type, allocator.get_offset_of(previous_base));
                         current_structure_type = next_type;
                         had_comma = false;
                         goto after_comma;
@@ -770,7 +844,7 @@ namespace sajson {
                             goto done;
                         }
                         writep = current_base;
-                        current_base = structure + parent;
+                        current_base = allocator.get_pointer_from_offset(parent);
                         value_type_result = current_structure_type;
                         current_structure_type = get_element_type(element);
                         break;
@@ -780,6 +854,7 @@ namespace sajson {
                     default:
                         return error(p, "cannot parse unknown value");
                 }
+                
 
                 *writep++ = make_element(value_type_result, structure_end - stacktop);
                 had_comma = false;
@@ -1250,9 +1325,7 @@ namespace sajson {
 
         mutable_string_view input;
         char* const input_end;
-        size_t* const structure;
-        size_t* const structure_end;
-        size_t* stacktop;
+        AllocationStrategy& allocator;
 
         type root_type;
         size_t error_line;
@@ -1260,13 +1333,11 @@ namespace sajson {
         std::string error_message;
     };
 
-    template<typename StringType>
+    template<typename AllocationStrategy=single_allocation, typename StringType>
     document parse(const StringType& string) {
         mutable_string_view ms(string);
 
-        size_t length = string.length();
-        size_t* structure = new size_t[length];
-
-        return parser(ms, structure).get_document();
+        AllocationStrategy allocator(string.length());
+        return parser<AllocationStrategy>(ms, allocator).get_document();
     }
 }
