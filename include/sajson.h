@@ -1129,16 +1129,16 @@ namespace sajson {
         void install_array(size_t* array_base, size_t* array_end) {
             const size_t length = array_end - array_base;
             size_t* const new_base = allocator.reserve(length + 1);
-            size_t* base = new_base;
+            size_t* out = new_base + length + 1;
 
-            *base++ = length;
-            while (array_base < array_end) {
-                size_t element = *array_base++;
+            while (array_end > array_base) {
+                size_t element = *--array_end;
                 type element_type = get_element_type(element);
                 size_t element_value = get_element_value(element);
                 size_t* element_ptr = allocator.get_write_pointer_of(element_value);
-                *base++ = make_element(element_type, element_ptr - new_base);
+                *--out = make_element(element_type, element_ptr - new_base);
             }
+            *--out = length;
         }
 
         void install_object(size_t* object_base, size_t* object_end) {
@@ -1150,20 +1150,20 @@ namespace sajson {
                 object_key_comparator(input.get_data()));
 
             size_t* const new_base = allocator.reserve(length * 3 + 1);
-            size_t* base = new_base;
+            size_t* out = new_base + length * 3 + 1;
 
-            *base++ = length;
             size_t i = length;
             while (i--) {
-                size_t element = *object_base++;
+                size_t element = *--object_end;
                 type element_type = get_element_type(element);
                 size_t element_value = get_element_value(element);
                 size_t* element_ptr = allocator.get_write_pointer_of(element_value);
                 
-                *base++ = *object_base++;
-                *base++ = *object_base++;
-                *base++ = make_element(element_type, element_ptr - new_base);
+                *--out = make_element(element_type, element_ptr - new_base);
+                *--out = *--object_end;
+                *--out = *--object_end;
             }
+            *--out = length;
         }
 
         char* parse_string(char* p, size_t* tag) {
