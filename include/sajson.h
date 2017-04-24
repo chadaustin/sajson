@@ -1127,11 +1127,11 @@ namespace sajson {
             }
         }
 
-        __attribute__((noinline)) void install_array(size_t* array_base, size_t* array_end) {
+        void install_array(size_t* array_base, size_t* array_end) {
             const size_t length = array_end - array_base;
             size_t* const new_base = allocator.reserve(length + 1);
             size_t* out = new_base + length + 1;
-            size_t* structure_end = allocator.get_write_pointer_of(0);
+            size_t* const structure_end = allocator.get_write_pointer_of(0);
 
             while (array_end > array_base) {
                 size_t element = *--array_end;
@@ -1143,7 +1143,7 @@ namespace sajson {
             *--out = length;
         }
 
-        __attribute__((noinline)) void install_object(size_t* object_base, size_t* object_end) {
+        void install_object(size_t* object_base, size_t* object_end) {
             const size_t length = (object_end - object_base) / 3;
             object_key_record* oir = reinterpret_cast<object_key_record*>(object_base);
             std::sort(
@@ -1153,13 +1153,13 @@ namespace sajson {
 
             size_t* const new_base = allocator.reserve(length * 3 + 1);
             size_t* out = new_base + length * 3 + 1;
+            size_t* const structure_end = allocator.get_write_pointer_of(0);
 
-            size_t i = length;
-            while (i--) {
+            while (object_end > object_base) {
                 size_t element = *--object_end;
                 type element_type = get_element_type(element);
                 size_t element_value = get_element_value(element);
-                size_t* element_ptr = allocator.get_write_pointer_of(element_value);
+                size_t* element_ptr = structure_end - element_value;
                 
                 *--out = make_element(element_type, element_ptr - new_base);
                 *--out = *--object_end;
