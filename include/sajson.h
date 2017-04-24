@@ -451,69 +451,6 @@ namespace sajson {
         const type value_type;
         const size_t* const payload;
         const char* const text;
-
-    };
-
-    class document {
-    public:
-        explicit document(mutable_string_view& input, const size_t* structure, type root_type, const size_t* root, size_t error_line, size_t error_column, const std::string& error_message)
-            : input(input)
-            , structure(structure)
-            , root_type(root_type)
-            , root(root)
-            , error_line(error_line)
-            , error_column(error_column)
-            , error_message(error_message)
-        {}
-
-        document(const document&) = delete;
-        void operator=(const document&) = delete;
-
-        document(document&& rhs)
-            : input(rhs.input)
-            , structure(rhs.structure)
-            , root_type(rhs.root_type)
-            , root(rhs.root)
-            , error_line(rhs.error_line)
-            , error_column(rhs.error_column)
-            , error_message(rhs.error_message)
-        {
-            rhs.structure = 0;
-            // should rhs's fields be zeroed too?
-        }
-
-        ~document() {
-            delete[] structure;
-        }
-
-        bool is_valid() const {
-            return !!structure;
-        }
-
-        value get_root() const {
-            return value(root_type, root, input.get_data());
-        }
-
-        size_t get_error_line() const {
-            return error_line;
-        }
-
-        size_t get_error_column() const {
-            return error_column;
-        }
-
-        std::string get_error_message() const {
-            return error_message;
-        }
-
-    private:
-        mutable_string_view input;
-        const size_t* structure;
-        const type root_type;
-        const size_t* const root;
-        const size_t error_line;
-        const size_t error_column;
-        const std::string error_message;
     };
 
     class ownership {
@@ -535,8 +472,69 @@ namespace sajson {
             delete[] p;
         }
 
+        bool is_valid() const {
+            return !!p;
+        }
+
     private:
         size_t* p;
+    };
+
+    class document {
+    public:
+        explicit document(mutable_string_view& input, ownership&& structure, type root_type, const size_t* root, size_t error_line, size_t error_column, const std::string& error_message)
+            : input(input)
+            , structure(std::move(structure))
+            , root_type(root_type)
+            , root(root)
+            , error_line(error_line)
+            , error_column(error_column)
+            , error_message(error_message)
+        {}
+
+        document(const document&) = delete;
+        void operator=(const document&) = delete;
+
+        document(document&& rhs)
+            : input(rhs.input)
+            , structure(std::move(rhs.structure))
+            , root_type(rhs.root_type)
+            , root(rhs.root)
+            , error_line(rhs.error_line)
+            , error_column(rhs.error_column)
+            , error_message(rhs.error_message)
+        {
+            // should rhs's fields be zeroed too?
+        }
+
+        bool is_valid() const {
+            return structure.is_valid();
+        }
+
+        value get_root() const {
+            return value(root_type, root, input.get_data());
+        }
+
+        size_t get_error_line() const {
+            return error_line;
+        }
+
+        size_t get_error_column() const {
+            return error_column;
+        }
+
+        std::string get_error_message() const {
+            return error_message;
+        }
+
+    private:
+        mutable_string_view input;
+        ownership structure;
+        const type root_type;
+        const size_t* const root;
+        const size_t error_line;
+        const size_t error_column;
+        const std::string error_message;
     };
 
     class single_allocation {
@@ -562,6 +560,14 @@ namespace sajson {
 
         size_t get_offset_of(size_t* p) {
              return p - structure;
+        }
+
+        size_t get_write_offset() {
+            return structure_end - stacktop;
+        }
+
+        size_t* get_write_pointer_of(size_t v) {
+            return structure_end - v;
         }
 
         size_t* get_pointer_from_offset(size_t offset) {
@@ -856,7 +862,7 @@ namespace sajson {
                 }
                 
 
-                *writep++ = make_element(value_type_result, structure_end - stacktop);
+                *writep++ = make_element(value_type_result, allocator.get_write_offset());
                 had_comma = false;
             }
 
@@ -1109,30 +1115,30 @@ namespace sajson {
                 }
             }
             if (try_double) {
-                stacktop -= double_storage::word_length;
-                double_storage::store(stacktop, d);
+                double_storage::store(allocator.reserve(double_storage::word_length), d);
                 return std::make_pair(p, TYPE_DOUBLE);
             } else {
                 integer_storage is;
                 is.i = i;
 
-                *--stacktop = is.u;
+                *allocator.reserve(1) = is.u;
                 return std::make_pair(p, TYPE_INTEGER);
             }
         }
 
         void install_array(size_t* array_base, size_t* array_end) {
             const size_t length = array_end - array_base;
-            size_t* const new_base = stacktop - length - 1;
-            while (array_end > array_base) {
-                size_t element = *(--array_end);
+            size_t* const new_base = allocator.reserve(length + 1);
+            size_t* base = new_base;
+
+            *base++ = length;
+            while (array_base < array_end) {
+                size_t element = *array_base++;
                 type element_type = get_element_type(element);
                 size_t element_value = get_element_value(element);
-                size_t* element_ptr = structure_end - element_value;
-
-                *(--stacktop) = make_element(element_type, element_ptr - new_base);
+                size_t* element_ptr = allocator.get_write_pointer_of(element_value);
+                *base++ = make_element(element_type, element_ptr - new_base);
             }
-            *(--stacktop) = length;
         }
 
         void install_object(size_t* object_base, size_t* object_end) {
@@ -1143,19 +1149,21 @@ namespace sajson {
                 oir + length,
                 object_key_comparator(input.get_data()));
 
-            size_t* const new_base = stacktop - length * 3 - 1;
+            size_t* const new_base = allocator.reserve(length * 3 + 1);
+            size_t* base = new_base;
+
+            *base++ = length;
             size_t i = length;
             while (i--) {
-                size_t element = (*--object_end);
+                size_t element = *object_base++;
                 type element_type = get_element_type(element);
                 size_t element_value = get_element_value(element);
-                size_t* element_ptr = structure_end - element_value;
-
-                *(--stacktop) = make_element(element_type, element_ptr - new_base);
-                *(--stacktop) = *(--object_end);
-                *(--stacktop) = *(--object_end);
+                size_t* element_ptr = allocator.get_write_pointer_of(element_value);
+                
+                *base++ = *object_base++;
+                *base++ = *object_base++;
+                *base++ = make_element(element_type, element_ptr - new_base);
             }
-            *(--stacktop) = length;
         }
 
         char* parse_string(char* p, size_t* tag) {
