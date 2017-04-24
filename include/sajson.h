@@ -540,6 +540,55 @@ namespace sajson {
 
     class single_allocation {
     public:
+        class stack_head {
+        public:
+            stack_head(stack_head&& other)
+                : stack_bottom(other.stack_bottom)
+                , stack_top(other.stack_top)
+            {}
+
+            void push(size_t element) {
+                *stack_top++ = element;
+            }
+
+            size_t* reserve(size_t amount) {
+                size_t* rv = stack_top;
+                stack_top += amount;
+                return rv;
+            }
+
+            void reset(size_t* new_top) {
+                stack_top = new_top;
+            }
+
+            size_t* get_top() {
+                return stack_top;
+            }
+
+            size_t get_offset_of(size_t* p) {
+                return p - stack_bottom;
+            }
+
+            size_t* get_pointer_from_offset(size_t offset) {
+                return stack_bottom + offset;
+            }
+
+        private:
+            stack_head() = delete;
+            stack_head(const stack_head&) = delete;
+            void operator=(const stack_head&) = delete;
+
+            explicit stack_head(size_t* base)
+                : stack_bottom(base)
+                , stack_top(base)
+            {}
+
+            size_t* const stack_bottom;
+            size_t* stack_top;
+
+            friend class single_allocation;
+        };
+
         single_allocation() = delete;
         single_allocation(const single_allocation&) = delete;
         void operator=(const single_allocation&) = delete;
@@ -548,19 +597,24 @@ namespace sajson {
             : structure(new size_t[input_size])
             , structure_end(structure + input_size)
             , stacktop(structure_end)
+        {}
+
+        single_allocation(single_allocation&& other)
+            : structure(other.structure)
+            , structure_end(other.structure_end)
+            , stacktop(other.stacktop)
         {
+            other.structure = 0;
+            other.structure_end = 0;
+            other.stacktop = 0;
         }
 
         ~single_allocation() {
             delete[] structure;
         }
 
-        size_t* get_stack_head() {
-            return structure;
-        }
-
-        size_t get_offset_of(size_t* p) {
-             return p - structure;
+        stack_head get_stack_head() {
+            return stack_head(structure);
         }
 
         size_t get_write_offset() {
@@ -569,10 +623,6 @@ namespace sajson {
 
         size_t* get_write_pointer_of(size_t v) {
             return structure_end - v;
-        }
-
-        size_t* get_pointer_from_offset(size_t offset) {
-            return structure + offset;
         }
 
         size_t* reserve(size_t size) {
@@ -601,10 +651,10 @@ namespace sajson {
     template<typename AllocationStrategy>
     class parser {
     public:
-        parser(const mutable_string_view& msv, AllocationStrategy& allocator)
+        parser(const mutable_string_view& msv, AllocationStrategy&& allocator)
             : input(msv)
             , input_end(input.get_data() + input.length())
-            , allocator(allocator)
+            , allocator(std::move(allocator))
             , root_type(TYPE_NULL)
             , error_line(0)
             , error_column(0)
@@ -678,7 +728,6 @@ namespace sajson {
                 }
                 ++c;
             }
-
             
             char buf[1024];
             buf[1023] = 0;
@@ -695,8 +744,7 @@ namespace sajson {
             // p points to the character currently being parsed
             char* p = input.get_data();
 
-            // writep is a temporary output pointer into the AST structure
-            auto writep = allocator.get_stack_head();
+            typename AllocationStrategy::stack_head stack(allocator.get_stack_head());
 
             p = skip_whitespace(p);
             if (p == 0) {
@@ -704,7 +752,7 @@ namespace sajson {
             }
 
             // current_base is a pointer to the first element of the current structure (object or array)
-            size_t* current_base = writep;
+            size_t* current_base = stack.get_top();
             type current_structure_type;
             if (*p == '[') {
                 current_structure_type = TYPE_ARRAY;
@@ -714,7 +762,7 @@ namespace sajson {
                 return error(p, "document root must be object or array");
             }
 
-            *writep++ = make_element(current_structure_type, ROOT_MARKER);
+            stack.push(make_element(current_structure_type, ROOT_MARKER));
 
             bool had_comma = false;
             goto after_comma;
@@ -739,7 +787,7 @@ namespace sajson {
                     if (*p != '"') {
                         return error(p, "invalid object key");
                     }
-                    p = parse_string(p, writep);
+                    p = parse_string(p, stack.reserve(2));
                     if (!p) {
                         return false;
                     }
@@ -748,7 +796,6 @@ namespace sajson {
                         return error(p, "expected :");
                     }
 				    p = skip_whitespace(p + 1);
-                    writep += 2;
                 }
 
             next_element:
@@ -815,8 +862,8 @@ namespace sajson {
                         goto push;
                     push: {
                         size_t* previous_base = current_base;
-                        current_base = writep;
-                        *writep++ = make_element(current_structure_type, allocator.get_offset_of(previous_base));
+                        current_base = stack.get_top();
+                        stack.push(make_element(current_structure_type, stack.get_offset_of(previous_base)));
                         current_structure_type = next_type;
                         had_comma = false;
                         goto after_comma;
@@ -831,7 +878,7 @@ namespace sajson {
                         }
                         ++p;
                         element = *current_base;
-                        install_array(current_base + 1, writep);
+                        install_array(current_base + 1, stack.get_top());
                         goto pop;
                     case '}':
                         if (SAJSON_UNLIKELY(current_structure_type != TYPE_OBJECT)) {
@@ -842,7 +889,7 @@ namespace sajson {
                         }
                         ++p;
                         element = *current_base;
-                        install_object(current_base + 1, writep);
+                        install_object(current_base + 1, stack.get_top());
                         goto pop;
                     pop: {
                         size_t parent = get_element_value(element);
@@ -850,8 +897,8 @@ namespace sajson {
                             root_type = current_structure_type;
                             goto done;
                         }
-                        writep = current_base;
-                        current_base = allocator.get_pointer_from_offset(parent);
+                        stack.reset(current_base);
+                        current_base = stack.get_pointer_from_offset(parent);
                         value_type_result = current_structure_type;
                         current_structure_type = get_element_type(element);
                         break;
@@ -862,8 +909,7 @@ namespace sajson {
                         return error(p, "cannot parse unknown value");
                 }
                 
-
-                *writep++ = make_element(value_type_result, allocator.get_write_offset());
+                stack.push(make_element(value_type_result, allocator.get_write_offset()));
                 had_comma = false;
             }
 
@@ -1335,7 +1381,7 @@ namespace sajson {
 
         mutable_string_view input;
         char* const input_end;
-        AllocationStrategy& allocator;
+        AllocationStrategy allocator;
 
         type root_type;
         size_t error_line;
@@ -1348,6 +1394,6 @@ namespace sajson {
         mutable_string_view ms(string);
 
         AllocationStrategy allocator(string.length());
-        return parser<AllocationStrategy>(ms, allocator).get_document();
+        return parser<AllocationStrategy>(ms, std::move(allocator)).get_document();
     }
 }
