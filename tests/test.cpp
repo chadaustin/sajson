@@ -610,6 +610,22 @@ SUITE(errors) {
         CHECK_EQUAL("expected :", document.get_error_message());
     }
 
+    TEST(too_many_commas) {
+        const sajson::document& document = parse(literal("[1,,2]"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(4u, document.get_error_column());
+        CHECK_EQUAL("unexpected comma", document.get_error_message());
+    }
+
+    TEST(object_missing_value) {
+        const sajson::document& document = parse(literal("{\"x\":}"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(6u, document.get_error_column());
+        CHECK_EQUAL("expected value", document.get_error_message());
+    }
+
     TEST(invalid_true_literal) {
         const sajson::document& document = parse(literal("[truf"));
         CHECK_EQUAL(false, document.is_valid());
@@ -631,7 +647,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         //CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL("expected ]", document.get_error_message());
+        CHECK_EQUAL("expected value", document.get_error_message());
     }
 
     TEST(must_close_object_with_curly_brace) {

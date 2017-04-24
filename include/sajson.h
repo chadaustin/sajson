@@ -643,7 +643,7 @@ namespace sajson {
                 }
 
                 if (*p == (current_structure_type == TYPE_OBJECT ? '}' : ']')) {
-                    goto next_element;
+                    goto check_pop;
                 }
                 if (SAJSON_UNLIKELY(*p != ',')) {
                     return error(p, "expected ,");
@@ -652,27 +652,51 @@ namespace sajson {
 
             after_comma:
                 p = skip_whitespace(p + 1);
-                if (current_structure_type == TYPE_OBJECT && *p != '}') {
-                    if (*p != '"') {
-                        return error(p, "invalid object key");
+                if (SAJSON_UNLIKELY(!p)) {
+                    return error(p, "unexpected end of input 1");
+                }
+            check_pop:
+                size_t pop_element; // used as an argument into the `pop` routine
+                if (TYPE_OBJECT == current_structure_type) {
+                    if (*p == '}') {
+                        if (had_comma) {
+                            return error(p, "trailing commas not allowed");
+                        }
+                        ++p;
+                        pop_element = *current_base;
+                        install_object(current_base + 1, writep);
+                        goto pop;
+                    } else {
+                        if (*p != '"') {
+                            return error(p, "invalid object key");
+                        }
+                        p = parse_string(p, writep);
+                        if (!p) {
+                            return false;
+                        }
+                        p = skip_whitespace(p);
+                        if (!p || *p != ':') {
+                            return error(p, "expected :");
+                        }
+                        p = skip_whitespace(p + 1);
+                        writep += 2;
                     }
-                    p = parse_string(p, writep);
-                    if (!p) {
-                        return false;
+                } else {
+                    assert(TYPE_ARRAY == current_structure_type);
+                    if (*p == ']') {
+                        if (had_comma) {
+                            return error(p, "trailing commas not allowed");
+                        }
+                        ++p;
+                        pop_element = *current_base;
+                        install_array(current_base + 1, writep);
+                        goto pop;
                     }
-                    p = skip_whitespace(p);
-                    if (!p || *p != ':') {
-                        return error(p, "expected :");
-                    }
-				    p = skip_whitespace(p + 1);
-                    writep += 2;
                 }
 
-            next_element:
                 type value_type_result;
                 switch (p ? *p : 0) {
                     type next_type;
-                    size_t element;
 
                     case 0:
                         return error(p, "unexpected end of input");
@@ -740,30 +764,8 @@ namespace sajson {
                         goto after_comma;
                     }
 
-                    case ']':
-                        if (SAJSON_UNLIKELY(current_structure_type != TYPE_ARRAY)) {
-                            return error(p, "expected }");
-                        }
-                        if (had_comma) {
-                            return error(p, "trailing commas not allowed");
-                        }
-                        ++p;
-                        element = *current_base;
-                        install_array(current_base + 1, writep);
-                        goto pop;
-                    case '}':
-                        if (SAJSON_UNLIKELY(current_structure_type != TYPE_OBJECT)) {
-                            return error(p, "expected ]");
-                        }
-                        if (had_comma) {
-                            return error(p, "trailing commas not allowed");
-                        }
-                        ++p;
-                        element = *current_base;
-                        install_object(current_base + 1, writep);
-                        goto pop;
                     pop: {
-                        size_t parent = get_element_value(element);
+                        size_t parent = get_element_value(pop_element);
                         if (parent == ROOT_MARKER) {
                             root_type = current_structure_type;
                             goto done;
@@ -771,13 +773,13 @@ namespace sajson {
                         writep = current_base;
                         current_base = structure + parent;
                         value_type_result = current_structure_type;
-                        current_structure_type = get_element_type(element);
+                        current_structure_type = get_element_type(pop_element);
                         break;
                     }
                     case ',':
                         return error(p, "unexpected comma");
                     default:
-                        return error(p, "cannot parse unknown value");
+                        return error(p, "expected value");
                 }
 
                 *writep++ = make_element(value_type_result, stacktop - current_base - 1);
