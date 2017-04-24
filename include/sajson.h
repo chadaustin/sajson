@@ -125,17 +125,18 @@ namespace sajson {
     static const size_t ROOT_MARKER = size_t(-1) & VALUE_MASK;
 
     inline type get_element_type(size_t s) {
-        return static_cast<type>((s >> TYPE_SHIFT) & TYPE_MASK);
+        return static_cast<type>(s & TYPE_MASK);
     }
 
     inline size_t get_element_value(size_t s) {
-        return s & VALUE_MASK;
+        return s >> TYPE_BITS;
     }
 
     inline size_t make_element(type t, size_t value) {
         //assert(value & VALUE_MASK == 0);
         //value &= VALUE_MASK;
-        return value | (static_cast<size_t>(t) << TYPE_SHIFT);
+        //return value | (static_cast<size_t>(t) << TYPE_SHIFT);
+        return static_cast<size_t>(t) | (value << TYPE_BITS);
     }
 
     class string {
@@ -1126,22 +1127,23 @@ namespace sajson {
             }
         }
 
-        void install_array(size_t* array_base, size_t* array_end) {
+        __attribute__((noinline)) void install_array(size_t* array_base, size_t* array_end) {
             const size_t length = array_end - array_base;
             size_t* const new_base = allocator.reserve(length + 1);
             size_t* out = new_base + length + 1;
+            size_t* structure_end = allocator.get_write_pointer_of(0);
 
             while (array_end > array_base) {
                 size_t element = *--array_end;
                 type element_type = get_element_type(element);
                 size_t element_value = get_element_value(element);
-                size_t* element_ptr = allocator.get_write_pointer_of(element_value);
+                size_t* element_ptr = structure_end - element_value;
                 *--out = make_element(element_type, element_ptr - new_base);
             }
             *--out = length;
         }
 
-        void install_object(size_t* object_base, size_t* object_end) {
+        __attribute__((noinline)) void install_object(size_t* object_base, size_t* object_end) {
             const size_t length = (object_end - object_base) / 3;
             object_key_record* oir = reinterpret_cast<object_key_record*>(object_base);
             std::sort(
