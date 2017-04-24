@@ -4,7 +4,12 @@ using namespace sajson;
 
 inline bool success(const document& doc) {
     if (!doc.is_valid()) {
-        fprintf(stderr, "%s\n", doc.get_error_message().c_str());
+        fprintf(
+            stderr,
+            "parse failed at %i, %i: %s\n",
+            static_cast<int>(doc.get_error_line()),
+            static_cast<int>(doc.get_error_column()),
+            doc.get_error_message().c_str());
         return false;
     }
     return true;
