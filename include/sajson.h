@@ -298,11 +298,20 @@ namespace sajson {
     };
 
     union integer_storage {
+        enum {
+            word_length = 1
+        };
+
+        static void store(size_t* location, int value) {
+            integer_storage is;
+            is.i = value;
+            *location = is.u;
+        }
+
         int i;
         size_t u;
     };
-    // TODO: reinstate with c++03 implementation
-    //static_assert(sizeof(integer_storage) == sizeof(size_t), "integer_storage must have same size as one structure slot");
+    static_assert(sizeof(integer_storage) == sizeof(size_t), "integer_storage must have same size as one structure slot");
 
     union double_storage {
         enum {
@@ -547,10 +556,16 @@ namespace sajson {
                 , stack_top(other.stack_top)
             {}
 
+            bool has_allocation_error() {
+                return false;
+            }
+
+            // check has_allocation_error() immediately after calling
             void push(size_t element) {
                 *stack_top++ = element;
             }
 
+            // check has_allocation_error() immediately after calling
             size_t* reserve(size_t amount) {
                 size_t* rv = stack_top;
                 stack_top += amount;
@@ -625,6 +640,11 @@ namespace sajson {
             return structure_end - v;
         }
 
+        bool has_allocation_error() {
+            return false;
+        }
+
+        // check has_allocation_error immediately after calling
         size_t* reserve(size_t size) {
             stacktop -= size;
             return stacktop;
@@ -700,6 +720,10 @@ namespace sajson {
             }
         }
 
+        error_result oom(char* p) {
+            return error(p, "out of memory");
+        }
+
         error_result error(char* p, const char* format, ...) {
             if (!p) {
                 p = input_end;
@@ -763,6 +787,9 @@ namespace sajson {
             }
 
             stack.push(make_element(current_structure_type, ROOT_MARKER));
+            if (stack.has_allocation_error()) {
+                return oom(p);
+            }
 
             bool had_comma = false;
             goto after_comma;
@@ -787,7 +814,11 @@ namespace sajson {
                     if (*p != '"') {
                         return error(p, "invalid object key");
                     }
-                    p = parse_string(p, stack.reserve(2));
+                    size_t* out = stack.reserve(2);
+                    if (stack.has_allocation_error()) {
+                        return oom(p);
+                    }
+                    p = parse_string(p, out);
                     if (!p) {
                         return false;
                     }
@@ -846,13 +877,18 @@ namespace sajson {
                         value_type_result = result.second;
                         break;
                     }
-                    case '"':
-                        p = parse_string(p, allocator.reserve(2));
+                    case '"': {
+                        size_t* string_tag = allocator.reserve(2);
+                        if (allocator.has_allocation_error()) {
+                            return oom(p);
+                        }
+                        p = parse_string(p, string_tag);
                         if (!p) {
                             return false;
                         }
                         value_type_result = TYPE_STRING;
                         break;
+                    }
 
                     case '[':
                         next_type = TYPE_ARRAY;
@@ -864,6 +900,9 @@ namespace sajson {
                         size_t* previous_base = current_base;
                         current_base = stack.get_top();
                         stack.push(make_element(current_structure_type, stack.get_offset_of(previous_base)));
+                        if (stack.has_allocation_error()) {
+                            return oom(p);
+                        }
                         current_structure_type = next_type;
                         had_comma = false;
                         goto after_comma;
@@ -878,7 +917,9 @@ namespace sajson {
                         }
                         ++p;
                         element = *current_base;
-                        install_array(current_base + 1, stack.get_top());
+                        if (!install_array(current_base + 1, stack.get_top())) {
+                            return oom(p);
+                        }
                         goto pop;
                     case '}':
                         if (SAJSON_UNLIKELY(current_structure_type != TYPE_OBJECT)) {
@@ -889,7 +930,9 @@ namespace sajson {
                         }
                         ++p;
                         element = *current_base;
-                        install_object(current_base + 1, stack.get_top());
+                        if (!install_object(current_base + 1, stack.get_top())) {
+                            return oom(p);
+                        }
                         goto pop;
                     pop: {
                         size_t parent = get_element_value(element);
@@ -910,6 +953,9 @@ namespace sajson {
                 }
                 
                 stack.push(make_element(value_type_result, allocator.get_write_offset()));
+                if (stack.has_allocation_error()) {
+                    return oom(p);
+                }
                 had_comma = false;
             }
 
@@ -1162,20 +1208,28 @@ namespace sajson {
                 }
             }
             if (try_double) {
-                double_storage::store(allocator.reserve(double_storage::word_length), d);
+                size_t* out = allocator.reserve(double_storage::word_length);
+                if (allocator.has_allocation_error()) {
+                    return std::make_pair(oom(p), TYPE_NULL);
+                }
+                double_storage::store(out, d);
                 return std::make_pair(p, TYPE_DOUBLE);
             } else {
-                integer_storage is;
-                is.i = i;
-
-                *allocator.reserve(1) = is.u;
+                size_t* out = allocator.reserve(integer_storage::word_length);
+                if (allocator.has_allocation_error()) {
+                    return std::make_pair(oom(p), TYPE_NULL);
+                }
+                integer_storage::store(out, i);
                 return std::make_pair(p, TYPE_INTEGER);
             }
         }
 
-        void install_array(size_t* array_base, size_t* array_end) {
+        bool install_array(size_t* array_base, size_t* array_end) {
             const size_t length = array_end - array_base;
             size_t* const new_base = allocator.reserve(length + 1);
+            if (allocator.has_allocation_error()) {
+                return false;
+            }
             size_t* out = new_base + length + 1;
             size_t* const structure_end = allocator.get_write_pointer_of(0);
 
@@ -1187,9 +1241,10 @@ namespace sajson {
                 *--out = make_element(element_type, element_ptr - new_base);
             }
             *--out = length;
+            return true;
         }
 
-        void install_object(size_t* object_base, size_t* object_end) {
+        bool install_object(size_t* object_base, size_t* object_end) {
             const size_t length = (object_end - object_base) / 3;
             object_key_record* oir = reinterpret_cast<object_key_record*>(object_base);
             std::sort(
@@ -1198,6 +1253,9 @@ namespace sajson {
                 object_key_comparator(input.get_data()));
 
             size_t* const new_base = allocator.reserve(length * 3 + 1);
+            if (allocator.has_allocation_error()) {
+                return false;
+            }
             size_t* out = new_base + length * 3 + 1;
             size_t* const structure_end = allocator.get_write_pointer_of(0);
 
@@ -1212,6 +1270,7 @@ namespace sajson {
                 *--out = *--object_end;
             }
             *--out = length;
+            return true;
         }
 
         char* parse_string(char* p, size_t* tag) {
