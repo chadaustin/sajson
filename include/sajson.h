@@ -584,10 +584,6 @@ namespace sajson {
                 return stack_top;
             }
 
-            size_t get_offset_of(size_t* p) {
-                return p - stack_bottom;
-            }
-
             size_t* get_pointer_from_offset(size_t offset) {
                 return stack_bottom + offset;
             }
