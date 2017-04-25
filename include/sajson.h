@@ -608,20 +608,20 @@ namespace sajson {
         single_allocation(const single_allocation&) = delete;
         void operator=(const single_allocation&) = delete;
 
-        single_allocation(size_t input_size)
+        explicit single_allocation(size_t input_size)
             : structure(new size_t[input_size])
             , structure_end(structure + input_size)
-            , stacktop(structure_end)
+            , write_cursor(structure_end)
         {}
 
         single_allocation(single_allocation&& other)
             : structure(other.structure)
             , structure_end(other.structure_end)
-            , stacktop(other.stacktop)
+            , write_cursor(other.write_cursor)
         {
             other.structure = 0;
             other.structure_end = 0;
-            other.stacktop = 0;
+            other.write_cursor = 0;
         }
 
         ~single_allocation() {
@@ -633,7 +633,7 @@ namespace sajson {
         }
 
         size_t get_write_offset() {
-            return structure_end - stacktop;
+            return structure_end - write_cursor;
         }
 
         size_t* get_write_pointer_of(size_t v) {
@@ -646,26 +646,230 @@ namespace sajson {
 
         // check has_allocation_error immediately after calling
         size_t* reserve(size_t size) {
-            stacktop -= size;
-            return stacktop;
+            write_cursor -= size;
+            return write_cursor;
         }
 
         size_t* get_ast_root() {
-            return stacktop;
+            return write_cursor;
         }
 
         ownership transfer_ownership() {
             auto p = structure;
             structure = 0;
             structure_end = 0;
-            stacktop = 0;
+            write_cursor = 0;
             return ownership(p);
         }
 
     private:
         size_t* structure;
         size_t* structure_end;
-        size_t* stacktop;
+        size_t* write_cursor;
+    };
+
+    class dynamic_allocation {
+    public:
+        class stack_head {
+        public:
+            stack_head(stack_head&& other)
+                : stack_top(other.stack_top)
+                , stack_bottom(other.stack_bottom)
+                , stack_limit(other.stack_limit)
+            {
+                other.stack_top = 0;
+                other.stack_bottom = 0;
+                other.stack_limit = 0;
+            }
+
+            ~stack_head() {
+                delete[] stack_bottom;
+            }
+
+            bool has_allocation_error() {
+                return !stack_bottom;
+            }
+
+            // check has_allocation_error() immediately after calling
+            void push(size_t element) {
+                if (can_grow(1)) {
+                    *stack_top++ = element;
+                }
+            }
+
+            // check has_allocation_error() immediately after calling
+            size_t* reserve(size_t amount) {
+                if (can_grow(amount)) {
+                    size_t* rv = stack_top;
+                    stack_top += amount;
+                    return rv;
+                } else {
+                    return 0;
+                }
+            }
+
+            void reset(size_t new_top) {
+                stack_top = stack_bottom + new_top;
+            }
+
+            size_t get_size() {
+                return stack_top - stack_bottom;
+            }
+
+            size_t* get_top() {
+                return stack_top;
+            }
+
+            size_t* get_pointer_from_offset(size_t offset) {
+                return stack_bottom + offset;
+            }
+
+        private:
+            stack_head(const stack_head&) = delete;
+            void operator=(const stack_head&) = delete;
+
+            explicit stack_head()
+            {
+                // TODO: what's a good default?
+                size_t capacity = 64;
+                stack_bottom = new(std::nothrow) size_t[capacity];
+                stack_top = stack_bottom;
+                if (stack_bottom) {
+                    stack_limit = stack_bottom + capacity;
+                } else {
+                    stack_limit = 0;
+                }
+            }
+
+            bool can_grow(size_t amount) {
+                if (SAJSON_LIKELY(amount <= static_cast<size_t>(stack_limit - stack_top))) {
+                    return true;
+                }
+
+                size_t current_size = stack_top - stack_bottom;
+                size_t old_capacity = stack_limit - stack_bottom;
+                size_t new_capacity = old_capacity * 2;
+                size_t* new_stack = new(std::nothrow) size_t[new_capacity];
+                if (!new_stack) {
+                    stack_top = 0;
+                    stack_bottom = 0;
+                    stack_limit = 0;
+                    return false;
+                }
+
+                memcpy(new_stack, stack_bottom, current_size * sizeof(size_t));
+                stack_top = new_stack + current_size;
+                stack_bottom = new_stack;
+                stack_limit = stack_bottom + new_capacity;
+                return true;
+            }
+
+            size_t* stack_top; // stack grows up: stack_top >= stack_bottom
+            size_t* stack_bottom;
+            size_t* stack_limit;
+
+            friend class dynamic_allocation;
+        };
+
+        dynamic_allocation() = delete;
+        dynamic_allocation(const dynamic_allocation&) = delete;
+        void operator=(const dynamic_allocation&) = delete;
+
+        explicit dynamic_allocation(size_t /*input_size*/) {
+            // TODO: could factor input size into an estimated ast size
+            size_t capacity = 256;
+            ast_buffer_bottom = new(std::nothrow) size_t[capacity];
+            if (ast_buffer_bottom) {
+                ast_buffer_top = ast_buffer_bottom + capacity;
+                ast_write_head = ast_buffer_top;
+            } else {
+                ast_buffer_top = 0;
+                ast_write_head = 0;
+            }
+        }
+
+        dynamic_allocation(dynamic_allocation&& other)
+            : ast_buffer_bottom(other.ast_buffer_bottom)
+            , ast_buffer_top(other.ast_buffer_top)
+            , ast_write_head(other.ast_write_head)
+        {
+            other.ast_buffer_bottom = 0;
+            other.ast_buffer_top = 0;
+            other.ast_write_head = 0;
+        }
+
+        ~dynamic_allocation() {
+            delete[] ast_buffer_bottom;
+        }
+
+        stack_head get_stack_head() {
+            return stack_head();
+        }
+
+        size_t get_write_offset() {
+            return ast_buffer_top - ast_write_head;
+        }
+
+        size_t* get_write_pointer_of(size_t v) {
+            return ast_buffer_top - v;
+        }
+
+        bool has_allocation_error() {
+            return !ast_buffer_bottom;
+        }
+
+        // check has_allocation_error immediately after calling
+        size_t* reserve(size_t size) {
+            if (can_grow(size)) {
+                ast_write_head -= size;
+                return ast_write_head;
+            } else {
+                return 0;
+            }
+        }
+
+        size_t* get_ast_root() {
+            return ast_write_head;
+        }
+
+        ownership transfer_ownership() {
+            auto p = ast_buffer_bottom;
+            ast_buffer_bottom = 0;
+            ast_buffer_top = 0;
+            ast_write_head = 0;
+            return ownership(p);
+        }
+
+    private:
+        bool can_grow(size_t amount) {
+            if (SAJSON_LIKELY(amount <= static_cast<size_t>(ast_write_head - ast_buffer_bottom))) {
+                return true;
+            }
+
+            size_t current_capacity = ast_buffer_top - ast_buffer_bottom;
+            size_t current_size = ast_buffer_top - ast_write_head;
+            size_t new_capacity = current_capacity * 2;
+
+            size_t* new_buffer = new(std::nothrow) size_t[new_capacity];
+            if (!new_buffer) {
+                ast_buffer_bottom = 0;
+                ast_buffer_top = 0;
+                ast_write_head = 0;
+                return false;
+            }
+
+            size_t* old_write_head = ast_write_head;
+            ast_buffer_bottom = new_buffer;
+            ast_buffer_top = new_buffer + new_capacity;
+            ast_write_head = ast_buffer_top - current_size;
+            memcpy(ast_write_head, old_write_head, current_size * sizeof(size_t));
+
+            return true;
+        }
+
+        size_t* ast_buffer_bottom; // base address of the ast buffer - it grows down
+        size_t* ast_buffer_top;
+        size_t* ast_write_head;
     };
 
     template<typename AllocationStrategy>
@@ -768,7 +972,10 @@ namespace sajson {
             // p points to the character currently being parsed
             char* p = input.get_data();
 
-            typename AllocationStrategy::stack_head stack(allocator.get_stack_head());
+            auto stack = allocator.get_stack_head();
+            if (stack.has_allocation_error()) {
+                return oom(p);
+            }
 
             p = skip_whitespace(p);
             if (p == 0) {
@@ -1452,7 +1659,7 @@ namespace sajson {
         std::string error_message;
     };
 
-    template<typename AllocationStrategy=single_allocation, typename StringType>
+    template<typename AllocationStrategy=dynamic_allocation, typename StringType>
     document parse(const StringType& string) {
         mutable_string_view ms(string);
 
