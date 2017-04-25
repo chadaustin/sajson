@@ -572,8 +572,12 @@ namespace sajson {
                 return rv;
             }
 
-            void reset(size_t* new_top) {
-                stack_top = new_top;
+            void reset(size_t new_top) {
+                stack_top = stack_bottom + new_top;
+            }
+
+            size_t get_size() {
+                return stack_top - stack_bottom;
             }
 
             size_t* get_top() {
@@ -775,8 +779,8 @@ namespace sajson {
                 return error(p, "missing root element");
             }
 
-            // current_base is a pointer to the first element of the current structure (object or array)
-            size_t* current_base = stack.get_top();
+            // current_base is an offset to the first element of the current structure (object or array)
+            size_t current_base = stack.get_size();
             type current_structure_type;
             if (*p == '[') {
                 current_structure_type = TYPE_ARRAY;
@@ -897,9 +901,9 @@ namespace sajson {
                         next_type = TYPE_OBJECT;
                         goto push;
                     push: {
-                        size_t* previous_base = current_base;
-                        current_base = stack.get_top();
-                        stack.push(make_element(current_structure_type, stack.get_offset_of(previous_base)));
+                        size_t previous_base = current_base;
+                        current_base = stack.get_size();
+                        stack.push(make_element(current_structure_type, previous_base));
                         if (stack.has_allocation_error()) {
                             return oom(p);
                         }
@@ -908,7 +912,7 @@ namespace sajson {
                         goto after_comma;
                     }
 
-                    case ']':
+                    case ']': {
                         if (SAJSON_UNLIKELY(current_structure_type != TYPE_ARRAY)) {
                             return error(p, "expected }");
                         }
@@ -916,12 +920,14 @@ namespace sajson {
                             return error(p, "trailing commas not allowed");
                         }
                         ++p;
-                        element = *current_base;
-                        if (!install_array(current_base + 1, stack.get_top())) {
+                        size_t* base_ptr = stack.get_pointer_from_offset(current_base);
+                        element = *base_ptr;
+                        if (!install_array(base_ptr + 1, stack.get_top())) {
                             return oom(p);
                         }
                         goto pop;
-                    case '}':
+                    }
+                    case '}': {
                         if (SAJSON_UNLIKELY(current_structure_type != TYPE_OBJECT)) {
                             return error(p, "expected ]");
                         }
@@ -929,11 +935,13 @@ namespace sajson {
                             return error(p, "trailing commas not allowed");
                         }
                         ++p;
-                        element = *current_base;
-                        if (!install_object(current_base + 1, stack.get_top())) {
+                        size_t* base_ptr = stack.get_pointer_from_offset(current_base);
+                        element = *base_ptr;
+                        if (!install_object(base_ptr + 1, stack.get_top())) {
                             return oom(p);
                         }
                         goto pop;
+                    }
                     pop: {
                         size_t parent = get_element_value(element);
                         if (parent == ROOT_MARKER) {
@@ -941,7 +949,7 @@ namespace sajson {
                             goto done;
                         }
                         stack.reset(current_base);
-                        current_base = stack.get_pointer_from_offset(parent);
+                        current_base = parent;
                         value_type_result = current_structure_type;
                         current_structure_type = get_element_type(element);
                         break;
