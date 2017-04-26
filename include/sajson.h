@@ -609,8 +609,8 @@ namespace sajson {
         void operator=(const single_allocation&) = delete;
 
         explicit single_allocation(size_t input_size)
-            : structure(new size_t[input_size])
-            , structure_end(structure + input_size)
+            : structure(new(std::nothrow) size_t[input_size])
+            , structure_end(structure ? structure + input_size : 0)
             , write_cursor(structure_end)
         {}
 
@@ -638,6 +638,10 @@ namespace sajson {
 
         size_t* get_write_pointer_of(size_t v) {
             return structure_end - v;
+        }
+
+        bool failed_to_initialize() {
+            return !structure;
         }
 
         bool has_allocation_error() {
@@ -800,6 +804,10 @@ namespace sajson {
 
         ~dynamic_allocation() {
             delete[] ast_buffer_bottom;
+        }
+
+        bool failed_to_initialize() {
+            return has_allocation_error();
         }
 
         stack_head get_stack_head() {
@@ -971,6 +979,10 @@ namespace sajson {
         bool parse() {
             // p points to the character currently being parsed
             char* p = input.get_data();
+
+            if (allocator.failed_to_initialize()) {
+                return oom(p);
+            }
 
             auto stack = allocator.get_stack_head();
             if (stack.has_allocation_error()) {
