@@ -753,6 +753,9 @@ namespace sajson {
                 size_t current_size = stack_top - stack_bottom;
                 size_t old_capacity = stack_limit - stack_bottom;
                 size_t new_capacity = old_capacity * 2;
+                while (new_capacity < amount + current_size) {
+                    new_capacity *= 2;
+                }
                 size_t* new_stack = new(std::nothrow) size_t[new_capacity];
                 if (!new_stack) {
                     stack_top = 0;
@@ -762,6 +765,7 @@ namespace sajson {
                 }
 
                 memcpy(new_stack, stack_bottom, current_size * sizeof(size_t));
+                delete[] stack_bottom;
                 stack_top = new_stack + current_size;
                 stack_bottom = new_stack;
                 stack_limit = stack_bottom + new_capacity;
@@ -853,11 +857,15 @@ namespace sajson {
             if (SAJSON_LIKELY(amount <= static_cast<size_t>(ast_write_head - ast_buffer_bottom))) {
                 return true;
             }
-
             size_t current_capacity = ast_buffer_top - ast_buffer_bottom;
+
             size_t current_size = ast_buffer_top - ast_write_head;
             size_t new_capacity = current_capacity * 2;
+            while (new_capacity < amount + current_size) {
+                new_capacity *= 2;
+            }
 
+            size_t* old_buffer = ast_buffer_bottom;
             size_t* new_buffer = new(std::nothrow) size_t[new_capacity];
             if (!new_buffer) {
                 ast_buffer_bottom = 0;
@@ -871,6 +879,7 @@ namespace sajson {
             ast_buffer_top = new_buffer + new_capacity;
             ast_write_head = ast_buffer_top - current_size;
             memcpy(ast_write_head, old_write_head, current_size * sizeof(size_t));
+            delete[] old_buffer;
 
             return true;
         }
