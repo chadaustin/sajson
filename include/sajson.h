@@ -125,17 +125,18 @@ namespace sajson {
     static const size_t ROOT_MARKER = size_t(-1) & VALUE_MASK;
 
     inline type get_element_type(size_t s) {
-        return static_cast<type>((s >> TYPE_SHIFT) & TYPE_MASK);
+        return static_cast<type>(s & TYPE_MASK);
     }
 
     inline size_t get_element_value(size_t s) {
-        return s & VALUE_MASK;
+        return s >> TYPE_BITS;
     }
 
     inline size_t make_element(type t, size_t value) {
         //assert(value & VALUE_MASK == 0);
         //value &= VALUE_MASK;
-        return value | (static_cast<size_t>(t) << TYPE_SHIFT);
+        //return value | (static_cast<size_t>(t) << TYPE_SHIFT);
+        return static_cast<size_t>(t) | (value << TYPE_BITS);
     }
 
     class string {
@@ -297,11 +298,20 @@ namespace sajson {
     };
 
     union integer_storage {
+        enum {
+            word_length = 1
+        };
+
+        static void store(size_t* location, int value) {
+            integer_storage is;
+            is.i = value;
+            *location = is.u;
+        }
+
         int i;
         size_t u;
     };
-    // TODO: reinstate with c++03 implementation
-    //static_assert(sizeof(integer_storage) == sizeof(size_t), "integer_storage must have same size as one structure slot");
+    static_assert(sizeof(integer_storage) == sizeof(size_t), "integer_storage must have same size as one structure slot");
 
     union double_storage {
         enum {
@@ -451,14 +461,40 @@ namespace sajson {
         const type value_type;
         const size_t* const payload;
         const char* const text;
+    };
 
+    class ownership {
+    public:
+        ownership() = delete;
+        ownership(const ownership&) = delete;
+        void operator=(const ownership&) = delete;
+
+        explicit ownership(size_t* p)
+            : p(p)
+        {}
+
+        ownership(ownership&& p)
+        : p(p.p) {
+            p.p = 0;
+        }
+        
+        ~ownership() {
+            delete[] p;
+        }
+
+        bool is_valid() const {
+            return !!p;
+        }
+
+    private:
+        size_t* p;
     };
 
     class document {
     public:
-        explicit document(mutable_string_view& input, const size_t* structure, type root_type, const size_t* root, size_t error_line, size_t error_column, const std::string& error_message)
+        explicit document(mutable_string_view& input, ownership&& structure, type root_type, const size_t* root, size_t error_line, size_t error_column, const std::string& error_message)
             : input(input)
-            , structure(structure)
+            , structure(std::move(structure))
             , root_type(root_type)
             , root(root)
             , error_line(error_line)
@@ -471,23 +507,18 @@ namespace sajson {
 
         document(document&& rhs)
             : input(rhs.input)
-            , structure(rhs.structure)
+            , structure(std::move(rhs.structure))
             , root_type(rhs.root_type)
             , root(rhs.root)
             , error_line(rhs.error_line)
             , error_column(rhs.error_column)
             , error_message(rhs.error_message)
         {
-            rhs.structure = 0;
             // should rhs's fields be zeroed too?
         }
 
-        ~document() {
-            delete[] structure;
-        }
-
         bool is_valid() const {
-            return !!structure;
+            return structure.is_valid();
         }
 
         value get_root() const {
@@ -508,7 +539,7 @@ namespace sajson {
 
     private:
         mutable_string_view input;
-        const size_t* structure;
+        ownership structure;
         const type root_type;
         const size_t* const root;
         const size_t error_line;
@@ -516,13 +547,346 @@ namespace sajson {
         const std::string error_message;
     };
 
+    class single_allocation {
+    public:
+        class stack_head {
+        public:
+            stack_head(stack_head&& other)
+                : stack_bottom(other.stack_bottom)
+                , stack_top(other.stack_top)
+            {}
+
+            bool has_allocation_error() {
+                return false;
+            }
+
+            // check has_allocation_error() immediately after calling
+            void push(size_t element) {
+                *stack_top++ = element;
+            }
+
+            // check has_allocation_error() immediately after calling
+            size_t* reserve(size_t amount) {
+                size_t* rv = stack_top;
+                stack_top += amount;
+                return rv;
+            }
+
+            void reset(size_t new_top) {
+                stack_top = stack_bottom + new_top;
+            }
+
+            size_t get_size() {
+                return stack_top - stack_bottom;
+            }
+
+            size_t* get_top() {
+                return stack_top;
+            }
+
+            size_t* get_pointer_from_offset(size_t offset) {
+                return stack_bottom + offset;
+            }
+
+        private:
+            stack_head() = delete;
+            stack_head(const stack_head&) = delete;
+            void operator=(const stack_head&) = delete;
+
+            explicit stack_head(size_t* base)
+                : stack_bottom(base)
+                , stack_top(base)
+            {}
+
+            size_t* const stack_bottom;
+            size_t* stack_top;
+
+            friend class single_allocation;
+        };
+
+        single_allocation() = delete;
+        single_allocation(const single_allocation&) = delete;
+        void operator=(const single_allocation&) = delete;
+
+        explicit single_allocation(size_t input_size)
+            : structure(new(std::nothrow) size_t[input_size])
+            , structure_end(structure ? structure + input_size : 0)
+            , write_cursor(structure_end)
+        {}
+
+        single_allocation(single_allocation&& other)
+            : structure(other.structure)
+            , structure_end(other.structure_end)
+            , write_cursor(other.write_cursor)
+        {
+            other.structure = 0;
+            other.structure_end = 0;
+            other.write_cursor = 0;
+        }
+
+        ~single_allocation() {
+            delete[] structure;
+        }
+
+        stack_head get_stack_head() {
+            return stack_head(structure);
+        }
+
+        size_t get_write_offset() {
+            return structure_end - write_cursor;
+        }
+
+        size_t* get_write_pointer_of(size_t v) {
+            return structure_end - v;
+        }
+
+        bool failed_to_initialize() {
+            return !structure;
+        }
+
+        bool has_allocation_error() {
+            return false;
+        }
+
+        // check has_allocation_error immediately after calling
+        size_t* reserve(size_t size) {
+            write_cursor -= size;
+            return write_cursor;
+        }
+
+        size_t* get_ast_root() {
+            return write_cursor;
+        }
+
+        ownership transfer_ownership() {
+            auto p = structure;
+            structure = 0;
+            structure_end = 0;
+            write_cursor = 0;
+            return ownership(p);
+        }
+
+    private:
+        size_t* structure;
+        size_t* structure_end;
+        size_t* write_cursor;
+    };
+
+    class dynamic_allocation {
+    public:
+        class stack_head {
+        public:
+            stack_head(stack_head&& other)
+                : stack_top(other.stack_top)
+                , stack_bottom(other.stack_bottom)
+                , stack_limit(other.stack_limit)
+            {
+                other.stack_top = 0;
+                other.stack_bottom = 0;
+                other.stack_limit = 0;
+            }
+
+            ~stack_head() {
+                delete[] stack_bottom;
+            }
+
+            bool has_allocation_error() {
+                return !stack_bottom;
+            }
+
+            // check has_allocation_error() immediately after calling
+            void push(size_t element) {
+                if (can_grow(1)) {
+                    *stack_top++ = element;
+                }
+            }
+
+            // check has_allocation_error() immediately after calling
+            size_t* reserve(size_t amount) {
+                if (can_grow(amount)) {
+                    size_t* rv = stack_top;
+                    stack_top += amount;
+                    return rv;
+                } else {
+                    return 0;
+                }
+            }
+
+            void reset(size_t new_top) {
+                stack_top = stack_bottom + new_top;
+            }
+
+            size_t get_size() {
+                return stack_top - stack_bottom;
+            }
+
+            size_t* get_top() {
+                return stack_top;
+            }
+
+            size_t* get_pointer_from_offset(size_t offset) {
+                return stack_bottom + offset;
+            }
+
+        private:
+            stack_head(const stack_head&) = delete;
+            void operator=(const stack_head&) = delete;
+
+            explicit stack_head()
+            {
+                // TODO: what's a good default?
+                size_t capacity = 64;
+                stack_bottom = new(std::nothrow) size_t[capacity];
+                stack_top = stack_bottom;
+                if (stack_bottom) {
+                    stack_limit = stack_bottom + capacity;
+                } else {
+                    stack_limit = 0;
+                }
+            }
+
+            bool can_grow(size_t amount) {
+                if (SAJSON_LIKELY(amount <= static_cast<size_t>(stack_limit - stack_top))) {
+                    return true;
+                }
+
+                size_t current_size = stack_top - stack_bottom;
+                size_t old_capacity = stack_limit - stack_bottom;
+                size_t new_capacity = old_capacity * 2;
+                size_t* new_stack = new(std::nothrow) size_t[new_capacity];
+                if (!new_stack) {
+                    stack_top = 0;
+                    stack_bottom = 0;
+                    stack_limit = 0;
+                    return false;
+                }
+
+                memcpy(new_stack, stack_bottom, current_size * sizeof(size_t));
+                stack_top = new_stack + current_size;
+                stack_bottom = new_stack;
+                stack_limit = stack_bottom + new_capacity;
+                return true;
+            }
+
+            size_t* stack_top; // stack grows up: stack_top >= stack_bottom
+            size_t* stack_bottom;
+            size_t* stack_limit;
+
+            friend class dynamic_allocation;
+        };
+
+        dynamic_allocation() = delete;
+        dynamic_allocation(const dynamic_allocation&) = delete;
+        void operator=(const dynamic_allocation&) = delete;
+
+        explicit dynamic_allocation(size_t /*input_size*/) {
+            // TODO: could factor input size into an estimated ast size
+            size_t capacity = 256;
+            ast_buffer_bottom = new(std::nothrow) size_t[capacity];
+            if (ast_buffer_bottom) {
+                ast_buffer_top = ast_buffer_bottom + capacity;
+                ast_write_head = ast_buffer_top;
+            } else {
+                ast_buffer_top = 0;
+                ast_write_head = 0;
+            }
+        }
+
+        dynamic_allocation(dynamic_allocation&& other)
+            : ast_buffer_bottom(other.ast_buffer_bottom)
+            , ast_buffer_top(other.ast_buffer_top)
+            , ast_write_head(other.ast_write_head)
+        {
+            other.ast_buffer_bottom = 0;
+            other.ast_buffer_top = 0;
+            other.ast_write_head = 0;
+        }
+
+        ~dynamic_allocation() {
+            delete[] ast_buffer_bottom;
+        }
+
+        bool failed_to_initialize() {
+            return has_allocation_error();
+        }
+
+        stack_head get_stack_head() {
+            return stack_head();
+        }
+
+        size_t get_write_offset() {
+            return ast_buffer_top - ast_write_head;
+        }
+
+        size_t* get_write_pointer_of(size_t v) {
+            return ast_buffer_top - v;
+        }
+
+        bool has_allocation_error() {
+            return !ast_buffer_bottom;
+        }
+
+        // check has_allocation_error immediately after calling
+        size_t* reserve(size_t size) {
+            if (can_grow(size)) {
+                ast_write_head -= size;
+                return ast_write_head;
+            } else {
+                return 0;
+            }
+        }
+
+        size_t* get_ast_root() {
+            return ast_write_head;
+        }
+
+        ownership transfer_ownership() {
+            auto p = ast_buffer_bottom;
+            ast_buffer_bottom = 0;
+            ast_buffer_top = 0;
+            ast_write_head = 0;
+            return ownership(p);
+        }
+
+    private:
+        bool can_grow(size_t amount) {
+            if (SAJSON_LIKELY(amount <= static_cast<size_t>(ast_write_head - ast_buffer_bottom))) {
+                return true;
+            }
+
+            size_t current_capacity = ast_buffer_top - ast_buffer_bottom;
+            size_t current_size = ast_buffer_top - ast_write_head;
+            size_t new_capacity = current_capacity * 2;
+
+            size_t* new_buffer = new(std::nothrow) size_t[new_capacity];
+            if (!new_buffer) {
+                ast_buffer_bottom = 0;
+                ast_buffer_top = 0;
+                ast_write_head = 0;
+                return false;
+            }
+
+            size_t* old_write_head = ast_write_head;
+            ast_buffer_bottom = new_buffer;
+            ast_buffer_top = new_buffer + new_capacity;
+            ast_write_head = ast_buffer_top - current_size;
+            memcpy(ast_write_head, old_write_head, current_size * sizeof(size_t));
+
+            return true;
+        }
+
+        size_t* ast_buffer_bottom; // base address of the ast buffer - it grows down
+        size_t* ast_buffer_top;
+        size_t* ast_write_head;
+    };
+
+    template<typename AllocationStrategy>
     class parser {
     public:
-        parser(const mutable_string_view& msv, size_t* structure)
+        parser(const mutable_string_view& msv, AllocationStrategy&& allocator)
             : input(msv)
             , input_end(input.get_data() + input.length())
-            , structure(structure)
-            , stacktop(structure + input.length())
+            , allocator(std::move(allocator))
             , root_type(TYPE_NULL)
             , error_line(0)
             , error_column(0)
@@ -530,10 +894,10 @@ namespace sajson {
 
         document get_document() {
             if (parse()) {
-                return document(input, structure, root_type, stacktop, 0, 0, std::string());
+                size_t* ast_root = allocator.get_ast_root();
+                return document(input, allocator.transfer_ownership(), root_type, ast_root, 0, 0, std::string());
             } else {
-                delete[] structure;
-                return document(input, 0, TYPE_NULL, 0, error_line, error_column, error_message);
+                return document(input, ownership(0), TYPE_NULL, 0, error_line, error_column, error_message);
             }
         }
 
@@ -568,6 +932,10 @@ namespace sajson {
             }
         }
 
+        error_result oom(char* p) {
+            return error(p, "out of memory");
+        }
+
         error_result error(char* p, const char* format, ...) {
             if (!p) {
                 p = input_end;
@@ -596,7 +964,6 @@ namespace sajson {
                 }
                 ++c;
             }
-
             
             char buf[1024];
             buf[1023] = 0;
@@ -612,16 +979,23 @@ namespace sajson {
         bool parse() {
             // p points to the character currently being parsed
             char* p = input.get_data();
-            // writep is the output pointer into the AST structure
-            size_t* writep = structure;
+
+            if (allocator.failed_to_initialize()) {
+                return oom(p);
+            }
+
+            auto stack = allocator.get_stack_head();
+            if (stack.has_allocation_error()) {
+                return oom(p);
+            }
 
             p = skip_whitespace(p);
             if (p == 0) {
                 return error(p, "missing root element");
             }
 
-            // current_base is a pointer to the first element of the current structure (object or array)
-            size_t* current_base = writep;
+            // current_base is an offset to the first element of the current structure (object or array)
+            size_t current_base = stack.get_size();
             type current_structure_type;
             if (*p == '[') {
                 current_structure_type = TYPE_ARRAY;
@@ -631,7 +1005,10 @@ namespace sajson {
                 return error(p, "document root must be object or array");
             }
 
-            *writep++ = make_element(current_structure_type, ROOT_MARKER);
+            stack.push(make_element(current_structure_type, ROOT_MARKER));
+            if (stack.has_allocation_error()) {
+                return oom(p);
+            }
 
             bool had_comma = false;
             goto after_comma;
@@ -663,14 +1040,21 @@ namespace sajson {
                             return error(p, "trailing commas not allowed");
                         }
                         ++p;
-                        pop_element = *current_base;
-                        install_object(current_base + 1, writep);
+                        size_t* base_ptr = stack.get_pointer_from_offset(current_base);
+                        pop_element = *base_ptr;
+                        if (!install_object(base_ptr + 1, stack.get_top())) {
+                            return oom(p);
+                        }
                         goto pop;
                     } else {
                         if (*p != '"') {
                             return error(p, "invalid object key");
                         }
-                        p = parse_string(p, writep);
+                        size_t* out = stack.reserve(2);
+                        if (stack.has_allocation_error()) {
+                            return oom(p);
+                        }
+                        p = parse_string(p, out);
                         if (!p) {
                             return false;
                         }
@@ -679,7 +1063,6 @@ namespace sajson {
                             return error(p, "expected :");
                         }
                         p = skip_whitespace(p + 1);
-                        writep += 2;
                     }
                 } else {
                     assert(TYPE_ARRAY == current_structure_type);
@@ -688,8 +1071,11 @@ namespace sajson {
                             return error(p, "trailing commas not allowed");
                         }
                         ++p;
-                        pop_element = *current_base;
-                        install_array(current_base + 1, writep);
+                        size_t* base_ptr = stack.get_pointer_from_offset(current_base);
+                        pop_element = *base_ptr;
+                        if (!install_array(base_ptr + 1, stack.get_top())) {
+                            return oom(p);
+                        }
                         goto pop;
                     }
                 }
@@ -740,14 +1126,18 @@ namespace sajson {
                         value_type_result = result.second;
                         break;
                     }
-                    case '"':
-                        stacktop -= 2;
-                        p = parse_string(p, stacktop);
+                    case '"': {
+                        size_t* string_tag = allocator.reserve(2);
+                        if (allocator.has_allocation_error()) {
+                            return oom(p);
+                        }
+                        p = parse_string(p, string_tag);
                         if (!p) {
                             return false;
                         }
                         value_type_result = TYPE_STRING;
                         break;
+                    }
 
                     case '[':
                         next_type = TYPE_ARRAY;
@@ -756,9 +1146,12 @@ namespace sajson {
                         next_type = TYPE_OBJECT;
                         goto push;
                     push: {
-                        size_t* previous_base = current_base;
-                        current_base = writep;
-                        *writep++ = make_element(current_structure_type, previous_base - structure);
+                        size_t previous_base = current_base;
+                        current_base = stack.get_size();
+                        stack.push(make_element(current_structure_type, previous_base));
+                        if (stack.has_allocation_error()) {
+                            return oom(p);
+                        }
                         current_structure_type = next_type;
                         had_comma = false;
                         goto after_comma;
@@ -770,8 +1163,8 @@ namespace sajson {
                             root_type = current_structure_type;
                             goto done;
                         }
-                        writep = current_base;
-                        current_base = structure + parent;
+                        stack.reset(current_base);
+                        current_base = parent;
                         value_type_result = current_structure_type;
                         current_structure_type = get_element_type(pop_element);
                         break;
@@ -781,8 +1174,11 @@ namespace sajson {
                     default:
                         return error(p, "expected value");
                 }
-
-                *writep++ = make_element(value_type_result, stacktop - current_base - 1);
+                
+                stack.push(make_element(value_type_result, allocator.get_write_offset()));
+                if (stack.has_allocation_error()) {
+                    return oom(p);
+                }
                 had_comma = false;
             }
 
@@ -1035,29 +1431,43 @@ namespace sajson {
                 }
             }
             if (try_double) {
-                stacktop -= double_storage::word_length;
-                double_storage::store(stacktop, d);
+                size_t* out = allocator.reserve(double_storage::word_length);
+                if (allocator.has_allocation_error()) {
+                    return std::make_pair(oom(p), TYPE_NULL);
+                }
+                double_storage::store(out, d);
                 return std::make_pair(p, TYPE_DOUBLE);
             } else {
-                integer_storage is;
-                is.i = i;
-
-                *--stacktop = is.u;
+                size_t* out = allocator.reserve(integer_storage::word_length);
+                if (allocator.has_allocation_error()) {
+                    return std::make_pair(oom(p), TYPE_NULL);
+                }
+                integer_storage::store(out, i);
                 return std::make_pair(p, TYPE_INTEGER);
             }
         }
 
-        void install_array(size_t* array_base, size_t* array_end) {
+        bool install_array(size_t* array_base, size_t* array_end) {
             const size_t length = array_end - array_base;
-            size_t* const new_base = stacktop - length - 1;
-            while (array_end > array_base) {
-                // I think this addition is legal because the tag bits are at the top?
-                *(--stacktop) = *(--array_end) + (array_base - new_base);
+            size_t* const new_base = allocator.reserve(length + 1);
+            if (allocator.has_allocation_error()) {
+                return false;
             }
-            *(--stacktop) = length;
+            size_t* out = new_base + length + 1;
+            size_t* const structure_end = allocator.get_write_pointer_of(0);
+
+            while (array_end > array_base) {
+                size_t element = *--array_end;
+                type element_type = get_element_type(element);
+                size_t element_value = get_element_value(element);
+                size_t* element_ptr = structure_end - element_value;
+                *--out = make_element(element_type, element_ptr - new_base);
+            }
+            *--out = length;
+            return true;
         }
 
-        void install_object(size_t* object_base, size_t* object_end) {
+        bool install_object(size_t* object_base, size_t* object_end) {
             const size_t length = (object_end - object_base) / 3;
             object_key_record* oir = reinterpret_cast<object_key_record*>(object_base);
             std::sort(
@@ -1065,15 +1475,25 @@ namespace sajson {
                 oir + length,
                 object_key_comparator(input.get_data()));
 
-            size_t* const new_base = stacktop - length * 3 - 1;
-            size_t i = length;
-            while (i--) {
-                // I think this addition is legal because the tag bits are at the top?
-                *(--stacktop) = *(--object_end) + (object_base - new_base);
-                *(--stacktop) = *(--object_end);
-                *(--stacktop) = *(--object_end);
+            size_t* const new_base = allocator.reserve(length * 3 + 1);
+            if (allocator.has_allocation_error()) {
+                return false;
             }
-            *(--stacktop) = length;
+            size_t* out = new_base + length * 3 + 1;
+            size_t* const structure_end = allocator.get_write_pointer_of(0);
+
+            while (object_end > object_base) {
+                size_t element = *--object_end;
+                type element_type = get_element_type(element);
+                size_t element_value = get_element_value(element);
+                size_t* element_ptr = structure_end - element_value;
+                
+                *--out = make_element(element_type, element_ptr - new_base);
+                *--out = *--object_end;
+                *--out = *--object_end;
+            }
+            *--out = length;
+            return true;
         }
 
         char* parse_string(char* p, size_t* tag) {
@@ -1243,8 +1663,7 @@ namespace sajson {
 
         mutable_string_view input;
         char* const input_end;
-        size_t* const structure;
-        size_t* stacktop;
+        AllocationStrategy allocator;
 
         type root_type;
         size_t error_line;
@@ -1252,13 +1671,11 @@ namespace sajson {
         std::string error_message;
     };
 
-    template<typename StringType>
+    template<typename AllocationStrategy=dynamic_allocation, typename StringType>
     document parse(const StringType& string) {
         mutable_string_view ms(string);
 
-        size_t length = string.length();
-        size_t* structure = new size_t[length];
-
-        return parser(ms, structure).get_document();
+        AllocationStrategy allocator(string.length());
+        return parser<AllocationStrategy>(ms, std::move(allocator)).get_document();
     }
 }
