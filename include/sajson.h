@@ -1680,7 +1680,7 @@ namespace sajson {
         std::string error_message;
     };
 
-    template<typename AllocationStrategy=dynamic_allocation, typename StringType>
+    template<typename AllocationStrategy=single_allocation, typename StringType>
     document parse(const StringType& string) {
         mutable_string_view ms(string);
 
