@@ -27,16 +27,6 @@ inline bool success(const document& doc) {
     return true;
 }
 
-template<typename AllocationStrategy>
-struct AbstractFixture {
-    template<typename StringType>
-    sajson::document parse(const StringType& string) {
-        return sajson::parse<AllocationStrategy>(string);
-    }
-};
-using SingleAllocationFixture = AbstractFixture<sajson::single_allocation>;
-using DynamicAllocationFixture = AbstractFixture<sajson::dynamic_allocation>;
-
 #define ABSTRACT_TEST(name) \
     static void name##internal(sajson::document (*parse)(const sajson::literal&)); \
     TEST(single_allocation##name) { name##internal(&sajson::parse<sajson::single_allocation>); } \
