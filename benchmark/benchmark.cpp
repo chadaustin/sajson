@@ -17,6 +17,7 @@ const char* default_files[] = {
 };
 const size_t default_files_count = sizeof(default_files) / sizeof(*default_files);
 
+template<typename AllocationStrategy>
 void run_benchmark(size_t max_string_length, const char* filename) {
     FILE* file = fopen(filename, "rb");
     if (!file) {
@@ -51,7 +52,7 @@ void run_benchmark(size_t max_string_length, const char* filename) {
     const size_t N = 1000;
     for (size_t i = 0; i < N; ++i) {
         clock_t before_each = clock();
-        sajson::parse(sajson::string(buffer.data(), buffer.size()));
+        sajson::parse<AllocationStrategy>(sajson::string(buffer.data(), buffer.size()));
         clock_t elapsed_each = clock() - before_each;
         minimum_each = std::min(minimum_each, elapsed_each);
     }
@@ -63,6 +64,7 @@ void run_benchmark(size_t max_string_length, const char* filename) {
     printf("%*s - %0.3f ms - %0.3f ms\n", static_cast<int>(max_string_length), filename, average_elapsed_ms, minimum_elapsed_ms);
 }
 
+template<typename AllocationStrategy>
 void run_all(size_t files_count, const char** files) {
     size_t max_string_length = 0;
     for (size_t i = 0; i < files_count; ++i) {
@@ -71,14 +73,16 @@ void run_all(size_t files_count, const char** files) {
     printf("%*s - %8s - %8s\n", static_cast<int>(max_string_length), "file", "avg", "min");
     printf("%*s - %8s - %8s\n", static_cast<int>(max_string_length), "----", "---", "---");
     for (size_t i = 0; i < files_count; ++i) {
-        run_benchmark(max_string_length, files[i]);
+        run_benchmark<AllocationStrategy>(max_string_length, files[i]);
     }
 }
 
 int main(int argc, const char** argv) {
     if (argc > 1) {
-        run_all(argc - 1, argv + 1);
+        run_all<sajson::single_allocation>(argc - 1, argv + 1);
+        run_all<sajson::dynamic_allocation>(argc - 1, argv + 1);
     } else {
-        run_all(default_files_count, default_files);
+        run_all<sajson::single_allocation>(default_files_count, default_files);
+        run_all<sajson::dynamic_allocation>(default_files_count, default_files);
     }
 }

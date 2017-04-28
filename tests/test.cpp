@@ -1,6 +1,18 @@
 #include <UnitTest++.h>
 #include "sajson.h"
-using namespace sajson;
+
+using sajson::TYPE_ARRAY;
+using sajson::TYPE_DOUBLE;
+using sajson::TYPE_FALSE;
+using sajson::TYPE_TRUE;
+using sajson::TYPE_NULL;
+using sajson::TYPE_INTEGER;
+using sajson::TYPE_OBJECT;
+using sajson::TYPE_STRING;
+using sajson::document;
+using sajson::literal;
+using sajson::string;
+using sajson::value;
 
 inline bool success(const document& doc) {
     if (!doc.is_valid()) {
@@ -15,7 +27,23 @@ inline bool success(const document& doc) {
     return true;
 }
 
-TEST(empty_array) {
+template<typename AllocationStrategy>
+struct AbstractFixture {
+    template<typename StringType>
+    sajson::document parse(const StringType& string) {
+        return sajson::parse<AllocationStrategy>(string);
+    }
+};
+using SingleAllocationFixture = AbstractFixture<sajson::single_allocation>;
+using DynamicAllocationFixture = AbstractFixture<sajson::dynamic_allocation>;
+
+#define ABSTRACT_TEST(name) \
+    static void name##internal(sajson::document (*parse)(const sajson::literal&)); \
+    TEST(single_allocation##name) { name##internal(&sajson::parse<sajson::single_allocation>); } \
+    TEST(dynamic_allocation##name) { name##internal(&sajson::parse<sajson::dynamic_allocation>); } \
+    static void name##internal(sajson::document (*parse)(const sajson::literal&))
+
+ABSTRACT_TEST(empty_array) {
     const sajson::document& document = parse(literal("[]"));
     assert(success(document));
     const value& root = document.get_root();
@@ -24,7 +52,7 @@ TEST(empty_array) {
     CHECK_EQUAL(0u, root.get_length());
 }
 
-TEST(array_whitespace) {
+ABSTRACT_TEST(array_whitespace) {
     const sajson::document& document = parse(literal(" [ ] "));
     assert(success(document));
     const value& root = document.get_root();
@@ -32,7 +60,7 @@ TEST(array_whitespace) {
     CHECK_EQUAL(0u, root.get_length());
 }
 
-TEST(array_zero) {
+ABSTRACT_TEST(array_zero) {
     const sajson::document& document = parse(literal("[0]"));
     assert(success(document));
     const value& root = document.get_root();
@@ -44,7 +72,7 @@ TEST(array_zero) {
     CHECK_EQUAL(0, e0.get_number_value());
 }
 
-TEST(nested_array) {
+ABSTRACT_TEST(nested_array) {
     const sajson::document& document = parse(literal("[[]]"));
     assert(success(document));
     const value& root = document.get_root();
@@ -56,7 +84,7 @@ TEST(nested_array) {
     CHECK_EQUAL(0u, e1.get_length());
 }
 
-TEST(packed_arrays) {
+ABSTRACT_TEST(packed_arrays) {
     const sajson::document& document = parse(literal("[0,[0,[0],0],0]"));
     assert(success(document));
     const value& root = document.get_root();
@@ -92,7 +120,7 @@ TEST(packed_arrays) {
     CHECK_EQUAL(0, inner.get_number_value());
 }
 
-TEST(deep_nesting) {
+ABSTRACT_TEST(deep_nesting) {
     const sajson::document& document = parse(literal("[[[[]]]]"));
     assert(success(document));
     const value& root = document.get_root();
@@ -112,7 +140,7 @@ TEST(deep_nesting) {
     CHECK_EQUAL(0u, e3.get_length());
 }
 
-TEST(more_array_integer_packing) {
+ABSTRACT_TEST(more_array_integer_packing) {
     const sajson::document& document = parse(literal("[[[[0]]]]"));
     assert(success(document));
     const value& root = document.get_root();
@@ -137,7 +165,7 @@ TEST(more_array_integer_packing) {
 }
 
 SUITE(integers) {
-    TEST(negative_and_positive_integers) {
+    ABSTRACT_TEST(negative_and_positive_integers) {
         const sajson::document& document = parse(literal(" [ 0, -1, 22] "));
         assert(success(document));
         const value& root = document.get_root();
@@ -160,7 +188,7 @@ SUITE(integers) {
         CHECK_EQUAL(22, e2.get_number_value());
     }
 
-    TEST(integers) {
+    ABSTRACT_TEST(integers) {
         const sajson::document& document = parse(literal("[0,1,2,3,4,5,6,7,8,9,10]"));
         assert(success(document));
         const value& root = document.get_root();
@@ -174,7 +202,7 @@ SUITE(integers) {
         }
     }
 
-    TEST(integer_whitespace) {
+    ABSTRACT_TEST(integer_whitespace) {
         const sajson::document& document = parse(literal(" [ 0 , 0 ] "));
         assert(success(document));
         const value& root = document.get_root();
@@ -185,7 +213,7 @@ SUITE(integers) {
         CHECK_EQUAL(0, element.get_integer_value());
     }
 
-    TEST(leading_zeroes_disallowed) {
+    ABSTRACT_TEST(leading_zeroes_disallowed) {
         const sajson::document& document = parse(literal("[01]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -194,7 +222,7 @@ SUITE(integers) {
     }
 }
 
-TEST(unit_types) {
+ABSTRACT_TEST(unit_types) {
     const sajson::document& document = parse(literal("[ true , false , null ]"));
     assert(success(document));
     const value& root = document.get_root();
@@ -212,7 +240,7 @@ TEST(unit_types) {
 }
 
 SUITE(doubles) {
-    TEST(doubles) {
+    ABSTRACT_TEST(doubles) {
         const sajson::document& document = parse(literal("[-0,-1,-34.25]"));
         assert(success(document));
         const value& root = document.get_root();
@@ -232,7 +260,7 @@ SUITE(doubles) {
         CHECK_EQUAL(-34.25, e2.get_double_value());
     }
 
-    TEST(exponents) {
+    ABSTRACT_TEST(exponents) {
         const sajson::document& document = parse(literal("[2e+3,0.5E-5,10E+22]"));
         assert(success(document));
         const value& root = document.get_root();
@@ -252,7 +280,7 @@ SUITE(doubles) {
         CHECK_EQUAL(10e22, e2.get_double_value());
     }
 
-    TEST(long_no_exponent) {
+    ABSTRACT_TEST(long_no_exponent) {
         const sajson::document& document = parse(literal("[9999999999,99999999999]"));
         assert(success(document));
         const value& root = document.get_root();
@@ -268,7 +296,7 @@ SUITE(doubles) {
         CHECK_EQUAL(99999999999.0, e1.get_double_value());
     }
 
-    TEST(exponent_offset) {
+    ABSTRACT_TEST(exponent_offset) {
         const sajson::document& document = parse(literal("[0.005e3]"));
         assert(success(document));
         const value& root = document.get_root();
@@ -280,7 +308,7 @@ SUITE(doubles) {
         CHECK_EQUAL(5.0, e0.get_double_value());
     }
 
-    TEST(missing_exponent) {
+    ABSTRACT_TEST(missing_exponent) {
         const sajson::document& document = parse(literal("[0e]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -288,7 +316,7 @@ SUITE(doubles) {
         CHECK_EQUAL("missing exponent", document.get_error_message());
     }
 
-    TEST(missing_exponent_plus) {
+    ABSTRACT_TEST(missing_exponent_plus) {
         const sajson::document& document = parse(literal("[0e+]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -298,7 +326,7 @@ SUITE(doubles) {
 }
 
 SUITE(commas) {
-    TEST(leading_comma_array) {
+    ABSTRACT_TEST(leading_comma_array) {
         const sajson::document& document = parse(literal("[,1]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -306,7 +334,7 @@ SUITE(commas) {
         CHECK_EQUAL("unexpected comma", document.get_error_message());
     }
 
-    TEST(leading_comma_object) {
+    ABSTRACT_TEST(leading_comma_object) {
         const sajson::document& document = parse(literal("{,}"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -314,7 +342,7 @@ SUITE(commas) {
         CHECK_EQUAL("invalid object key", document.get_error_message());
     }
 
-    TEST(trailing_comma_array) {
+    ABSTRACT_TEST(trailing_comma_array) {
         const sajson::document& document = parse(literal("[1,2,]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -322,7 +350,7 @@ SUITE(commas) {
         CHECK_EQUAL("trailing commas not allowed", document.get_error_message());
     }
 
-    TEST(trailing_comma_object) {
+    ABSTRACT_TEST(trailing_comma_object) {
         const sajson::document& document = parse(literal("{\"key\": 0,}"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -332,7 +360,7 @@ SUITE(commas) {
 }
 
 SUITE(strings) {
-    TEST(strings) {
+    ABSTRACT_TEST(strings) {
         const sajson::document& document = parse(literal("[\"\", \"foobar\"]"));
         assert(success(document));
         const value& root = document.get_root();
@@ -350,7 +378,7 @@ SUITE(strings) {
         CHECK_EQUAL("foobar", e1.as_string());
     }
 
-    TEST(common_escapes) {
+    ABSTRACT_TEST(common_escapes) {
         // \"\\\/\b\f\n\r\t
         const sajson::document& document = parse(literal("[\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"]"));
         assert(success(document));
@@ -364,7 +392,7 @@ SUITE(strings) {
         CHECK_EQUAL("\"\\/\b\f\n\r\t", e0.as_string());
     }
 
-    TEST(escape_midstring) {
+    ABSTRACT_TEST(escape_midstring) {
         const sajson::document& document = parse(literal("[\"foo\\tbar\"]"));
         assert(success(document));
         const value& root = document.get_root();
@@ -377,7 +405,7 @@ SUITE(strings) {
         CHECK_EQUAL("foo\tbar", e0.as_string());
     }
 
-    TEST(unfinished_string) {
+    ABSTRACT_TEST(unfinished_string) {
         const sajson::document& document = parse(literal("[\""));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -385,7 +413,7 @@ SUITE(strings) {
         CHECK_EQUAL("unexpected end of input", document.get_error_message());
     }
 
-    TEST(unfinished_escape) {
+    ABSTRACT_TEST(unfinished_escape) {
         const sajson::document& document = parse(literal("[\"\\"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -393,7 +421,7 @@ SUITE(strings) {
         CHECK_EQUAL("unexpected end of input", document.get_error_message());
     }
 
-    TEST(unprintables_are_not_valid_in_strings) {
+    ABSTRACT_TEST(unprintables_are_not_valid_in_strings) {
         const sajson::document& document = parse(literal("[\"\x19\"]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -401,14 +429,14 @@ SUITE(strings) {
         CHECK_EQUAL("illegal unprintable codepoint in string: 25", document.get_error_message());
     }
 
-    TEST(unprintables_are_not_valid_in_strings_after_escapes) {
+    ABSTRACT_TEST(unprintables_are_not_valid_in_strings_after_escapes) {
         const sajson::document& document = parse(literal("[\"\\n\x01\"]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(2u, document.get_error_column());
         CHECK_EQUAL("illegal unprintable codepoint in string: 1", document.get_error_message());
     }
 
-    TEST(utf16_surrogate_pair) {
+    ABSTRACT_TEST(utf16_surrogate_pair) {
         const sajson::document& document = parse(literal("[\"\\ud950\\uDf21\"]"));
         assert(success(document));
         const value& root = document.get_root();
@@ -423,7 +451,7 @@ SUITE(strings) {
 }
 
 SUITE(objects) {
-    TEST(empty_object) {
+    ABSTRACT_TEST(empty_object) {
         const sajson::document& document = parse(literal("{}"));
         assert(success(document));
         const value& root = document.get_root();
@@ -431,7 +459,7 @@ SUITE(objects) {
         CHECK_EQUAL(0u, root.get_length());
     }
 
-    TEST(nested_object) {
+    ABSTRACT_TEST(nested_object) {
         const sajson::document& document = parse(literal("{\"a\":{\"b\":{}}} "));
         assert(success(document));
         const value& root = document.get_root();
@@ -450,7 +478,7 @@ SUITE(objects) {
         CHECK_EQUAL(0u, inner.get_length());
     }
 
-    TEST(object_whitespace) {
+    ABSTRACT_TEST(object_whitespace) {
         const sajson::document& document = parse(literal(" { \"a\" : 0 } "));
         assert(success(document));
         const value& root = document.get_root();
@@ -465,7 +493,7 @@ SUITE(objects) {
         CHECK_EQUAL(0, element.get_integer_value());
     }
 
-    TEST(object_keys_are_sorted) {
+    ABSTRACT_TEST(object_keys_are_sorted) {
         const sajson::document& document = parse(literal(" { \"b\" : 1 , \"a\" : 0 } "));
         assert(success(document));
         const value& root = document.get_root();
@@ -485,7 +513,7 @@ SUITE(objects) {
         CHECK_EQUAL(1, e1.get_integer_value());
     }
 
-    TEST(object_keys_are_sorted_length_first) {
+    ABSTRACT_TEST(object_keys_are_sorted_length_first) {
         const sajson::document& document = parse(literal(" { \"b\" : 1 , \"aa\" : 0 } "));
         assert(success(document));
         const value& root = document.get_root();
@@ -505,7 +533,7 @@ SUITE(objects) {
         CHECK_EQUAL(0, e1.get_integer_value());
     }
 
-    TEST(binary_search_for_keys) {
+    ABSTRACT_TEST(binary_search_for_keys) {
         const sajson::document& document = parse(literal(" { \"b\" : 1 , \"aa\" : 0 } "));
         assert(success(document));
         const value& root = document.get_root();
@@ -525,7 +553,7 @@ SUITE(objects) {
         CHECK_EQUAL(2U, index_ccc);
     }
 
-    TEST(get_value) {
+    ABSTRACT_TEST(get_value) {
         const sajson::document& document = parse(literal(" { \"b\" : 123 , \"aa\" : 456 } "));
         assert(success(document));
         const value& root = document.get_root();
@@ -546,7 +574,7 @@ SUITE(objects) {
     }
 
 
-    TEST(binary_search_handles_prefix_keys) {
+    ABSTRACT_TEST(binary_search_handles_prefix_keys) {
         const sajson::document& document = parse(literal(" { \"prefix_key\" : 0 } "));
         assert(success(document));
         const value& root = document.get_root();
@@ -559,7 +587,7 @@ SUITE(objects) {
 }
 
 SUITE(errors) {
-    TEST(empty_file_is_invalid) {
+    ABSTRACT_TEST(empty_file_is_invalid) {
         const sajson::document& document = parse(literal(""));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -567,7 +595,7 @@ SUITE(errors) {
         CHECK_EQUAL("missing root element", document.get_error_message());
     }
 
-    TEST(two_roots_are_invalid) {
+    ABSTRACT_TEST(two_roots_are_invalid) {
         const sajson::document& document = parse(literal("[][]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -575,7 +603,7 @@ SUITE(errors) {
         CHECK_EQUAL("expected end of input", document.get_error_message());
     }
 
-    TEST(root_must_be_object_or_array) {
+    ABSTRACT_TEST(root_must_be_object_or_array) {
         const sajson::document& document = parse(literal("0"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -583,7 +611,7 @@ SUITE(errors) {
         CHECK_EQUAL("document root must be object or array", document.get_error_message());
     }
 
-    TEST(incomplete_object_key) {
+    ABSTRACT_TEST(incomplete_object_key) {
         const sajson::document& document = parse(literal("{\"\\:0}"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -591,7 +619,7 @@ SUITE(errors) {
         CHECK_EQUAL("unknown escape", document.get_error_message());
     }
 
-    TEST(commas_are_necessary_between_elements) {
+    ABSTRACT_TEST(commas_are_necessary_between_elements) {
         const sajson::document& document = parse(literal("[0 0]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -599,7 +627,7 @@ SUITE(errors) {
         CHECK_EQUAL("expected ,", document.get_error_message());
     }
 
-    TEST(keys_must_be_strings) {
+    ABSTRACT_TEST(keys_must_be_strings) {
         const sajson::document& document = parse(literal("{0:0}"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -607,7 +635,7 @@ SUITE(errors) {
         CHECK_EQUAL("invalid object key", document.get_error_message());
     }
 
-    TEST(objects_must_have_keys) {
+    ABSTRACT_TEST(objects_must_have_keys) {
         const sajson::document& document = parse(literal("{\"0\"}"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -615,7 +643,7 @@ SUITE(errors) {
         CHECK_EQUAL("expected :", document.get_error_message());
     }
 
-    TEST(too_many_commas) {
+    ABSTRACT_TEST(too_many_commas) {
         const sajson::document& document = parse(literal("[1,,2]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -623,7 +651,7 @@ SUITE(errors) {
         CHECK_EQUAL("unexpected comma", document.get_error_message());
     }
 
-    TEST(object_missing_value) {
+    ABSTRACT_TEST(object_missing_value) {
         const sajson::document& document = parse(literal("{\"x\":}"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -631,7 +659,7 @@ SUITE(errors) {
         CHECK_EQUAL("expected value", document.get_error_message());
     }
 
-    TEST(invalid_true_literal) {
+    ABSTRACT_TEST(invalid_true_literal) {
         const sajson::document& document = parse(literal("[truf"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -639,7 +667,7 @@ SUITE(errors) {
         CHECK_EQUAL("expected 'true'", document.get_error_message());
     }
 
-    TEST(incomplete_true_literal) {
+    ABSTRACT_TEST(incomplete_true_literal) {
         const sajson::document& document = parse(literal("[tru"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -647,7 +675,7 @@ SUITE(errors) {
         CHECK_EQUAL("unexpected end of input", document.get_error_message());
     }
 
-    TEST(must_close_array_with_square_bracket) {
+    ABSTRACT_TEST(must_close_array_with_square_bracket) {
         const sajson::document& document = parse(literal("[}"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -655,7 +683,7 @@ SUITE(errors) {
         CHECK_EQUAL("expected value", document.get_error_message());
     }
 
-    TEST(must_close_object_with_curly_brace) {
+    ABSTRACT_TEST(must_close_object_with_curly_brace) {
         const sajson::document& document = parse(literal("{]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
@@ -670,7 +698,7 @@ SUITE(errors) {
         CHECK_EQUAL(error_message, document.get_error_message());       \
     } while (0)
 
-    TEST(invalid_number) {
+    ABSTRACT_TEST(invalid_number) {
         CHECK_PARSE_ERROR("[-", "unexpected end of input");
         CHECK_PARSE_ERROR("[-12", "unexpected end of input");
         CHECK_PARSE_ERROR("[-12.", "unexpected end of input");
@@ -682,7 +710,7 @@ SUITE(errors) {
     }
 }
 
-TEST(object_array_with_integers) {
+ABSTRACT_TEST(object_array_with_integers) {
     const sajson::document& document = parse(literal("[{ \"a\": 123456 }, { \"a\": 7890 }]"));
     assert(success(document));
     const value& root = document.get_root();

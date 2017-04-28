@@ -572,6 +572,13 @@ namespace sajson {
                 return rv;
             }
 
+            // The compiler does not see the stack_head (stored in a local)
+            // and the allocator (stored as a field) have the same stack_bottom
+            // values, so it does a bit of redundant work.
+            // So there's a microoptimization available here: introduce a type
+            // "stack_mark" and make it polymorphic on the allocator.  For
+            // single_allocation, it merely needs to be a single pointer.
+
             void reset(size_t new_top) {
                 stack_top = stack_bottom + new_top;
             }
@@ -1680,7 +1687,7 @@ namespace sajson {
         std::string error_message;
     };
 
-    template<typename AllocationStrategy=single_allocation, typename StringType>
+    template<typename AllocationStrategy, typename StringType>
     document parse(const StringType& string) {
         mutable_string_view ms(string);
 
