@@ -79,10 +79,14 @@ void run_all(size_t files_count, const char** files) {
 
 int main(int argc, const char** argv) {
     if (argc > 1) {
+        //printf("\n=== SINGLE ALLOCATION ===\n\n");
         run_all<sajson::single_allocation>(argc - 1, argv + 1);
-        run_all<sajson::dynamic_allocation>(argc - 1, argv + 1);
+        //printf("\n=== DYNAMIC ALLOCATION ===\n\n");
+        //run_all<sajson::dynamic_allocation>(argc - 1, argv + 1);
     } else {
+        //printf("\n=== SINGLE ALLOCATION ===\n\n");
         run_all<sajson::single_allocation>(default_files_count, default_files);
-        run_all<sajson::dynamic_allocation>(default_files_count, default_files);
+        //printf("\n=== DYNAMIC ALLOCATION ===\n\n");
+        //run_all<sajson::dynamic_allocation>(default_files_count, default_files);
     }
 }
