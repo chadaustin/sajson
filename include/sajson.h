@@ -1025,43 +1025,51 @@ namespace sajson {
             type current_structure_type;
             if (*p == '[') {
                 current_structure_type = TYPE_ARRAY;
+                stack.push(make_element(current_structure_type, ROOT_MARKER));
+                if (SAJSON_UNLIKELY(stack.has_allocation_error())) {
+                    return oom(p);
+                }
+                goto array_close_or_element;
             } else if (*p == '{') {
                 current_structure_type = TYPE_OBJECT;
+                stack.push(make_element(current_structure_type, ROOT_MARKER));
+                if (SAJSON_UNLIKELY(stack.has_allocation_error())) {
+                    return oom(p);
+                }
+                goto object_close_or_element;
             } else {
                 return error(p, "document root must be object or array");
-            }
-
-            stack.push(make_element(current_structure_type, ROOT_MARKER));
-            if (stack.has_allocation_error()) {
-                return oom(p);
             }
 
             // BEGIN STATE MACHINE
 
             size_t pop_element; // used as an argument into the `pop` routine
-            goto structure_close_or_element;
 
-            if (0) { // purely for scoping
+            if (0) { // purely for structure
 
             // ASSUMES: byte at p SHOULD be skipped
-            structure_close_or_element:
+            array_close_or_element:
                 p = skip_whitespace(p + 1);
                 if (SAJSON_UNLIKELY(!p)) {
                     return unexpected_end();
                 }
-                if (current_structure_type == TYPE_ARRAY) {
-                    if (*p == ']') {
-                        goto pop_array;
-                    } else {
-                        goto next_element;
-                    }
+                if (*p == ']') {
+                    goto pop_array;
                 } else {
-                    assert(current_structure_type == TYPE_OBJECT);
-                    if (*p == '}') {
-                        goto pop_object;
-                    } else {
-                        goto object_key;
-                    }
+                    goto next_element;
+                }
+                SAJSON_UNREACHABLE();
+
+            // ASSUMES: byte at p SHOULD be skipped
+            object_close_or_element:
+                p = skip_whitespace(p + 1);
+                if (SAJSON_UNLIKELY(!p)) {
+                    return unexpected_end();
+                }
+                if (*p == '}') {
+                    goto pop_object;
+                } else {
+                    goto object_key;
                 }
                 SAJSON_UNREACHABLE();
 
@@ -1101,7 +1109,7 @@ namespace sajson {
                 ++p;
                 size_t* base_ptr = stack.get_pointer_from_offset(current_base);
                 pop_element = *base_ptr;
-                if (!install_object(base_ptr + 1, stack.get_top())) {
+                if (SAJSON_UNLIKELY(!install_object(base_ptr + 1, stack.get_top()))) {
                     return oom(p);
                 }
                 goto pop;
@@ -1112,7 +1120,7 @@ namespace sajson {
                 ++p;
                 size_t* base_ptr = stack.get_pointer_from_offset(current_base);
                 pop_element = *base_ptr;
-                if (!install_array(base_ptr + 1, stack.get_top())) {
+                if (SAJSON_UNLIKELY(!install_array(base_ptr + 1, stack.get_top()))) {
                     return oom(p);
                 }
                 goto pop;
@@ -1128,15 +1136,15 @@ namespace sajson {
                     return error(p, "missing object key");
                 }
                 size_t* out = stack.reserve(2);
-                if (stack.has_allocation_error()) {
+                if (SAJSON_UNLIKELY(stack.has_allocation_error())) {
                     return oom(p);
                 }
                 p = parse_string(p, out);
-                if (!p) {
+                if (SAJSON_UNLIKELY(!p)) {
                     return false;
                 }
                 p = skip_whitespace(p);
-                if (!p || *p != ':') {
+                if (SAJSON_UNLIKELY(!p || *p != ':')) {
                     return error(p, "expected :");
                 }
                 ++p;
@@ -1152,8 +1160,6 @@ namespace sajson {
 
                 type value_type_result;
                 switch (*p) {
-                    type next_type;
-
                     case 0:
                         return unexpected_end(p);
                     case 'n':
@@ -1209,21 +1215,25 @@ namespace sajson {
                         break;
                     }
 
-                    case '[':
-                        next_type = TYPE_ARRAY;
-                        goto push;
-                    case '{':
-                        next_type = TYPE_OBJECT;
-                        goto push;
-                    push: {
+                    case '[': {
                         size_t previous_base = current_base;
                         current_base = stack.get_size();
                         stack.push(make_element(current_structure_type, previous_base));
                         if (stack.has_allocation_error()) {
                             return oom(p);
                         }
-                        current_structure_type = next_type;
-                        goto structure_close_or_element;
+                        current_structure_type = TYPE_ARRAY;
+                        goto array_close_or_element;
+                    }
+                    case '{': {
+                        size_t previous_base = current_base;
+                        current_base = stack.get_size();
+                        stack.push(make_element(current_structure_type, previous_base));
+                        if (stack.has_allocation_error()) {
+                            return oom(p);
+                        }
+                        current_structure_type = TYPE_OBJECT;
+                        goto object_close_or_element;
                     }
                     pop: {
                         size_t parent = get_element_value(pop_element);
@@ -1249,7 +1259,7 @@ namespace sajson {
                 }
 
                 stack.push(make_element(value_type_result, allocator.get_write_offset()));
-                if (stack.has_allocation_error()) {
+                if (SAJSON_UNLIKELY(stack.has_allocation_error())) {
                     return oom(p);
                 }
 
