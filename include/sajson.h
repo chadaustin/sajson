@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, 2014 Chad Austin
+ * Copyright (c) 2012-2017 Chad Austin
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
