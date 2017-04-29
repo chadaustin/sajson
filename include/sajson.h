@@ -55,17 +55,15 @@ namespace sajson {
         // This trick courtesy of Rich Geldrich's Purple JSON parser.
         template<typename unused=void>
         struct globals_struct {
-            static const unsigned char s_parse_flags[256];
+            static const unsigned char parse_flags[256];
         };
         typedef globals_struct<> globals;
 
         // bit 0 (1) - set if: plain ASCII string character
         // bit 1 (2) - set if: whitespace
-        // bit 2 (4) - set if:
-        // bit 3 (8) - set if:
         // bit 4 (0x10) - set if: 0-9 e E .
         template<typename unused>
-        const uint8_t globals_struct<unused>::s_parse_flags[256] = {
+        const uint8_t globals_struct<unused>::parse_flags[256] = {
          // 0    1    2    3    4    5    6    7      8    9    A    B    C    D    E    F
             0,   0,   0,   0,   0,   0,   0,   0,     0,   2,   2,   0,   0,   2,   0,   0, // 0
             0,   0,   0,   0,   0,   0,   0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 1
@@ -85,12 +83,12 @@ namespace sajson {
 
         inline bool is_plain_string_character(char c) {
             //return c >= 0x20 && c <= 0x7f && c != 0x22 && c != 0x5c;
-            return (globals::s_parse_flags[static_cast<unsigned char>(c)] & 1) != 0;
+            return (globals::parse_flags[static_cast<unsigned char>(c)] & 1) != 0;
         }
 
         inline bool is_whitespace(char c) {
             //return c == '\r' || c == '\n' || c == '\t' || c == ' ';
-            return (globals::s_parse_flags[static_cast<unsigned char>(c)] & 2) != 0;
+            return (globals::parse_flags[static_cast<unsigned char>(c)] & 2) != 0;
         }
     }
 
@@ -120,11 +118,10 @@ namespace sajson {
     }
 
     static const size_t TYPE_BITS = 3;
-    static const size_t TYPE_SHIFT = sizeof(size_t) * 8 - TYPE_BITS;
     static const size_t TYPE_MASK = (1 << TYPE_BITS) - 1;
     static const size_t VALUE_MASK = size_t(-1) >> TYPE_BITS;
 
-    static const size_t ROOT_MARKER = size_t(-1) & VALUE_MASK;
+    static const size_t ROOT_MARKER = VALUE_MASK;
 
     inline type get_element_type(size_t s) {
         return static_cast<type>(s & TYPE_MASK);
@@ -135,9 +132,8 @@ namespace sajson {
     }
 
     inline size_t make_element(type t, size_t value) {
-        //assert(value & VALUE_MASK == 0);
+        //assert((value & ~VALUE_MASK) == 0);
         //value &= VALUE_MASK;
-        //return value | (static_cast<size_t>(t) << TYPE_SHIFT);
         return static_cast<size_t>(t) | (value << TYPE_BITS);
     }
 
@@ -174,19 +170,16 @@ namespace sajson {
         {}
     };
 
-    struct object_key_record
-    {
+    struct object_key_record {
         size_t key_start;
         size_t key_end;
         size_t value;
     };
 
-    struct object_key_comparator
-    {
+    struct object_key_comparator {
         object_key_comparator(const char* object_data)
             : data(object_data)
-        {
-        }
+        {}
 
         bool operator()(const object_key_record& lhs, const string& rhs) const {
             const size_t lhs_length = lhs.key_end - lhs.key_start;
@@ -1528,7 +1521,7 @@ namespace sajson {
         bool install_array(size_t* array_base, size_t* array_end) {
             const size_t length = array_end - array_base;
             size_t* const new_base = allocator.reserve(length + 1);
-            if (allocator.has_allocation_error()) {
+            if (SAJSON_UNLIKELY(allocator.has_allocation_error())) {
                 return false;
             }
             size_t* out = new_base + length + 1;
@@ -1546,18 +1539,18 @@ namespace sajson {
         }
 
         bool install_object(size_t* object_base, size_t* object_end) {
-            const size_t length = (object_end - object_base) / 3;
-            object_key_record* oir = reinterpret_cast<object_key_record*>(object_base);
+            assert((object_end - object_base) % 3 == 0);
+            const size_t length_times_3 = object_end - object_base;
             std::sort(
-                oir,
-                oir + length,
+                reinterpret_cast<object_key_record*>(object_base),
+                reinterpret_cast<object_key_record*>(object_end),
                 object_key_comparator(input.get_data()));
 
-            size_t* const new_base = allocator.reserve(length * 3 + 1);
-            if (allocator.has_allocation_error()) {
+            size_t* const new_base = allocator.reserve(length_times_3 + 1);
+            if (SAJSON_UNLIKELY(allocator.has_allocation_error())) {
                 return false;
             }
-            size_t* out = new_base + length * 3 + 1;
+            size_t* out = new_base + length_times_3 + 1;
             size_t* const structure_end = allocator.get_write_pointer_of(0);
 
             while (object_end > object_base) {
@@ -1570,7 +1563,7 @@ namespace sajson {
                 *--out = *--object_end;
                 *--out = *--object_end;
             }
-            *--out = length;
+            *--out = length_times_3 / 3;
             return true;
         }
 
@@ -1733,6 +1726,7 @@ namespace sajson {
                         break;
                         
                     default:
+                        // TODO: if *p > 127, validate UTF-8
                         *end++ = *p++;
                         break;
                 }
