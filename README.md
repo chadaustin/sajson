@@ -17,8 +17,9 @@ sajson is in-situ: it modifies the input string.  While parsing, string values a
 ### Other Features
 
 * O(1) stack usage. No document will overflow the stack.
-* Only two number types: 32-bits and doubls.
+* Only two number types: 32-bits and doubles.
 * Small code size -- suitable for Emscripten.
+* sajson has been fuzzed with American Fuzzy Lop.
 
 ## AST Structure
 
