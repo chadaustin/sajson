@@ -29,8 +29,8 @@ inline bool success(const document& doc) {
 
 #define ABSTRACT_TEST(name) \
     static void name##internal(sajson::document (*parse)(const sajson::literal&)); \
-    TEST(single_allocation##name) { name##internal(&sajson::parse<sajson::single_allocation>); } \
-    TEST(dynamic_allocation##name) { name##internal(&sajson::parse<sajson::dynamic_allocation>); } \
+    TEST(single_allocation_##name) { name##internal(&sajson::parse<sajson::single_allocation>); } \
+    TEST(dynamic_allocation_##name) { name##internal(&sajson::parse<sajson::dynamic_allocation>); } \
     static void name##internal(sajson::document (*parse)(const sajson::literal&))
 
 ABSTRACT_TEST(empty_array) {
@@ -329,7 +329,7 @@ SUITE(commas) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL("invalid object key", document.get_error_message());
+        CHECK_EQUAL("missing object key", document.get_error_message());
     }
 
     ABSTRACT_TEST(trailing_comma_array) {
@@ -337,7 +337,7 @@ SUITE(commas) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(6u, document.get_error_column());
-        CHECK_EQUAL("trailing commas not allowed", document.get_error_message());
+        CHECK_EQUAL("expected value", document.get_error_message());
     }
 
     ABSTRACT_TEST(trailing_comma_object) {
@@ -345,7 +345,7 @@ SUITE(commas) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(11u, document.get_error_column());
-        CHECK_EQUAL("trailing commas not allowed", document.get_error_message());
+        CHECK_EQUAL("missing object key", document.get_error_message());
     }
 }
 
@@ -622,7 +622,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL("invalid object key", document.get_error_message());
+        CHECK_EQUAL("missing object key", document.get_error_message());
     }
 
     ABSTRACT_TEST(objects_must_have_keys) {
@@ -678,7 +678,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL("invalid object key", document.get_error_message());
+        CHECK_EQUAL("missing object key", document.get_error_message());
     }
 
 #define CHECK_PARSE_ERROR(text, error_message)                          \

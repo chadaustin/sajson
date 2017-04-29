@@ -41,10 +41,12 @@
 #define SAJSON_LIKELY(x) __builtin_expect(!!(x), 1)
 #define SAJSON_UNLIKELY(x) __builtin_expect(!!(x), 0)
 #define SAJSON_ALWAYS_INLINE __attribute__((always_inline))
+#define SAJSON_UNREACHABLE() __builtin_unreachable()
 #else
 #define SAJSON_LIKELY(x) x
 #define SAJSON_UNLIKELY(x) x
 #define SAJSON_ALWAYS_INLINE __forceinline
+#define SAJSON_UNREACHABLE() assert(!"unreachable")
 #endif
 
 namespace sajson {
@@ -952,6 +954,14 @@ namespace sajson {
             return error(p, "out of memory");
         }
 
+        error_result unexpected_end() {
+            return error(0, "unexpected end of input");
+        }
+
+        error_result unexpected_end(char* p) {
+            return error(p, "unexpected end of input");
+        }
+
         error_result error(char* p, const char* format, ...) {
             if (!p) {
                 p = input_end;
@@ -996,17 +1006,17 @@ namespace sajson {
             // p points to the character currently being parsed
             char* p = input.get_data();
 
-            if (allocator.failed_to_initialize()) {
+            if (SAJSON_UNLIKELY(allocator.failed_to_initialize())) {
                 return oom(p);
             }
 
             auto stack = allocator.get_stack_head();
-            if (stack.has_allocation_error()) {
+            if (SAJSON_UNLIKELY(stack.has_allocation_error())) {
                 return oom(p);
             }
 
             p = skip_whitespace(p);
-            if (p == 0) {
+            if (SAJSON_UNLIKELY(!p)) {
                 return error(p, "missing root element");
             }
 
@@ -1026,82 +1036,126 @@ namespace sajson {
                 return oom(p);
             }
 
-            bool had_comma = false;
-            goto after_comma;
-            
-            for (;;) {
-                p = skip_whitespace(p);
-                if (SAJSON_UNLIKELY(!p)) {
-                    return error(p, "unexpected end of input");
-                }
+            // BEGIN STATE MACHINE
 
-                if (*p == (current_structure_type == TYPE_OBJECT ? '}' : ']')) {
-                    goto check_pop;
-                }
-                if (SAJSON_UNLIKELY(*p != ',')) {
-                    return error(p, "expected ,");
-                }
-                had_comma = true;
+            size_t pop_element; // used as an argument into the `pop` routine
+            goto structure_close_or_element;
 
-            after_comma:
+            if (0) { // purely for scoping
+
+            // ASSUMES: byte at p SHOULD be skipped
+            structure_close_or_element:
                 p = skip_whitespace(p + 1);
                 if (SAJSON_UNLIKELY(!p)) {
-                    return error(p, "unexpected end of input 1");
+                    return unexpected_end();
                 }
-            check_pop:
-                size_t pop_element; // used as an argument into the `pop` routine
-                if (TYPE_OBJECT == current_structure_type) {
-                    if (*p == '}') {
-                        if (had_comma) {
-                            return error(p, "trailing commas not allowed");
-                        }
-                        ++p;
-                        size_t* base_ptr = stack.get_pointer_from_offset(current_base);
-                        pop_element = *base_ptr;
-                        if (!install_object(base_ptr + 1, stack.get_top())) {
-                            return oom(p);
-                        }
-                        goto pop;
+                if (current_structure_type == TYPE_ARRAY) {
+                    if (*p == ']') {
+                        goto pop_array;
                     } else {
-                        if (*p != '"') {
-                            return error(p, "invalid object key");
-                        }
-                        size_t* out = stack.reserve(2);
-                        if (stack.has_allocation_error()) {
-                            return oom(p);
-                        }
-                        p = parse_string(p, out);
-                        if (!p) {
-                            return false;
-                        }
-                        p = skip_whitespace(p);
-                        if (!p || *p != ':') {
-                            return error(p, "expected :");
-                        }
-                        p = skip_whitespace(p + 1);
+                        goto next_element;
                     }
                 } else {
-                    assert(TYPE_ARRAY == current_structure_type);
+                    assert(current_structure_type == TYPE_OBJECT);
+                    if (*p == '}') {
+                        goto pop_object;
+                    } else {
+                        goto object_key;
+                    }
+                }
+                SAJSON_UNREACHABLE();
+
+            // ASSUMES: byte at p SHOULD NOT be skipped
+            structure_close_or_comma:
+                p = skip_whitespace(p);
+                if (SAJSON_UNLIKELY(!p)) {
+                    return unexpected_end();
+                }
+
+                if (current_structure_type == TYPE_ARRAY) {
                     if (*p == ']') {
-                        if (had_comma) {
-                            return error(p, "trailing commas not allowed");
+                        goto pop_array;
+                    } else {
+                        if (SAJSON_UNLIKELY(*p != ',')) {
+                            return error(p, "expected ,");
                         }
                         ++p;
-                        size_t* base_ptr = stack.get_pointer_from_offset(current_base);
-                        pop_element = *base_ptr;
-                        if (!install_array(base_ptr + 1, stack.get_top())) {
-                            return oom(p);
-                        }
-                        goto pop;
+                        goto next_element;
                     }
+                } else {
+                    assert(current_structure_type == TYPE_OBJECT);
+                    if (*p == '}') {
+                        goto pop_object;
+                    } else {
+                        if (SAJSON_UNLIKELY(*p != ',')) {
+                            return error(p, "expected ,");
+                        }
+                        ++p;
+                        goto object_key;
+                    }
+                }
+                SAJSON_UNREACHABLE();
+
+            // ASSUMES: *p == '}'
+            pop_object: {
+                ++p;
+                size_t* base_ptr = stack.get_pointer_from_offset(current_base);
+                pop_element = *base_ptr;
+                if (!install_object(base_ptr + 1, stack.get_top())) {
+                    return oom(p);
+                }
+                goto pop;
+            }
+
+            // ASSUMES: *p == ']'
+            pop_array: {
+                ++p;
+                size_t* base_ptr = stack.get_pointer_from_offset(current_base);
+                pop_element = *base_ptr;
+                if (!install_array(base_ptr + 1, stack.get_top())) {
+                    return oom(p);
+                }
+                goto pop;
+            }
+
+            // ASSUMES: byte at p SHOULD NOT be skipped
+            object_key: {
+                p = skip_whitespace(p);
+                if (SAJSON_UNLIKELY(!p)) {
+                    return unexpected_end();
+                }
+                if (SAJSON_UNLIKELY(*p != '"')) {
+                    return error(p, "missing object key");
+                }
+                size_t* out = stack.reserve(2);
+                if (stack.has_allocation_error()) {
+                    return oom(p);
+                }
+                p = parse_string(p, out);
+                if (!p) {
+                    return false;
+                }
+                p = skip_whitespace(p);
+                if (!p || *p != ':') {
+                    return error(p, "expected :");
+                }
+                ++p;
+                goto next_element;
+            }
+
+            // ASSUMES: byte at p SHOULD NOT be skipped
+            next_element:
+                p = skip_whitespace(p);
+                if (SAJSON_UNLIKELY(!p)) {
+                    return unexpected_end();
                 }
 
                 type value_type_result;
-                switch (p ? *p : 0) {
+                switch (*p) {
                     type next_type;
 
                     case 0:
-                        return error(p, "unexpected end of input");
+                        return unexpected_end(p);
                     case 'n':
                         p = parse_null(p);
                         if (!p) {
@@ -1169,15 +1223,17 @@ namespace sajson {
                             return oom(p);
                         }
                         current_structure_type = next_type;
-                        had_comma = false;
-                        goto after_comma;
+                        goto structure_close_or_element;
                     }
-
                     pop: {
                         size_t parent = get_element_value(pop_element);
                         if (parent == ROOT_MARKER) {
                             root_type = current_structure_type;
-                            goto done;
+                            p = skip_whitespace(p);
+                            if (SAJSON_UNLIKELY(p)) {
+                                return error(p, "expected end of input");
+                            }
+                            return true;
                         }
                         stack.reset(current_base);
                         current_base = parent;
@@ -1185,26 +1241,22 @@ namespace sajson {
                         current_structure_type = get_element_type(pop_element);
                         break;
                     }
+
                     case ',':
                         return error(p, "unexpected comma");
                     default:
                         return error(p, "expected value");
                 }
-                
+
                 stack.push(make_element(value_type_result, allocator.get_write_offset()));
                 if (stack.has_allocation_error()) {
                     return oom(p);
                 }
-                had_comma = false;
+
+                goto structure_close_or_comma;
             }
 
-        done:
-            p = skip_whitespace(p);
-            if (0 == p) {
-                return true;
-            } else {
-                return error(p, "expected end of input");
-            }
+            SAJSON_UNREACHABLE();
         }
 
         bool has_remaining_characters(char* p, ptrdiff_t remaining) {
