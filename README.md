@@ -1,21 +1,63 @@
-Single-Allocation JSON Parser
+# sajson
 
-sajson is an in-place, DOM-style JSON parser written in C++.  Given a
-JSON document, it allocates and fills a contiguous parse tree of size
-`input_length * sizeof(size_t)`.
+sajson is an extremely high-performance, in-place, DOM-style JSON parser written in C++.
 
-That is, on 32-bit platforms, sajson allocates 4 bytes per input
-character.  On 64-bit platforms, sajson allocates 8 bytes per input character.
+Originally, sajson meant Single Allocation JSON, but it now supports dynamic and bounded allocation modes too.
 
-Its performance is similar to rapidjson and vjson.
+## Features
 
-Other benefits of sajson:
+sajson parses an input document into a contiguous AST structure.  Unlike some other high-performance JSON parsers, the AST is efficiently queryable.  Object lookups by key are O(lg N) and array indexing is O(1).
 
-* O(1) stack usage.  No document will overflow the stack.
-* Does not require input buffer to have terminate with NUL.  Parse straight from your network buffer.
-* Only two number types: 32-bit ints and doubles.
+sajson does not require that the input buffer is null-terminated.  You can use it to parse straight out of a network buffer, for example.
+
+sajson is in-situ: it modifies the input string.  While parsing, string values are converted to UTF-8.
+
+(Note: sajson pays a slight performance penalty for not requiring null termination of the input string.  Because sajson is in-situ, many uses cases require copying the input data anyway.  Therefore, I could be convinced to switch to requiring null termination.)
+
+### Other Features
+
+* O(1) stack usage. No document will overflow the stack.
+* Only two number types: 32-bits and doubls.
+* Small code size -- suitable for Emscripten.
+
+## AST Structure
+
+The parsed AST's size is computed as such:
+
+* 2 words per string
+* 1 word per 32-bit integer value
+* 64 bits per floating point value
+* 1+N words per array, where N is the number of elements
+* 1+3N words per object, where N is the number of members
+
+The values null, true, and false are encoded in tag bits and have no cost otherwise.
+
+## Allocation Modes
+
+### Single
+
+The original sajson allocation mode allocates one word per byte of the input document.  This is the fastest mode: because the AST and parse stack are guaranteed to fit, no allocation checks are required at runtime.
+
+That is, on 32-bit platforms, sajson allocates 4 bytes per input character.  On 64-bit platforms, sajson allocates 8 bytes per input character.  Only use this parse mode if you can handle allocating the worst-case buffer size for your input documents.
+
+### Dynamic
+
+The dynamic allocation mode grows the parse stack and AST buffer as needed.  It's about 10-40% slower than single allocation because it needs to check for out-of-memory every time data is appended, and occasionally the buffers need to be reallocated and copied.
+
+### Bounded
+
+The bounded allocation mode is for when you have a fixed budget for parsing.  It will allocated the requested amount of memory and fail if more is required to hold the parse stack or AST.
+
+## Performance
+
+sajson's performance is excellent - it frequently benchmarks faster than rapidjson, for example.
 
 Implementation details are available at: http://chadaustin.me/tag/sajson/
 
-sajson does not support UTF-16 or UTF-32.  To use sajson on non-UTF-8
-documents, transcode to UTF-8 first.
+## Downsides / Missing Features
+
+* sajson does not support UTF-16 or UTF-32.  However, I have never seen one of those in the wild, so I suspect they may be a case of aggressive overspecification.  Either way, just transcode to UTF-8 first.
+
+* No support for 64-bit integers.  If this is something you want, just ask.  (There's little technical reason not to support it.  It's just that most people avoid 64-bit integers in JSON because JavaScript can't read them.)
+
+* Requires C++11.  Some of the ownership semantics were awkward to express in C++03.
