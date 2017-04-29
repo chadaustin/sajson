@@ -31,3 +31,5 @@ bench_env = env.Clone(tools=[sajson])
 bench_env.Append(CPPDEFINES=['NDEBUG'])
 bench_env.Program('bench', ['benchmark/benchmark.cpp'])
 
+parse_stats_env = env.Clone(tools=[sajson])
+parse_stats_env.Program('parse_stats', ['example/main.cpp'])
