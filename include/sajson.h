@@ -508,7 +508,7 @@ namespace sajson {
         }
 
         bool is_valid() const {
-            return structure.is_valid();
+            return root_type == TYPE_ARRAY || root_type == TYPE_OBJECT;
         }
 
         value get_root() const {
@@ -601,72 +601,129 @@ namespace sajson {
             friend class single_allocation;
         };
 
-        single_allocation() = delete;
-        single_allocation(const single_allocation&) = delete;
-        void operator=(const single_allocation&) = delete;
+        class allocator {
+        public:
+            allocator() = delete;
+            allocator(const allocator&) = delete;
+            void operator=(const allocator&) = delete;
 
-        explicit single_allocation(size_t input_size)
-            : structure(new(std::nothrow) size_t[input_size])
-            , structure_end(structure ? structure + input_size : 0)
-            , write_cursor(structure_end)
+            explicit allocator(size_t* buffer, size_t input_size, bool should_deallocate)
+                : structure(buffer)
+                , structure_end(buffer ? buffer + input_size : 0)
+                , write_cursor(structure_end)
+                , should_deallocate(should_deallocate)
+            {}
+            
+            explicit allocator(std::nullptr_t)
+                : structure(0)
+                , structure_end(0)
+                , write_cursor(0)
+                , should_deallocate(false)
+            {}
+
+            allocator(allocator&& other)
+                : structure(other.structure)
+                , structure_end(other.structure_end)
+                , write_cursor(other.write_cursor)
+                , should_deallocate(other.should_deallocate)
+            {
+                other.structure = 0;
+                other.structure_end = 0;
+                other.write_cursor = 0;
+                other.should_deallocate = false;
+            }
+
+            ~allocator() {
+                if (should_deallocate) {
+                    delete[] structure;
+                }
+            }
+
+            stack_head get_stack_head() {
+                return stack_head(structure);
+            }
+
+            size_t get_write_offset() {
+                return structure_end - write_cursor;
+            }
+
+            size_t* get_write_pointer_of(size_t v) {
+                return structure_end - v;
+            }
+
+            bool has_allocation_error() {
+                return false;
+            }
+
+            // check has_allocation_error immediately after calling
+            size_t* reserve(size_t size) {
+                write_cursor -= size;
+                return write_cursor;
+            }
+
+            size_t* get_ast_root() {
+                return write_cursor;
+            }
+
+            ownership transfer_ownership() {
+                auto p = structure;
+                structure = 0;
+                structure_end = 0;
+                write_cursor = 0;
+                if (should_deallocate) {
+                    return ownership(p);
+                } else {
+                    return ownership(0);
+                }
+            }
+
+        private:
+            size_t* structure;
+            size_t* structure_end;
+            size_t* write_cursor;
+            bool should_deallocate;
+        };
+
+        /// Allocate a single worst-case AST buffer with one word per byte in
+        /// the input document.
+        single_allocation()
+            : has_existing_buffer(false)
+            , existing_buffer(0)
+            , existing_buffer_size(0)
         {}
 
-        single_allocation(single_allocation&& other)
-            : structure(other.structure)
-            , structure_end(other.structure_end)
-            , write_cursor(other.write_cursor)
-        {
-            other.structure = 0;
-            other.structure_end = 0;
-            other.write_cursor = 0;
-        }
+        /// Write the AST into an existing buffer.  Will fail with an out of
+        /// memory error if the buffer is not guaranteed to be big enough for
+        /// the document.
+        single_allocation(size_t* existing_buffer, size_t size_in_words)
+            : has_existing_buffer(true)
+            , existing_buffer(existing_buffer)
+            , existing_buffer_size(size_in_words)
+        {}
 
-        ~single_allocation() {
-            delete[] structure;
-        }
-
-        stack_head get_stack_head() {
-            return stack_head(structure);
-        }
-
-        size_t get_write_offset() {
-            return structure_end - write_cursor;
-        }
-
-        size_t* get_write_pointer_of(size_t v) {
-            return structure_end - v;
-        }
-
-        bool failed_to_initialize() {
-            return !structure;
-        }
-
-        bool has_allocation_error() {
-            return false;
-        }
-
-        // check has_allocation_error immediately after calling
-        size_t* reserve(size_t size) {
-            write_cursor -= size;
-            return write_cursor;
-        }
-
-        size_t* get_ast_root() {
-            return write_cursor;
-        }
-
-        ownership transfer_ownership() {
-            auto p = structure;
-            structure = 0;
-            structure_end = 0;
-            write_cursor = 0;
-            return ownership(p);
+        allocator make_allocator(size_t input_document_size_in_bytes, bool* succeeded) const {
+            if (has_existing_buffer) {
+                if (existing_buffer_size < input_document_size_in_bytes) {
+                    *succeeded = false;
+                    return allocator(nullptr);
+                }
+                *succeeded = true;
+                return allocator(existing_buffer, input_document_size_in_bytes, false);
+            } else {
+                size_t* buffer = new(std::nothrow) size_t[input_document_size_in_bytes];
+                if (!buffer) {
+                    *succeeded = false;
+                    return allocator(nullptr);
+                }
+                *succeeded = true;
+                return allocator(buffer, input_document_size_in_bytes, true);
+            }
         }
 
     private:
-        size_t* structure;
-        size_t* structure_end;
-        size_t* write_cursor;
+        bool has_existing_buffer;
+        size_t* existing_buffer;
+        size_t existing_buffer_size;
     };
 
     class dynamic_allocation {
@@ -729,14 +786,12 @@ namespace sajson {
             stack_head(const stack_head&) = delete;
             void operator=(const stack_head&) = delete;
 
-            explicit stack_head()
-            {
-                // TODO: what's a good default?
-                size_t capacity = 64;
-                stack_bottom = new(std::nothrow) size_t[capacity];
+            explicit stack_head(size_t initial_capacity) {
+                assert(initial_capacity);
+                stack_bottom = new(std::nothrow) size_t[initial_capacity];
                 stack_top = stack_bottom;
                 if (stack_bottom) {
-                    stack_limit = stack_bottom + capacity;
+                    stack_limit = stack_bottom + initial_capacity;
                 } else {
                     stack_limit = 0;
                 }
@@ -776,120 +831,153 @@ namespace sajson {
             friend class dynamic_allocation;
         };
 
-        dynamic_allocation() = delete;
-        dynamic_allocation(const dynamic_allocation&) = delete;
-        void operator=(const dynamic_allocation&) = delete;
+        class allocator {
+        public:
+            allocator() = delete;
+            allocator(const allocator&) = delete;
+            void operator=(const allocator&) = delete;
 
-        explicit dynamic_allocation(size_t /*input_size*/) {
-            // TODO: could factor input size into an estimated ast size
-            size_t capacity = 256;
-            ast_buffer_bottom = new(std::nothrow) size_t[capacity];
-            if (ast_buffer_bottom) {
-                ast_buffer_top = ast_buffer_bottom + capacity;
-                ast_write_head = ast_buffer_top;
-            } else {
-                ast_buffer_top = 0;
-                ast_write_head = 0;
+            explicit allocator(size_t* buffer, size_t current_capacity, size_t initial_stack_capacity)
+                : ast_buffer_bottom(buffer)
+                , ast_buffer_top(buffer + current_capacity)
+                , ast_write_head(ast_buffer_top)
+                , initial_stack_capacity(initial_stack_capacity)
+            {}
+
+            explicit allocator(std::nullptr_t)
+                : ast_buffer_bottom(0)
+                , ast_buffer_top(0)
+                , ast_write_head(0)
+                , initial_stack_capacity(0)
+            {}
+
+            allocator(allocator&& other)
+                : ast_buffer_bottom(other.ast_buffer_bottom)
+                , ast_buffer_top(other.ast_buffer_top)
+                , ast_write_head(other.ast_write_head)
+                , initial_stack_capacity(other.initial_stack_capacity)
+            {
+                other.ast_buffer_bottom = 0;
+                other.ast_buffer_top = 0;
+                other.ast_write_head = 0;
             }
-        }
 
-        dynamic_allocation(dynamic_allocation&& other)
-            : ast_buffer_bottom(other.ast_buffer_bottom)
-            , ast_buffer_top(other.ast_buffer_top)
-            , ast_write_head(other.ast_write_head)
-        {
-            other.ast_buffer_bottom = 0;
-            other.ast_buffer_top = 0;
-            other.ast_write_head = 0;
-        }
+            ~allocator() {
+                delete[] ast_buffer_bottom;
+            }
 
-        ~dynamic_allocation() {
-            delete[] ast_buffer_bottom;
-        }
+            stack_head get_stack_head() {
+                return stack_head(initial_stack_capacity);
+            }
 
-        bool failed_to_initialize() {
-            return has_allocation_error();
-        }
+            size_t get_write_offset() {
+                return ast_buffer_top - ast_write_head;
+            }
 
-        stack_head get_stack_head() {
-            return stack_head();
-        }
+            size_t* get_write_pointer_of(size_t v) {
+                return ast_buffer_top - v;
+            }
 
-        size_t get_write_offset() {
-            return ast_buffer_top - ast_write_head;
-        }
+            bool has_allocation_error() {
+                return !ast_buffer_bottom;
+            }
 
-        size_t* get_write_pointer_of(size_t v) {
-            return ast_buffer_top - v;
-        }
+            // check has_allocation_error immediately after calling
+            size_t* reserve(size_t size) {
+                if (can_grow(size)) {
+                    ast_write_head -= size;
+                    return ast_write_head;
+                } else {
+                    return 0;
+                }
+            }
 
-        bool has_allocation_error() {
-            return !ast_buffer_bottom;
-        }
-
-        // check has_allocation_error immediately after calling
-        size_t* reserve(size_t size) {
-            if (can_grow(size)) {
-                ast_write_head -= size;
+            size_t* get_ast_root() {
                 return ast_write_head;
-            } else {
-                return 0;
-            }
-        }
-
-        size_t* get_ast_root() {
-            return ast_write_head;
-        }
-
-        ownership transfer_ownership() {
-            auto p = ast_buffer_bottom;
-            ast_buffer_bottom = 0;
-            ast_buffer_top = 0;
-            ast_write_head = 0;
-            return ownership(p);
-        }
-
-    private:
-        bool can_grow(size_t amount) {
-            if (SAJSON_LIKELY(amount <= static_cast<size_t>(ast_write_head - ast_buffer_bottom))) {
-                return true;
-            }
-            size_t current_capacity = ast_buffer_top - ast_buffer_bottom;
-
-            size_t current_size = ast_buffer_top - ast_write_head;
-            size_t new_capacity = current_capacity * 2;
-            while (new_capacity < amount + current_size) {
-                new_capacity *= 2;
             }
 
-            size_t* old_buffer = ast_buffer_bottom;
-            size_t* new_buffer = new(std::nothrow) size_t[new_capacity];
-            if (!new_buffer) {
+            ownership transfer_ownership() {
+                auto p = ast_buffer_bottom;
                 ast_buffer_bottom = 0;
                 ast_buffer_top = 0;
                 ast_write_head = 0;
-                return false;
+                return ownership(p);
             }
 
-            size_t* old_write_head = ast_write_head;
-            ast_buffer_bottom = new_buffer;
-            ast_buffer_top = new_buffer + new_capacity;
-            ast_write_head = ast_buffer_top - current_size;
-            memcpy(ast_write_head, old_write_head, current_size * sizeof(size_t));
-            delete[] old_buffer;
+        private:
+            bool can_grow(size_t amount) {
+                if (SAJSON_LIKELY(amount <= static_cast<size_t>(ast_write_head - ast_buffer_bottom))) {
+                    return true;
+                }
+                size_t current_capacity = ast_buffer_top - ast_buffer_bottom;
 
-            return true;
+                size_t current_size = ast_buffer_top - ast_write_head;
+                size_t new_capacity = current_capacity * 2;
+                while (new_capacity < amount + current_size) {
+                    new_capacity *= 2;
+                }
+
+                size_t* old_buffer = ast_buffer_bottom;
+                size_t* new_buffer = new(std::nothrow) size_t[new_capacity];
+                if (!new_buffer) {
+                    ast_buffer_bottom = 0;
+                    ast_buffer_top = 0;
+                    ast_write_head = 0;
+                    return false;
+                }
+
+                size_t* old_write_head = ast_write_head;
+                ast_buffer_bottom = new_buffer;
+                ast_buffer_top = new_buffer + new_capacity;
+                ast_write_head = ast_buffer_top - current_size;
+                memcpy(ast_write_head, old_write_head, current_size * sizeof(size_t));
+                delete[] old_buffer;
+
+                return true;
+            }
+
+            size_t* ast_buffer_bottom; // base address of the ast buffer - it grows down
+            size_t* ast_buffer_top;
+            size_t* ast_write_head;
+            size_t initial_stack_capacity;
+        };
+
+        dynamic_allocation(size_t initial_ast_capacity = 0, size_t initial_stack_capacity = 0)
+            : initial_ast_capacity(initial_ast_capacity)
+            , initial_stack_capacity(initial_stack_capacity)
+        {}
+
+        allocator make_allocator(size_t input_document_size_in_bytes, bool* succeeded) const {
+            size_t capacity = initial_ast_capacity;
+            if (!capacity) {
+                // TODO: guess based on input document size
+                capacity = 1024;
+            }
+
+            size_t* buffer = new(std::nothrow) size_t[capacity];
+            if (!buffer) {
+                *succeeded = false;
+                return allocator(nullptr);
+            }
+
+            size_t stack_capacity = initial_stack_capacity;
+            if (!stack_capacity) {
+                stack_capacity = 256;
+            }
+
+            *succeeded = true;
+            return allocator(buffer, capacity, stack_capacity);
         }
 
-        size_t* ast_buffer_bottom; // base address of the ast buffer - it grows down
-        size_t* ast_buffer_top;
-        size_t* ast_write_head;
+    private:
+        size_t initial_ast_capacity;
+        size_t initial_stack_capacity;
     };
 
-    template<typename AllocationStrategy>
+    template<typename Allocator>
     class parser {
     public:
-        parser(const mutable_string_view& msv, AllocationStrategy&& allocator)
+        parser(const mutable_string_view& msv, Allocator&& allocator)
             : input(msv)
             , input_end(input.get_data() + input.length())
             , allocator(std::move(allocator))
@@ -993,10 +1081,6 @@ namespace sajson {
         bool parse() {
             // p points to the character currently being parsed
             char* p = input.get_data();
-
-            if (SAJSON_UNLIKELY(allocator.failed_to_initialize())) {
-                return oom(p);
-            }
 
             auto stack = allocator.get_stack_head();
             if (SAJSON_UNLIKELY(stack.has_allocation_error())) {
@@ -1730,7 +1814,7 @@ namespace sajson {
 
         mutable_string_view input;
         char* const input_end;
-        AllocationStrategy allocator;
+        Allocator allocator;
 
         type root_type;
         size_t error_line;
@@ -1739,9 +1823,17 @@ namespace sajson {
     };
 
     template<typename AllocationStrategy, typename StringType>
-    document parse(AllocationStrategy&& allocator, const StringType& string) {
-        return parser<AllocationStrategy>(
-            mutable_string_view(string),
+    document parse(const AllocationStrategy& strategy, const StringType& string) {
+        mutable_string_view input(string);
+
+        bool success;
+        auto allocator = strategy.make_allocator(input.length(), &success);
+        if (!success) {
+            return document(input, 1, 1, "out of memory initializing allocator");
+        }
+
+        return parser<typename AllocationStrategy::allocator>(
+            input,
             std::move(allocator)
         ).get_document();
     }
@@ -1749,7 +1841,7 @@ namespace sajson {
     template<typename AllocationStrategy, typename StringType>
     document parse(const StringType& string) {
         return parse(
-            AllocationStrategy(string.length()),
+            AllocationStrategy(),
             string);
     }
 }
