@@ -17,6 +17,7 @@ sajson is in-situ: it modifies the input string.  While parsing, string values a
 ### Other Features
 
 * Single header file -- simply drop sajson.h into your project.
+* No exceptions or RTTI.
 * O(1) stack usage. No document will overflow the stack.
 * Only two number types: 32-bits and doubles.
 * Small code size -- suitable for Emscripten.
