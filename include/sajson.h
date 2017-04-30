@@ -487,11 +487,21 @@ namespace sajson {
 
     class document {
     public:
-        explicit document(mutable_string_view& input, ownership&& structure, type root_type, const size_t* root, size_t error_line, size_t error_column, const std::string& error_message)
+        explicit document(const mutable_string_view& input, ownership&& structure, type root_type, const size_t* root)
             : input(input)
             , structure(std::move(structure))
             , root_type(root_type)
             , root(root)
+            , error_line(0)
+            , error_column(0)
+            , error_message()
+        {}
+
+        explicit document(const mutable_string_view& input, size_t error_line, size_t error_column, const std::string& error_message)
+            : input(input)
+            , structure(0)
+            , root_type(TYPE_NULL)
+            , root(0)
             , error_line(error_line)
             , error_column(error_column)
             , error_message(error_message)
@@ -906,9 +916,9 @@ namespace sajson {
         document get_document() {
             if (parse()) {
                 size_t* ast_root = allocator.get_ast_root();
-                return document(input, allocator.transfer_ownership(), root_type, ast_root, 0, 0, std::string());
+                return document(input, allocator.transfer_ownership(), root_type, ast_root);
             } else {
-                return document(input, ownership(0), TYPE_NULL, 0, error_line, error_column, error_message);
+                return document(input, error_line, error_column, error_message);
             }
         }
 
