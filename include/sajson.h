@@ -35,7 +35,6 @@
 #include <limits>
 
 #include <string> // for error messages.  kill someday?
-#include <ostream> // for tests.  kill someday?
 
 #if defined(__GNUC__) || defined(__clang__)
 #define SAJSON_LIKELY(x) __builtin_expect(!!(x), 1)
@@ -102,20 +101,6 @@ namespace sajson {
         TYPE_ARRAY = 6,
         TYPE_OBJECT = 7,
     };
-
-    inline std::ostream& operator<<(std::ostream& os, type t) {
-        switch (t) {
-            case TYPE_INTEGER: return os << "<integer>";
-            case TYPE_DOUBLE:  return os << "<double>";
-            case TYPE_NULL:    return os << "<null>";
-            case TYPE_FALSE:   return os << "<false>";
-            case TYPE_TRUE:    return os << "<true>";
-            case TYPE_STRING:  return os << "<string>";
-            case TYPE_ARRAY:   return os << "<array>";
-            case TYPE_OBJECT:  return os << "<object>";
-            default:           return os << "<unknown type";
-        }
-    }
 
     static const size_t TYPE_BITS = 3;
     static const size_t TYPE_MASK = (1 << TYPE_BITS) - 1;

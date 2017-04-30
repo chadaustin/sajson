@@ -1,5 +1,6 @@
 #include <UnitTest++.h>
 #include "sajson.h"
+#include "sajson_ostream.h"
 
 using sajson::TYPE_ARRAY;
 using sajson::TYPE_DOUBLE;
