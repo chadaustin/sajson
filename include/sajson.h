@@ -1837,11 +1837,4 @@ namespace sajson {
             std::move(allocator)
         ).get_document();
     }
-
-    template<typename AllocationStrategy, typename StringType>
-    document parse(const StringType& string) {
-        return parse(
-            AllocationStrategy(),
-            string);
-    }
 }

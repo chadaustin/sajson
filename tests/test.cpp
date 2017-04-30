@@ -30,8 +30,16 @@ inline bool success(const document& doc) {
 
 #define ABSTRACT_TEST(name) \
     static void name##internal(sajson::document (*parse)(const sajson::literal&)); \
-    TEST(single_allocation_##name) { name##internal(&sajson::parse<sajson::single_allocation>); } \
-    TEST(dynamic_allocation_##name) { name##internal(&sajson::parse<sajson::dynamic_allocation>); } \
+    TEST(single_allocation_##name) { \
+        name##internal([](const sajson::literal& literal) { \
+            return sajson::parse(sajson::single_allocation(), literal); \
+        }); \
+    } \
+    TEST(dynamic_allocation_##name) { \
+        name##internal([](const sajson::literal& literal) { \
+            return sajson::parse(sajson::dynamic_allocation(), literal); \
+        }); \
+    } \
     static void name##internal(sajson::document (*parse)(const sajson::literal&))
 
 ABSTRACT_TEST(empty_array) {
