@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
     }
     fclose(file);
     
-    const sajson::document& document = sajson::parse<sajson::single_allocation>(mutable_string_view(length, buffer));
+    const sajson::document& document = sajson::parse<sajson::dynamic_allocation>(mutable_string_view(length, buffer));
     if (!success(document)) {
         return 1;
     }
