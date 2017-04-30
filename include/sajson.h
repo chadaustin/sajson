@@ -30,12 +30,12 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
-#include <ostream>
 #include <algorithm>
 #include <cstdio>
 #include <limits>
 
 #include <string> // for error messages.  kill someday?
+#include <ostream> // for tests.  kill someday?
 
 #if defined(__GNUC__) || defined(__clang__)
 #define SAJSON_LIKELY(x) __builtin_expect(!!(x), 1)
@@ -1744,10 +1744,17 @@ namespace sajson {
     };
 
     template<typename AllocationStrategy, typename StringType>
-    document parse(const StringType& string) {
-        mutable_string_view ms(string);
+    document parse(AllocationStrategy&& allocator, const StringType& string) {
+        return parser<AllocationStrategy>(
+            mutable_string_view(string),
+            std::move(allocator)
+        ).get_document();
+    }
 
-        AllocationStrategy allocator(string.length());
-        return parser<AllocationStrategy>(ms, std::move(allocator)).get_document();
+    template<typename AllocationStrategy, typename StringType>
+    document parse(const StringType& string) {
+        return parse(
+            AllocationStrategy(string.length()),
+            string);
     }
 }
