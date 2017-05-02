@@ -731,7 +731,6 @@ ABSTRACT_TEST(object_array_with_integers) {
 
 SUITE(allocator_tests) {
     TEST(single_allocation_into_existing_memory) {
-        printf("start test\n");
         size_t buffer[2];
         const sajson::document& document = sajson::parse(
             sajson::single_allocation(buffer, 2),
@@ -741,7 +740,6 @@ SUITE(allocator_tests) {
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
         CHECK_EQUAL(0u, root.get_length());
         CHECK_EQUAL(0u, buffer[1]);
-        printf("end test\n");
     }
 }
 
