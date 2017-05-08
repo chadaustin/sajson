@@ -12,6 +12,7 @@
 		63DA0EBC1EBD65FB003D404F /* sajson.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63DA0EBB1EBD65FB003D404F /* sajson.swift */; };
 		63DA0EBE1EBD6604003D404F /* sajson-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 63DA0EBD1EBD6604003D404F /* sajson-Bridging-Header.h */; };
 		63DA0EC31EBD66C9003D404F /* sajson-ffi.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 63DA0EC21EBD66C9003D404F /* sajson-ffi.cpp */; };
+		63F80E5D1EC03C2800A5A902 /* sajson.h in Headers */ = {isa = PBXBuildFile; fileRef = 63F80E5C1EC03C2800A5A902 /* sajson.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,8 +33,8 @@
 		638FA3D21EBD6575002CDC45 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		63DA0EBB1EBD65FB003D404F /* sajson.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = sajson.swift; sourceTree = "<group>"; };
 		63DA0EBD1EBD6604003D404F /* sajson-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "sajson-Bridging-Header.h"; sourceTree = "<group>"; };
-		63DA0EC01EBD6677003D404F /* sajson.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sajson.h; sourceTree = "<group>"; };
 		63DA0EC21EBD66C9003D404F /* sajson-ffi.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "sajson-ffi.cpp"; sourceTree = "<group>"; };
+		63F80E5C1EC03C2800A5A902 /* sajson.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; name = sajson.h; path = ../include/sajson.h; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,7 +99,7 @@
 		63DA0EBF1EBD6661003D404F /* sajson */ = {
 			isa = PBXGroup;
 			children = (
-				63DA0EC01EBD6677003D404F /* sajson.h */,
+				63F80E5C1EC03C2800A5A902 /* sajson.h */,
 			);
 			name = sajson;
 			sourceTree = "<group>";
@@ -110,6 +111,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				63F80E5D1EC03C2800A5A902 /* sajson.h in Headers */,
 				63DA0EBE1EBD6604003D404F /* sajson-Bridging-Header.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

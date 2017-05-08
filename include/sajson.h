@@ -523,8 +523,18 @@ namespace sajson {
             return error_column;
         }
 
-        std::string get_error_message() const {
+        const std::string& get_error_message() const {
             return error_message;
+        }
+        
+        /// WARNING: Internal function exposed only for high-performance language bindings.
+        type _internal_get_root_type() const {
+            return root_type;
+        }
+        
+        /// WARNING: Internal function exposed only for high-performance language bindings.
+        const size_t* _internal_get_root() const {
+            return root;
         }
 
     private:

@@ -18,14 +18,13 @@ public enum RawValueType: UInt8 {
 }
 
 public struct Value {
-    internal init(type: RawValueType, ptr: UnsafeBufferPointer<UInt>) {
+    internal init(type: UInt8, ptr: UnsafePointer<UInt>) {
         self.type = type
         self.ptr = ptr
     }
 
-    public let type: RawValueType
-
-    private let ptr: UnsafeBufferPointer<UInt>
+    public let type: UInt8
+    private let ptr: UnsafePointer<UInt>
 }
 
 public final class Document {
@@ -41,9 +40,12 @@ public final class Document {
     /// outside of the callback.  The backing memory could be deallocated,
     /// causing use of the Value to cause a segfault.
     public func withRootValue<T>(_ cb: (_ root: Value) -> T) -> T {
-        let rootType = sajson_get_raw_type(doc)
-        let rootPointer = sajson_get_root_pointer(doc)
-        return cb(Value(rootType, rootPointer))
+        let rootType = sajson_get_root_type(doc)
+        let rootPointer = sajson_get_root(doc)!
+        
+        return cb(Value(
+            type: rootType,
+            ptr: rootPointer))
     }
     
     private let doc: OpaquePointer!
@@ -83,8 +85,7 @@ public func parse(allocationStrategy: AllocationStrategy, input: Data) throws ->
             message: String(cString: sajson_get_error_message(dptr)))
     }
 
-    return Document(dptr)
-    //throw ParseError(line: 10, column: 20, message: "not implemented")
+    return Document(doc: dptr)
 }
 
 public func parse(allocationStrategy: AllocationStrategy, input: String) throws -> Document {
