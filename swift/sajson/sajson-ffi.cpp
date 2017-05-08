@@ -1,5 +1,5 @@
 #include "../../include/sajson.h"
-#include "sajson-Bridging-Header.h"
+#include "sajson_header_wrapper.h"
 
 // never instantiated, only inherits so static_cast is legal
 struct sajson_document: sajson::document {};
@@ -27,7 +27,7 @@ void sajson_free_document(sajson_document* doc) {
 }
 
 bool sajson_has_error(sajson_document* doc) {
-    return unwrap(doc)->is_valid();
+    return !unwrap(doc)->is_valid();
 }
 
 size_t sajson_get_error_line(sajson_document* doc) {
@@ -46,7 +46,7 @@ uint8_t sajson_get_root_type(sajson_document* doc) {
     return unwrap(doc)->_internal_get_root_type();
 }
 
-const size_t* sajson_get_root(sajson_sajson_document* doc) {
+const size_t* sajson_get_root(sajson_document* doc) {
     return unwrap(doc)->_internal_get_root();
 }
 

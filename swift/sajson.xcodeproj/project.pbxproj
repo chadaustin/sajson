@@ -7,12 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		638FA3CC1EBD6575002CDC45 /* sajson.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 638FA3C21EBD6575002CDC45 /* sajson.framework */; };
+		638FA3CC1EBD6575002CDC45 /* sajson_swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 638FA3C21EBD6575002CDC45 /* sajson_swift.framework */; };
 		638FA3D11EBD6575002CDC45 /* sajsonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 638FA3D01EBD6575002CDC45 /* sajsonTests.swift */; };
 		63DA0EBC1EBD65FB003D404F /* sajson.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63DA0EBB1EBD65FB003D404F /* sajson.swift */; };
-		63DA0EBE1EBD6604003D404F /* sajson-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 63DA0EBD1EBD6604003D404F /* sajson-Bridging-Header.h */; };
+		63DA0EBE1EBD6604003D404F /* sajson_swift.h in Headers */ = {isa = PBXBuildFile; fileRef = 63DA0EBD1EBD6604003D404F /* sajson_swift.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		63DA0EC31EBD66C9003D404F /* sajson-ffi.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 63DA0EC21EBD66C9003D404F /* sajson-ffi.cpp */; };
-		63F80E5D1EC03C2800A5A902 /* sajson.h in Headers */ = {isa = PBXBuildFile; fileRef = 63F80E5C1EC03C2800A5A902 /* sajson.h */; };
+		63F80E5D1EC03C2800A5A902 /* sajson.h in Headers */ = {isa = PBXBuildFile; fileRef = 63F80E5C1EC03C2800A5A902 /* sajson.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		8E72C8471EC0F31A00EEE1FC /* sajson_header_wrapper.h in Headers */ = {isa = PBXBuildFile; fileRef = 8E72C8461EC0F31A00EEE1FC /* sajson_header_wrapper.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,15 +27,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		638FA3C21EBD6575002CDC45 /* sajson.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = sajson.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		638FA3C21EBD6575002CDC45 /* sajson_swift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = sajson_swift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		638FA3C61EBD6575002CDC45 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		638FA3CB1EBD6575002CDC45 /* sajsonTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = sajsonTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		638FA3D01EBD6575002CDC45 /* sajsonTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = sajsonTests.swift; sourceTree = "<group>"; };
 		638FA3D21EBD6575002CDC45 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		63DA0EBB1EBD65FB003D404F /* sajson.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = sajson.swift; sourceTree = "<group>"; };
-		63DA0EBD1EBD6604003D404F /* sajson-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "sajson-Bridging-Header.h"; sourceTree = "<group>"; };
+		63DA0EBD1EBD6604003D404F /* sajson_swift.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sajson_swift.h; sourceTree = "<group>"; };
 		63DA0EC21EBD66C9003D404F /* sajson-ffi.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "sajson-ffi.cpp"; sourceTree = "<group>"; };
 		63F80E5C1EC03C2800A5A902 /* sajson.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; name = sajson.h; path = ../include/sajson.h; sourceTree = SOURCE_ROOT; };
+		8E72C8461EC0F31A00EEE1FC /* sajson_header_wrapper.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; name = sajson_header_wrapper.h; path = "sajson-swift/sajson_header_wrapper.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -49,7 +51,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				638FA3CC1EBD6575002CDC45 /* sajson.framework in Frameworks */,
+				638FA3CC1EBD6575002CDC45 /* sajson_swift.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -69,7 +71,7 @@
 		638FA3C31EBD6575002CDC45 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				638FA3C21EBD6575002CDC45 /* sajson.framework */,
+				638FA3C21EBD6575002CDC45 /* sajson_swift.framework */,
 				638FA3CB1EBD6575002CDC45 /* sajsonTests.xctest */,
 			);
 			name = Products;
@@ -78,10 +80,11 @@
 		638FA3C41EBD6575002CDC45 /* sajson-swift */ = {
 			isa = PBXGroup;
 			children = (
-				63DA0EBD1EBD6604003D404F /* sajson-Bridging-Header.h */,
+				63DA0EC21EBD66C9003D404F /* sajson-ffi.cpp */,
+				8E72C8461EC0F31A00EEE1FC /* sajson_header_wrapper.h */,
+				63DA0EBD1EBD6604003D404F /* sajson_swift.h */,
 				63DA0EBB1EBD65FB003D404F /* sajson.swift */,
 				638FA3C61EBD6575002CDC45 /* Info.plist */,
-				63DA0EC21EBD66C9003D404F /* sajson-ffi.cpp */,
 			);
 			name = "sajson-swift";
 			path = sajson;
@@ -111,17 +114,18 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				63DA0EBE1EBD6604003D404F /* sajson_swift.h in Headers */,
 				63F80E5D1EC03C2800A5A902 /* sajson.h in Headers */,
-				63DA0EBE1EBD6604003D404F /* sajson-Bridging-Header.h in Headers */,
+				8E72C8471EC0F31A00EEE1FC /* sajson_header_wrapper.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		638FA3C11EBD6575002CDC45 /* sajson */ = {
+		638FA3C11EBD6575002CDC45 /* sajson_swift */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 638FA3D61EBD6575002CDC45 /* Build configuration list for PBXNativeTarget "sajson" */;
+			buildConfigurationList = 638FA3D61EBD6575002CDC45 /* Build configuration list for PBXNativeTarget "sajson_swift" */;
 			buildPhases = (
 				638FA3BD1EBD6575002CDC45 /* Sources */,
 				638FA3BE1EBD6575002CDC45 /* Frameworks */,
@@ -132,9 +136,9 @@
 			);
 			dependencies = (
 			);
-			name = sajson;
+			name = sajson_swift;
 			productName = sajson;
-			productReference = 638FA3C21EBD6575002CDC45 /* sajson.framework */;
+			productReference = 638FA3C21EBD6575002CDC45 /* sajson_swift.framework */;
 			productType = "com.apple.product-type.framework";
 		};
 		638FA3CA1EBD6575002CDC45 /* sajsonTests */ = {
@@ -188,7 +192,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				638FA3C11EBD6575002CDC45 /* sajson */,
+				638FA3C11EBD6575002CDC45 /* sajson_swift */,
 				638FA3CA1EBD6575002CDC45 /* sajsonTests */,
 			);
 		};
@@ -234,7 +238,7 @@
 /* Begin PBXTargetDependency section */
 		638FA3CE1EBD6575002CDC45 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 638FA3C11EBD6575002CDC45 /* sajson */;
+			target = 638FA3C11EBD6575002CDC45 /* sajson_swift */;
 			targetProxy = 638FA3CD1EBD6575002CDC45 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -344,6 +348,8 @@
 		638FA3D71EBD6575002CDC45 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "";
 				DEFINES_MODULE = YES;
@@ -353,10 +359,10 @@
 				INFOPLIST_FILE = sajson/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = me.chadaustin.sajson;
+				PRODUCT_BUNDLE_IDENTIFIER = "me.chadaustin.sajson-swift";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "sajson/sajson-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 3.0;
 			};
@@ -365,6 +371,8 @@
 		638FA3D81EBD6575002CDC45 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "";
 				DEFINES_MODULE = YES;
@@ -374,10 +382,10 @@
 				INFOPLIST_FILE = sajson/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = me.chadaustin.sajson;
+				PRODUCT_BUNDLE_IDENTIFIER = "me.chadaustin.sajson-swift";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "sajson/sajson-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 3.0;
 			};
 			name = Release;
@@ -418,7 +426,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		638FA3D61EBD6575002CDC45 /* Build configuration list for PBXNativeTarget "sajson" */ = {
+		638FA3D61EBD6575002CDC45 /* Build configuration list for PBXNativeTarget "sajson_swift" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				638FA3D71EBD6575002CDC45 /* Debug */,
