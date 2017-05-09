@@ -18,10 +18,6 @@ private enum RawValueType: UInt8 {
     // converting fully to a swift value.
     case array = 6
     case object = 7
-
-    public static func fromOpaquePointer(_ ptr: OpaquePointer) -> RawValueType {
-        return RawValueType(rawValue: sajson_get_value_type(ptr))!
-    }
 }
 
 /// Similar to `RawValueType`, but contains an associated (copied) swift type. This may deviate from `RawValueType`
@@ -168,12 +164,10 @@ public func parse(allocationStrategy: AllocationStrategy, input: Data) throws ->
     }
     
     if sajson_has_error(dptr) != 0 {
-        let errorString = unownedCStringToSwift(sajson_get_error_message(dptr)!)
-
         throw ParseError(
             line: sajson_get_error_line(dptr),
             column: sajson_get_error_column(dptr),
-            message: errorString)
+            message: String(cString: sajson_get_error_message(dptr)))
     }
 
     return Document(doc: dptr)
@@ -181,10 +175,4 @@ public func parse(allocationStrategy: AllocationStrategy, input: Data) throws ->
 
 public func parse(allocationStrategy: AllocationStrategy, input: String) throws -> Document {
     return try parse(allocationStrategy: allocationStrategy, input: input.data(using: .utf8)!)
-}
-
-private func unownedCStringToSwift(_ cString: UnsafeMutablePointer<Int8>) -> String {
-    let str = String(cString: cString)
-    cString.deallocate(capacity: Int(strlen(cString)))
-    return str
 }
