@@ -43,7 +43,9 @@ public struct Value {
     public var swiftValue: SwiftValuePayload {
         switch type {
         case .integer:
-            return .integer(Int32(bitPattern: UInt32(ptr[0])))
+            return ptr.withMemoryRebound(to: Int32.self, capacity: 1) { p in
+                return SwiftValuePayload.integer(p[0])
+            }
         case .double:
             let lo = UInt64(ptr[0])
             let hi = UInt64(ptr[1])

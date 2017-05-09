@@ -11,11 +11,7 @@
 struct sajson_document;
 
 // size_t gets turned into Int but we want unsigned on the Swift side
-#if __LP64__
 typedef unsigned long sajson_element;
-#else
-typedef unsigned int sajson_element;
-#endif
 
 #ifdef __cplusplus
 static_assert(sizeof(sajson_element) == sizeof(size_t), "sajson_element should be pointer-sized and also convert to the right Swift types");
