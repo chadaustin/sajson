@@ -37,18 +37,22 @@ public enum SwiftValuePayload {
 }
 
 public struct Value {
-    fileprivate init(type: RawValueType, ptr: OpaquePointer) {
+    fileprivate init(type: RawValueType, ptr: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
         self.type = type
         self.ptr = ptr
+        self.input = input
     }
 
     // Recurses through any sub-values, and returns a copy using swift primitives.
     public var swiftValue: SwiftValuePayload {
         switch type {
         case .integer:
-            return .integer(sajson_value_get_integer_value(ptr))
+            return .integer(Int32(bitPattern: UInt32(ptr[0])))
         case .double:
-            return .double(sajson_value_get_double_value(ptr))
+            let lo = UInt64(ptr[0])
+            let hi = UInt64(ptr[1])
+            let bitPattern = lo | (hi << 32)
+            return .double(Float64(bitPattern: bitPattern))
         case .null:
             return .null
         case .bfalse:
@@ -56,29 +60,39 @@ public struct Value {
         case .btrue:
             return .bool(true)
         case .string:
-            return .string(unownedCStringToSwift(sajson_value_get_string_value(ptr)!))
+            let start = Int(ptr[0])
+            let end = Int(ptr[1])
+            // TODO: are the following two lines a single copy?
+            let data = Data(input[start ..< end])
+            return .string(String(data: data, encoding: .utf8)!)
         case .array:
-            let length = sajson_value_get_length(ptr)
+            let length = Int(ptr[0]) // why does Swift want Int so much?
             var result = [SwiftValuePayload]()
             result.reserveCapacity(length)
 
             for i in 0..<length {
-                let elementPtr = sajson_value_get_array_element(ptr, i)!
-                let elementType = RawValueType.fromOpaquePointer(elementPtr)
-                result.append(Value(type: elementType, ptr: elementPtr).swiftValue)
+                let element = ptr[1 + i]
+                let elementType = RawValueType(rawValue: UInt8(element & 7))!
+                let elementOffset = Int(element >> 3)
+                result.append(Value(type: elementType, ptr: ptr.advanced(by: elementOffset), input: input).swiftValue)
             }
 
             return .array(result)
 
         case .object:
-            let length = sajson_value_get_length(ptr)
-
+            let length = Int(ptr[0])
             var result = [String: SwiftValuePayload](minimumCapacity: length)
             for i in 0..<length {
-                let key = unownedCStringToSwift(sajson_value_get_object_key(ptr, i)!)
-                let elementPtr = sajson_value_get_object_value(ptr, i)!
-                let elementType = RawValueType.fromOpaquePointer(elementPtr)
-                result[key] = Value(type: elementType, ptr: elementPtr).swiftValue
+                let start = Int(ptr[1 + i * 3])
+                let end = Int(ptr[2 + i * 3])
+                let value = Int(ptr[3 + i * 3])
+
+                let data = Data(input[start ..< end])
+                let key = String(data: data, encoding: .utf8)!
+
+                let valueType = RawValueType(rawValue: UInt8(value & 7))!
+                let valueOffset = Int(value >> 3)
+                result[key] = Value(type: valueType, ptr: ptr.advanced(by: valueOffset), input: input).swiftValue
             }
 
             return .object(result)
@@ -89,7 +103,8 @@ public struct Value {
     // MARK: Private
 
     private let type: RawValueType
-    private let ptr: OpaquePointer
+    private let ptr: UnsafePointer<UInt>
+    private let input: UnsafeBufferPointer<UInt8>
 }
 
 public final class Document {
@@ -98,10 +113,13 @@ public final class Document {
 
         let rootType = RawValueType(rawValue: sajson_get_root_type(doc))!
         let rootValuePointer = sajson_get_root(doc)!
+        let inputPointer = sajson_get_input(doc)!
+        let inputLength = sajson_get_input_length(doc)
 
         self.rootValue = Value(
             type: rootType,
-            ptr: rootValuePointer)
+            ptr: rootValuePointer,
+            input: UnsafeBufferPointer(start: inputPointer, count: inputLength))
     }
     
     deinit {
@@ -149,7 +167,7 @@ public func parse(allocationStrategy: AllocationStrategy, input: Data) throws ->
         fatalError("Out of memory: failed to allocate document structure")
     }
     
-    if sajson_has_error(dptr) {
+    if sajson_has_error(dptr) != 0 {
         let errorString = unownedCStringToSwift(sajson_get_error_message(dptr)!)
 
         throw ParseError(

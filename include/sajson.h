@@ -537,6 +537,10 @@ namespace sajson {
             return root;
         }
 
+        const mutable_string_view& _internal_get_input() const {
+            return input;
+        }
+
     private:
         mutable_string_view input;
         ownership structure;

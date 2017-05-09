@@ -6,7 +6,6 @@
 #ifdef __cplusplus
 #else
 #include <stddef.h>
-#include <stdbool.h>
 #endif
 
 struct sajson_document;
@@ -29,13 +28,14 @@ extern "C" {
     struct sajson_document* sajson_parse_single_allocation(char* bytes, size_t length);
     struct sajson_document* sajson_parse_dynamic_allocation(char* bytes, size_t length);
     void sajson_free_document(struct sajson_document* doc);
-    bool sajson_has_error(struct sajson_document* doc);
+    int sajson_has_error(struct sajson_document* doc);
     size_t sajson_get_error_line(struct sajson_document* doc);
     size_t sajson_get_error_column(struct sajson_document* doc);
     char* sajson_get_error_message(struct sajson_document* doc);
     uint8_t sajson_get_root_type(struct sajson_document* doc);
-    //const sajson_element* sajson_get_root(struct sajson_document* doc);
-    struct sajson_value* sajson_get_root(struct sajson_document* doc);
+    const sajson_element* sajson_get_root(struct sajson_document* doc);
+    const unsigned char* sajson_get_input(struct sajson_document* doc);
+    size_t sajson_get_input_length(struct sajson_document* doc);
 
     uint8_t sajson_get_value_type(struct sajson_value* value);
     int sajson_value_get_integer_value(struct sajson_value* value);

@@ -46,7 +46,7 @@ void sajson_free_document(sajson_document* doc) {
     delete unwrap(doc);
 }
 
-bool sajson_has_error(sajson_document* doc) {
+int sajson_has_error(sajson_document* doc) {
     return !unwrap(doc)->is_valid();
 }
 
@@ -67,11 +67,17 @@ uint8_t sajson_get_root_type(sajson_document* doc) {
     return unwrap(doc)->_internal_get_root_type();
 }
 
-//const size_t* sajson_get_root(sajson_document* doc) {
-sajson_value* sajson_get_root(sajson_document* doc) {
-    auto value = unwrap(doc)->get_root();
-    return wrap(new(std::nothrow) sajson::value(std::move(value)));
-    //return unwrap(doc)->_internal_get_root();
+const size_t* sajson_get_root(sajson_document* doc) {
+    return unwrap(doc)->_internal_get_root();
+}
+
+const unsigned char* sajson_get_input(sajson_document* doc) {
+    return reinterpret_cast<const unsigned char*>(
+        unwrap(doc)->_internal_get_input().get_data());
+}
+
+size_t sajson_get_input_length(struct sajson_document* doc) {
+    return unwrap(doc)->_internal_get_input().length();
 }
 
 //////
