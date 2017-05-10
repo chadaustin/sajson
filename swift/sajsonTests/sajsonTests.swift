@@ -22,9 +22,9 @@ class sajsonTests: XCTestCase {
         let doc = try! parse(allocationStrategy: .single, input: "{\"hello\": \"world\"}")
         let docValue = doc.swiftValue
 
-        guard case .object(let object) = docValue else { XCTFail(); return }
-        XCTAssert(object.count == 1)
-        guard case .some(.string("world")) = object["hello"] else { XCTFail(); return }
+        guard case .object(let objectReader) = docValue else { XCTFail(); return }
+        XCTAssert(objectReader.count == 1)
+        guard case .some(.string("world")) = objectReader["hello"] else { XCTFail(); return }
     }
 
     // MARK: Benchmarks
@@ -44,6 +44,8 @@ class sajsonTests: XCTestCase {
         measure {
             let doc = try! parse(allocationStrategy: .single, input: largeJsonData)
             let swiftValue = doc.swiftValue
+
+            XCTAssert(swiftValue.array?[0].object?["0"]?.string != nil)
 
             guard case .array(let array) = swiftValue else {
                 preconditionFailure()

@@ -28,14 +28,88 @@ public enum SwiftValuePayload {
     case null
     case bool(Bool)
     case string(String)
-    case array([SwiftValuePayload])
-    case object([String: SwiftValuePayload])
+    case array(ArrayReader)
+    case object(ObjectReader)
+}
+
+extension SwiftValuePayload {
+    public var string: String? {
+        if case .string(let value) = self {
+            return value
+        }
+        return nil
+    }
+
+    public var array: ArrayReader? {
+        if case .array(let value) = self {
+            return value
+        }
+        return nil
+    }
+
+    public var object: ObjectReader? {
+        if case .object(let value) = self {
+            return value
+        }
+        return nil
+    }
+}
+
+// Encapsulates logic required to read from an array.
+public struct ArrayReader {
+    fileprivate init(payload: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
+        self.payload = payload
+        self.input = input
+    }
+
+    public subscript(i: Int)-> SwiftValuePayload {
+        let element = payload[1 + i]
+        let elementType = RawValueType(rawValue: UInt8(element & 7))!
+        let elementOffset = Int(element >> 3)
+        return Value(type: elementType, payload: payload.advanced(by: elementOffset), input: input).swiftValue
+    }
+
+    public var count: Int {
+        return Int(payload[0])
+    }
+
+    private let payload: UnsafePointer<UInt>
+    private let input: UnsafeBufferPointer<UInt8>
+}
+
+// Encapsulates logic required to read from an object.
+public struct ObjectReader {
+    fileprivate init(payload: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
+        self.payload = payload
+        self.input = input
+    }
+
+    public subscript(key: String)-> SwiftValuePayload? {
+        let parentValue = sajson_create_value(Int(RawValueType.object.rawValue), payload, input.baseAddress)
+
+        let valuePtr = sajson_object_get_value_of_key(parentValue, key, key.lengthOfBytes(using: .utf8))
+        guard let valuePtrUnwrapped = valuePtr else {
+            return nil
+        }
+
+        let type = RawValueType(rawValue: sajson_get_value_type(valuePtrUnwrapped))!
+        let payloadPtr = sajson_get_value_payload(valuePtrUnwrapped)!
+
+        return Value(type: type, payload: payloadPtr, input: input).swiftValue
+    }
+
+    public var count: Int {
+        return Int(payload[0])
+    }
+
+    private let payload: UnsafePointer<UInt>
+    private let input: UnsafeBufferPointer<UInt8>
 }
 
 public struct Value {
-    fileprivate init(type: RawValueType, ptr: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
+    fileprivate init(type: RawValueType, payload: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
         self.type = type
-        self.ptr = ptr
+        self.payload = payload
         self.input = input
     }
 
@@ -43,12 +117,12 @@ public struct Value {
     public var swiftValue: SwiftValuePayload {
         switch type {
         case .integer:
-            return ptr.withMemoryRebound(to: Int32.self, capacity: 1) { p in
+            return payload.withMemoryRebound(to: Int32.self, capacity: 1) { p in
                 return SwiftValuePayload.integer(p[0])
             }
         case .double:
-            let lo = UInt64(ptr[0])
-            let hi = UInt64(ptr[1])
+            let lo = UInt64(payload[0])
+            let hi = UInt64(payload[1])
             let bitPattern = lo | (hi << 32)
             return .double(Float64(bitPattern: bitPattern))
         case .null:
@@ -58,42 +132,15 @@ public struct Value {
         case .btrue:
             return .bool(true)
         case .string:
-            let start = Int(ptr[0])
-            let end = Int(ptr[1])
+            let start = Int(payload[0])
+            let end = Int(payload[1])
             // TODO: are the following two lines a single copy?
             let data = Data(input[start ..< end])
             return .string(String(data: data, encoding: .utf8)!)
         case .array:
-            let length = Int(ptr[0]) // why does Swift want Int so much?
-            var result = [SwiftValuePayload]()
-            result.reserveCapacity(length)
-
-            for i in 0..<length {
-                let element = ptr[1 + i]
-                let elementType = RawValueType(rawValue: UInt8(element & 7))!
-                let elementOffset = Int(element >> 3)
-                result.append(Value(type: elementType, ptr: ptr.advanced(by: elementOffset), input: input).swiftValue)
-            }
-
-            return .array(result)
-
+            return .array(ArrayReader(payload: payload, input: input))
         case .object:
-            let length = Int(ptr[0])
-            var result = [String: SwiftValuePayload](minimumCapacity: length)
-            for i in 0..<length {
-                let start = Int(ptr[1 + i * 3])
-                let end = Int(ptr[2 + i * 3])
-                let value = Int(ptr[3 + i * 3])
-
-                let data = Data(input[start ..< end])
-                let key = String(data: data, encoding: .utf8)!
-
-                let valueType = RawValueType(rawValue: UInt8(value & 7))!
-                let valueOffset = Int(value >> 3)
-                result[key] = Value(type: valueType, ptr: ptr.advanced(by: valueOffset), input: input).swiftValue
-            }
-
-            return .object(result)
+            return .object(ObjectReader(payload: payload, input: input))
         }
     }
 
@@ -101,7 +148,7 @@ public struct Value {
     // MARK: Private
 
     private let type: RawValueType
-    private let ptr: UnsafePointer<UInt>
+    private let payload: UnsafePointer<UInt>
     private let input: UnsafeBufferPointer<UInt8>
 }
 
@@ -110,13 +157,13 @@ public final class Document {
         self.doc = doc
 
         let rootType = RawValueType(rawValue: sajson_get_root_type(doc))!
-        let rootValuePointer = sajson_get_root(doc)!
+        let rootValuePaylod = sajson_get_root(doc)!
         let inputPointer = sajson_get_input(doc)!
         let inputLength = sajson_get_input_length(doc)
 
         self.rootValue = Value(
             type: rootType,
-            ptr: rootValuePointer,
+            payload: rootValuePaylod,
             input: UnsafeBufferPointer(start: inputPointer, count: inputLength))
     }
     
