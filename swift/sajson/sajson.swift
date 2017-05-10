@@ -28,8 +28,91 @@ public enum SwiftValuePayload {
     case null
     case bool(Bool)
     case string(String)
-    case array([SwiftValuePayload])
-    case object([String: SwiftValuePayload])
+    case array(ArrayReader)
+    case object(ObjectReader)
+}
+
+// Encapsulates logic required to read from an array.
+public struct ArrayReader {
+    fileprivate init(ptr: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
+        self.ptr = ptr
+        self.input = input
+    }
+
+    public subscript(i: Int)-> SwiftValuePayload {
+        let element = ptr[1 + i]
+        let elementType = RawValueType(rawValue: UInt8(element & 7))!
+        let elementOffset = Int(element >> 3)
+        return Value(type: elementType, ptr: ptr.advanced(by: elementOffset), input: input).swiftValue
+    }
+
+    public var count: Int {
+        return Int(ptr[0])
+    }
+
+    private let ptr: UnsafePointer<UInt>
+    private let input: UnsafeBufferPointer<UInt8>
+}
+
+// Encapsulates logic required to read from an object.
+public struct ObjectReader {
+    fileprivate init(ptr: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
+        self.ptr = ptr
+        self.input = input
+    }
+
+    public subscript(key: String)-> SwiftValuePayload {
+        let valuePtr = sajson_object_get_value_of_key(OpaquePointer(ptr), key, key.lengthOfBytes(using: .utf8))
+
+        return Value(type: <#T##RawValueType#>, ptr: <#T##UnsafePointer<UInt>#>, input: <#T##UnsafeBufferPointer<UInt8>#>)
+
+        /*
+ let length = Int(ptr[0])
+ var result = [String: SwiftValuePayload](minimumCapacity: length)
+ for i in 0..<length {
+ let start = Int(ptr[1 + i * 3])
+ let end = Int(ptr[2 + i * 3])
+ let value = Int(ptr[3 + i * 3])
+
+ let data = Data(input[start ..< end])
+ let key = String(data: data, encoding: .utf8)!
+
+ let valueType = RawValueType(rawValue: UInt8(value & 7))!
+ let valueOffset = Int(value >> 3)
+ result[key] = Value(type: valueType, ptr: ptr.advanced(by: valueOffset), input: input).swiftValue
+ }
+
+ return .object(result)
+ */
+        return .null
+        /*
+        let element = ptr[1 + i]
+        let elementType = RawValueType(rawValue: UInt8(element & 7))!
+        let elementOffset = Int(element >> 3)
+        return Value(type: elementType, ptr: ptr.advanced(by: elementOffset), input: input).swiftValue
+ */
+    }
+
+    /*
+    public var count: Int {
+        return Int(ptr[0])
+    }
+
+    private func indexOfObjectKey(String) -> Int {
+
+    }
+     */
+
+    private func valueAtObjectIndex(i: Int) -> Value {
+        let value = Int(ptr[3 + i * 3])
+
+        let valueType = RawValueType(rawValue: UInt8(value & 7))!
+        let valueOffset = Int(value >> 3)
+        return Value(type: valueType, ptr: ptr.advanced(by: valueOffset), input: input)
+    }
+
+    private let ptr: UnsafePointer<UInt>
+    private let input: UnsafeBufferPointer<UInt8>
 }
 
 public struct Value {
@@ -64,36 +147,10 @@ public struct Value {
             let data = Data(input[start ..< end])
             return .string(String(data: data, encoding: .utf8)!)
         case .array:
-            let length = Int(ptr[0]) // why does Swift want Int so much?
-            var result = [SwiftValuePayload]()
-            result.reserveCapacity(length)
-
-            for i in 0..<length {
-                let element = ptr[1 + i]
-                let elementType = RawValueType(rawValue: UInt8(element & 7))!
-                let elementOffset = Int(element >> 3)
-                result.append(Value(type: elementType, ptr: ptr.advanced(by: elementOffset), input: input).swiftValue)
-            }
-
-            return .array(result)
+            return .array(ArrayReader(ptr: ptr, input: input))
 
         case .object:
-            let length = Int(ptr[0])
-            var result = [String: SwiftValuePayload](minimumCapacity: length)
-            for i in 0..<length {
-                let start = Int(ptr[1 + i * 3])
-                let end = Int(ptr[2 + i * 3])
-                let value = Int(ptr[3 + i * 3])
-
-                let data = Data(input[start ..< end])
-                let key = String(data: data, encoding: .utf8)!
-
-                let valueType = RawValueType(rawValue: UInt8(value & 7))!
-                let valueOffset = Int(value >> 3)
-                result[key] = Value(type: valueType, ptr: ptr.advanced(by: valueOffset), input: input).swiftValue
-            }
-
-            return .object(result)
+            return .object(ObjectReader(ptr: ptr, input: input))
         }
     }
 

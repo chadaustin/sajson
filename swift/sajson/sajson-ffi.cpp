@@ -3,6 +3,7 @@
 
 // never instantiated, only inherits so static_cast is legal
 struct sajson_document: sajson::document {};
+struct sajson_value: sajson::value {};
 
 static sajson::document* unwrap(sajson_document* doc) {
     return static_cast<sajson::document*>(doc);
@@ -10,6 +11,10 @@ static sajson::document* unwrap(sajson_document* doc) {
 
 static sajson_document* wrap(sajson::document* doc) {
     return static_cast<sajson_document*>(doc);
+}
+
+static sajson_value* wrap(sajson::value* doc) {
+    return static_cast<sajson_value*>(doc);
 }
 
 sajson_document* sajson_parse_single_allocation(char* bytes, size_t length) {
@@ -58,4 +63,9 @@ const unsigned char* sajson_get_input(sajson_document* doc) {
 
 size_t sajson_get_input_length(struct sajson_document* doc) {
     return unwrap(doc)->_internal_get_input().length();
+}
+
+sajson_value* sajson_object_get_value_of_key(sajson_value* parent, const char* key, size_t length) {
+    auto value = parent->get_value_of_key(sajson::string(key, length));
+    return wrap(new(std::nothrow) sajson::value(std::move(value)));
 }

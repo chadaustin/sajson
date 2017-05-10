@@ -9,6 +9,7 @@
 #endif
 
 struct sajson_document;
+struct sajson_value;
 
 // size_t gets turned into Int but we want unsigned on the Swift side
 typedef unsigned long sajson_element;
@@ -30,6 +31,7 @@ extern "C" {
     const sajson_element* sajson_get_root(struct sajson_document* doc);
     const unsigned char* sajson_get_input(struct sajson_document* doc);
     size_t sajson_get_input_length(struct sajson_document* doc);
+    struct sajson_value* sajson_object_get_value_of_key(struct sajson_value* parent, const char* bytes, size_t length);
 
 #ifdef __cplusplus
 }
