@@ -13,10 +13,6 @@ static sajson_document* wrap(sajson::document* doc) {
     return static_cast<sajson_document*>(doc);
 }
 
-static sajson_value* wrap(sajson::value* doc) {
-    return static_cast<sajson_value*>(doc);
-}
-
 sajson_document* sajson_parse_single_allocation(char* bytes, size_t length) {
     auto doc = sajson::parse(sajson::single_allocation(), sajson::mutable_string_view(length, bytes));
     return wrap(new(std::nothrow) sajson::document(std::move(doc)));
@@ -65,7 +61,32 @@ size_t sajson_get_input_length(struct sajson_document* doc) {
     return unwrap(doc)->_internal_get_input().length();
 }
 
-sajson_value* sajson_object_get_value_of_key(sajson_value* parent, const char* key, size_t length) {
-    auto value = parent->get_value_of_key(sajson::string(key, length));
+// MARK: -
+/// TODO: The following should be removed when they can be ported to Swift:
+
+static sajson_value* wrap(sajson::value* doc) {
+    return static_cast<sajson_value*>(doc);
+}
+
+static sajson::value* unwrap(sajson_value* value) {
+    return static_cast<sajson::value*>(value);
+}
+
+const sajson_element* sajson_get_value_payload(struct sajson_value* value) {
+    return unwrap(value)->_internal_get_payload();
+}
+
+uint8_t sajson_get_value_type(sajson_value* value) {
+    return unwrap(value)->get_type();
+}
+
+sajson_value* sajson_create_value(size_t type, const size_t* payload, const unsigned char* input) {
+    auto inputCasted = reinterpret_cast<const char*>(input);
+    auto value = sajson::value(sajson::type(type), payload, inputCasted);
+    return wrap(new(std::nothrow) sajson::value(std::move(value)));
+}
+
+sajson_value* sajson_object_get_value_of_key(sajson_value* parentValue, const char* key, size_t length) {
+    auto value = unwrap(parentValue)->get_value_of_key(sajson::string(key, length));
     return wrap(new(std::nothrow) sajson::value(std::move(value)));
 }
