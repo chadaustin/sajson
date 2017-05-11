@@ -425,6 +425,11 @@ namespace sajson {
             return std::string(text + payload[0], text + payload[1]);
         }
 
+        const size_t* _internal_get_payload() const {
+            return payload;
+        }
+
+
     private:
         void assert_type(type expected) const {
             assert(expected == get_type());
