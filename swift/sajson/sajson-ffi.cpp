@@ -62,31 +62,19 @@ size_t sajson_get_input_length(struct sajson_document* doc) {
 }
 
 // MARK: -
-/// TODO: The following should be removed when they can be ported to Swift:
 
-static sajson_value* wrap(sajson::value* doc) {
-    return static_cast<sajson_value*>(doc);
-}
+/// HACK: This is a re-implemented version of a similar function on sajson::value. We should modify it to either share a
+/// common helper, or remove it completely and re-implement the search logic in Swift.
+size_t sajson_find_object_key(const size_t* const payload, const char* key, size_t length, const unsigned char* input) {
+    auto inputCasted = reinterpret_cast<const char* const>(input);
+    sajson::string key_string = sajson::string(key, length);
+    size_t value_length = payload[0];
 
-static sajson::value* unwrap(sajson_value* value) {
-    return static_cast<sajson::value*>(value);
-}
-
-const sajson_element* sajson_get_value_payload(struct sajson_value* value) {
-    return unwrap(value)->_internal_get_payload();
-}
-
-uint8_t sajson_get_value_type(sajson_value* value) {
-    return unwrap(value)->get_type();
-}
-
-sajson_value* sajson_create_value(size_t type, const size_t* payload, const unsigned char* input) {
-    auto inputCasted = reinterpret_cast<const char*>(input);
-    auto value = sajson::value(sajson::type(type), payload, inputCasted);
-    return wrap(new(std::nothrow) sajson::value(std::move(value)));
-}
-
-sajson_value* sajson_object_get_value_of_key(sajson_value* parentValue, const char* key, size_t length) {
-    auto value = unwrap(parentValue)->get_value_of_key(sajson::string(key, length));
-    return wrap(new(std::nothrow) sajson::value(std::move(value)));
+    const sajson::object_key_record* start = reinterpret_cast<const sajson::object_key_record*>(payload + 1);
+    const sajson::object_key_record* end = start + value_length;
+    const sajson::object_key_record* i =
+        std::lower_bound(start, end, key_string, sajson::object_key_comparator(inputCasted));
+    return (i != end
+            && (i->key_end - i->key_start) == key_string.length()
+            && memcmp(key_string.data(), input + i->key_start, key_string.length()) == 0)? i - start : value_length;
 }

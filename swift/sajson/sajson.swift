@@ -85,17 +85,15 @@ public struct ObjectReader {
     }
 
     public subscript(key: String)-> SwiftValuePayload? {
-        let parentValue = sajson_create_value(Int(RawValueType.object.rawValue), payload, input.baseAddress)
-
-        let valuePtr = sajson_object_get_value_of_key(parentValue, key, key.lengthOfBytes(using: .utf8))
-        guard let valuePtrUnwrapped = valuePtr else {
+        let objectLocation = sajson_find_object_key(payload, key, key.lengthOfBytes(using: .utf8), input.baseAddress!)
+        if objectLocation >= count {
             return nil
         }
 
-        let type = RawValueType(rawValue: sajson_get_value_type(valuePtrUnwrapped))!
-        let payloadPtr = sajson_get_value_payload(valuePtrUnwrapped)!
-
-        return Value(type: type, payload: payloadPtr, input: input).swiftValue
+        let element = payload[3 + objectLocation * 3]
+        let elementType = RawValueType(rawValue: UInt8(element & 7))!
+        let elementOffset = Int(element >> 3)
+        return Value(type: elementType, payload: payload.advanced(by: elementOffset), input: input).swiftValue
     }
 
     public var count: Int {
