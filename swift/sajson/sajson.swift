@@ -63,6 +63,10 @@ public struct ArrayReader {
     }
 
     public subscript(i: Int)-> SwiftValuePayload {
+        if i >= count {
+            preconditionFailure("Index out of range: \(i)")
+        }
+
         let element = payload[1 + i]
         let elementType = RawValueType(rawValue: UInt8(element & 7))!
         let elementOffset = Int(element >> 3)

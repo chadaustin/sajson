@@ -19,13 +19,19 @@ class sajsonTests: XCTestCase {
     }
 
     func test_object() {
-        let doc = try! parse(allocationStrategy: .single, input: "{\"hello\": \"world\"}")
+        let doc = try! parse(allocationStrategy: .single, input: "{\"hello\": \"world\", \"hello2\": null}")
         let docValue = doc.swiftValue
 
         guard case .object(let objectReader) = docValue else { XCTFail(); return }
-        XCTAssert(objectReader.count == 1)
+        XCTAssert(objectReader.count == 2)
         guard case .some(.string("world")) = objectReader["hello"] else { XCTFail(); return }
+
+        guard case .some(.null) = objectReader["hello2"] else { XCTFail(); return }
+
+        // Accessing a non-existent key will return none.
+        guard case .none = objectReader["hello3"] else { XCTFail(); return }
     }
+
 
     // MARK: Benchmarks
 
