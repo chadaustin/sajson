@@ -32,31 +32,8 @@ public enum SwiftValuePayload {
     case object(ObjectReader)
 }
 
-extension SwiftValuePayload {
-    public var string: String? {
-        if case .string(let value) = self {
-            return value
-        }
-        return nil
-    }
-
-    public var array: ArrayReader? {
-        if case .array(let value) = self {
-            return value
-        }
-        return nil
-    }
-
-    public var object: ObjectReader? {
-        if case .object(let value) = self {
-            return value
-        }
-        return nil
-    }
-}
-
 // Encapsulates logic required to read from an array.
-public struct ArrayReader {
+public struct ArrayReader: Sequence {
     fileprivate init(payload: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
         self.payload = payload
         self.input = input
@@ -76,6 +53,34 @@ public struct ArrayReader {
     public var count: Int {
         return Int(payload[0])
     }
+
+    // MARK: Sequence
+
+    public struct Iterator: IteratorProtocol {
+        fileprivate init(arrayReader: ArrayReader) {
+            self.arrayReader = arrayReader
+        }
+
+        public mutating func next() -> SwiftValuePayload? {
+            let value: SwiftValuePayload?
+            if currentIndex < arrayReader.count {
+                value = arrayReader[currentIndex]
+                currentIndex += 1
+            } else {
+                value = nil
+            }
+            return value
+        }
+
+        private var currentIndex = 0
+        private let arrayReader: ArrayReader
+    }
+
+    public func makeIterator() -> ArrayReader.Iterator {
+        return Iterator(arrayReader: self)
+    }
+
+    // MARK: Private
 
     private let payload: UnsafePointer<UInt>
     private let input: UnsafeBufferPointer<UInt8>
@@ -103,6 +108,27 @@ public struct ObjectReader {
     public var count: Int {
         return Int(payload[0])
     }
+
+    /// Returns the object as a dictionary. Should generally be avoided, as it is less efficient than directly reading
+    /// values.
+    public func asDictionary() -> [String: SwiftValuePayload] {
+        var result = [String: SwiftValuePayload](minimumCapacity: self.count)
+        for i in 0..<self.count {
+            let start = Int(payload[1 + i * 3])
+            let end = Int(payload[2 + i * 3])
+            let value = Int(payload[3 + i * 3])
+
+            let data = Data(input[start ..< end])
+            let key = String(data: data, encoding: .utf8)!
+
+            let valueType = RawValueType(rawValue: UInt8(value & 7))!
+            let valueOffset = Int(value >> 3)
+            result[key] = Value(type: valueType, payload: payload.advanced(by: valueOffset), input: input).swiftValue
+        }
+        return result
+    }
+
+    // MARK: Private
 
     private let payload: UnsafePointer<UInt>
     private let input: UnsafeBufferPointer<UInt8>
