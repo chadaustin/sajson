@@ -5,24 +5,21 @@ public enum AllocationStrategy {
     case dynamic
 }
 
-/// Keep this in sync with sajson::type
-private enum RawValueType: UInt8 {
-    case integer = 0
-    case double = 1
-    case null = 2
-    case bfalse = 3
-    case btrue = 4
-    case string = 5
-
-    // TODO: Consider adding associated values here to enable basic operations on arrays and objects without
-    // converting fully to a swift value.
-    case array = 6
-    case object = 7
+// Keep this in sync with sajson::type
+private struct RawValueType {
+    static let integer: UInt8 = 0
+    static let double: UInt8 = 1
+    static let null: UInt8 = 2
+    static let bfalse: UInt8 = 3
+    static let btrue: UInt8 = 4
+    static let string: UInt8 = 5
+    static let array: UInt8 = 6
+    static let object: UInt8 = 7
 }
 
-/// Similar to `RawValueType`, but contains an associated (copied) swift type. This may deviate from `RawValueType`
-/// for convenience (like containing a single boolean value).
-public enum SwiftValuePayload {
+/// Represents a JSON value decoded from the sajson AST.  This type provides decoded access
+/// to array and object elements lazily.
+public enum ShallowValue {
     case integer(Int32)
     case double(Float64)
     case null
@@ -39,15 +36,15 @@ public struct ArrayReader: Sequence {
         self.input = input
     }
 
-    public subscript(i: Int)-> SwiftValuePayload {
+    public subscript(i: Int)-> ShallowValue {
         if i >= count {
             preconditionFailure("Index out of range: \(i)")
         }
 
         let element = payload[1 + i]
-        let elementType = RawValueType(rawValue: UInt8(element & 7))!
+        let elementType = UInt8(element & 7)
         let elementOffset = Int(element >> 3)
-        return Value(type: elementType, payload: payload.advanced(by: elementOffset), input: input).swiftValue
+        return Value(type: elementType, payload: payload.advanced(by: elementOffset), input: input).shallowValue
     }
 
     public var count: Int {
@@ -61,15 +58,14 @@ public struct ArrayReader: Sequence {
             self.arrayReader = arrayReader
         }
 
-        public mutating func next() -> SwiftValuePayload? {
-            let value: SwiftValuePayload?
+        public mutating func next() -> ShallowValue? {
             if currentIndex < arrayReader.count {
-                value = arrayReader[currentIndex]
+                let value = arrayReader[currentIndex]
                 currentIndex += 1
+                return value
             } else {
-                value = nil
+                return nil
             }
-            return value
         }
 
         private var currentIndex = 0
@@ -93,16 +89,16 @@ public struct ObjectReader {
         self.input = input
     }
 
-    public subscript(key: String)-> SwiftValuePayload? {
+    public subscript(key: String) -> ShallowValue? {
         let objectLocation = sajson_find_object_key(payload, key, key.lengthOfBytes(using: .utf8), input.baseAddress!)
         if objectLocation >= count {
             return nil
         }
 
         let element = payload[3 + objectLocation * 3]
-        let elementType = RawValueType(rawValue: UInt8(element & 7))!
+        let elementType = UInt8(element & 7)
         let elementOffset = Int(element >> 3)
-        return Value(type: elementType, payload: payload.advanced(by: elementOffset), input: input).swiftValue
+        return Value(type: elementType, payload: payload.advanced(by: elementOffset), input: input).shallowValue
     }
 
     public var count: Int {
@@ -111,8 +107,8 @@ public struct ObjectReader {
 
     /// Returns the object as a dictionary. Should generally be avoided, as it is less efficient than directly reading
     /// values.
-    public func asDictionary() -> [String: SwiftValuePayload] {
-        var result = [String: SwiftValuePayload](minimumCapacity: self.count)
+    public func asDictionary() -> [String: ShallowValue] {
+        var result = [String: ShallowValue](minimumCapacity: self.count)
         for i in 0..<self.count {
             let start = Int(payload[1 + i * 3])
             let end = Int(payload[2 + i * 3])
@@ -121,9 +117,9 @@ public struct ObjectReader {
             let data = Data(input[start ..< end])
             let key = String(data: data, encoding: .utf8)!
 
-            let valueType = RawValueType(rawValue: UInt8(value & 7))!
+            let valueType = UInt8(value & 7)
             let valueOffset = Int(value >> 3)
-            result[key] = Value(type: valueType, payload: payload.advanced(by: valueOffset), input: input).swiftValue
+            result[key] = Value(type: valueType, payload: payload.advanced(by: valueOffset), input: input).shallowValue
         }
         return result
     }
@@ -134,48 +130,49 @@ public struct ObjectReader {
     private let input: UnsafeBufferPointer<UInt8>
 }
 
-public struct Value {
-    fileprivate init(type: RawValueType, payload: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
+private struct Value {
+    fileprivate init(type: UInt8, payload: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
         self.type = type
         self.payload = payload
         self.input = input
     }
 
-    // Recurses through any sub-values, and returns a copy using swift primitives.
-    public var swiftValue: SwiftValuePayload {
+    public var shallowValue: ShallowValue {
         switch type {
-        case .integer:
+        case RawValueType.integer:
             return payload.withMemoryRebound(to: Int32.self, capacity: 1) { p in
-                return SwiftValuePayload.integer(p[0])
+                return .integer(p[0])
             }
-        case .double:
+        case RawValueType.double:
             let lo = UInt64(payload[0])
             let hi = UInt64(payload[1])
             let bitPattern = lo | (hi << 32)
             return .double(Float64(bitPattern: bitPattern))
-        case .null:
+        case RawValueType.null:
             return .null
-        case .bfalse:
+        case RawValueType.bfalse:
             return .bool(false)
-        case .btrue:
+        case RawValueType.btrue:
             return .bool(true)
-        case .string:
+        case RawValueType.string:
             let start = Int(payload[0])
             let end = Int(payload[1])
             // TODO: are the following two lines a single copy?
             let data = Data(input[start ..< end])
             return .string(String(data: data, encoding: .utf8)!)
-        case .array:
+        case RawValueType.array:
             return .array(ArrayReader(payload: payload, input: input))
-        case .object:
+        case RawValueType.object:
             return .object(ObjectReader(payload: payload, input: input))
+        default:
+            fatalError("Unknown sajson value type - memory corruption?")
         }
     }
 
 
     // MARK: Private
 
-    private let type: RawValueType
+    private let type: UInt8
     private let payload: UnsafePointer<UInt>
     private let input: UnsafeBufferPointer<UInt8>
 }
@@ -184,7 +181,7 @@ public final class Document {
     internal init(doc: OpaquePointer!) {
         self.doc = doc
 
-        let rootType = RawValueType(rawValue: sajson_get_root_type(doc))!
+        let rootType = sajson_get_root_type(doc)
         let rootValuePaylod = sajson_get_root(doc)!
         let inputPointer = sajson_get_input(doc)!
         let inputLength = sajson_get_input_length(doc)
@@ -199,8 +196,8 @@ public final class Document {
         sajson_free_document(doc)
     }
 
-    public lazy var swiftValue: SwiftValuePayload = { [weak self] in
-        return self?.rootValue.swiftValue ?? .null
+    public lazy var swiftValue: ShallowValue = { [weak self] in
+        return self?.rootValue.shallowValue ?? .null
     }()
 
     // MARK: Private

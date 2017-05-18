@@ -1,5 +1,5 @@
 #include "../../include/sajson.h"
-#include "sajson_header_wrapper.h"
+#include "sajson-ffi.h"
 
 // never instantiated, only inherits so static_cast is legal
 struct sajson_document: sajson::document {};

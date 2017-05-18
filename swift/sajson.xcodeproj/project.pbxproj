@@ -11,12 +11,12 @@
 		8E3348631EC3B101006F6069 /* sajson_swift.h in Headers */ = {isa = PBXBuildFile; fileRef = 63DA0EBD1EBD6604003D404F /* sajson_swift.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		8EE355D51EC39F8E00885763 /* sajson_swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8EE355CC1EC39F8E00885763 /* sajson_swift.framework */; };
 		8EE3560D1EC39FEB00885763 /* sajson_swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8EE356041EC39FEA00885763 /* sajson_swift.framework */; };
-		8EE3561B1EC3A85F00885763 /* sajson_header_wrapper.h in Headers */ = {isa = PBXBuildFile; fileRef = 8E72C8461EC0F31A00EEE1FC /* sajson_header_wrapper.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		8EE3561B1EC3A85F00885763 /* sajson-ffi.h in Headers */ = {isa = PBXBuildFile; fileRef = 8E72C8461EC0F31A00EEE1FC /* sajson-ffi.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		8EE3561C1EC3A86900885763 /* sajson.h in Headers */ = {isa = PBXBuildFile; fileRef = 63F80E5C1EC03C2800A5A902 /* sajson.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		8EE3561D1EC3A87700885763 /* sajson-ffi.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 63DA0EC21EBD66C9003D404F /* sajson-ffi.cpp */; };
 		8EE3561E1EC3A87700885763 /* sajson.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63DA0EBB1EBD65FB003D404F /* sajson.swift */; };
 		8EE3561F1EC3A88600885763 /* sajson.h in Headers */ = {isa = PBXBuildFile; fileRef = 63F80E5C1EC03C2800A5A902 /* sajson.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		8EE356201EC3A88600885763 /* sajson_header_wrapper.h in Headers */ = {isa = PBXBuildFile; fileRef = 8E72C8461EC0F31A00EEE1FC /* sajson_header_wrapper.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		8EE356201EC3A88600885763 /* sajson-ffi.h in Headers */ = {isa = PBXBuildFile; fileRef = 8E72C8461EC0F31A00EEE1FC /* sajson-ffi.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		8EE356211EC3A8AD00885763 /* sajson-ffi.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 63DA0EC21EBD66C9003D404F /* sajson-ffi.cpp */; };
 		8EE356221EC3A8AD00885763 /* sajson.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63DA0EBB1EBD65FB003D404F /* sajson.swift */; };
 		8EE356231EC3A8E500885763 /* sajsonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 638FA3D01EBD6575002CDC45 /* sajsonTests.swift */; };
@@ -48,7 +48,7 @@
 		63DA0EBD1EBD6604003D404F /* sajson_swift.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sajson_swift.h; sourceTree = "<group>"; };
 		63DA0EC21EBD66C9003D404F /* sajson-ffi.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "sajson-ffi.cpp"; sourceTree = "<group>"; };
 		63F80E5C1EC03C2800A5A902 /* sajson.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; name = sajson.h; path = ../include/sajson.h; sourceTree = SOURCE_ROOT; };
-		8E72C8461EC0F31A00EEE1FC /* sajson_header_wrapper.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; name = sajson_header_wrapper.h; path = "sajson-swift/sajson_header_wrapper.h"; sourceTree = "<group>"; };
+		8E72C8461EC0F31A00EEE1FC /* sajson-ffi.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; name = "sajson-ffi.h"; path = "sajson-swift/sajson-ffi.h"; sourceTree = "<group>"; };
 		8EE355CC1EC39F8E00885763 /* sajson_swift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = sajson_swift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		8EE355D41EC39F8E00885763 /* sajson-iOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "sajson-iOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		8EE356041EC39FEA00885763 /* sajson_swift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = sajson_swift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -114,7 +114,7 @@
 			isa = PBXGroup;
 			children = (
 				63DA0EC21EBD66C9003D404F /* sajson-ffi.cpp */,
-				8E72C8461EC0F31A00EEE1FC /* sajson_header_wrapper.h */,
+				8E72C8461EC0F31A00EEE1FC /* sajson-ffi.h */,
 				63DA0EBD1EBD6604003D404F /* sajson_swift.h */,
 				63DA0EBB1EBD65FB003D404F /* sajson.swift */,
 				638FA3C61EBD6575002CDC45 /* Info.plist */,
@@ -147,7 +147,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8EE3561B1EC3A85F00885763 /* sajson_header_wrapper.h in Headers */,
+				8EE3561B1EC3A85F00885763 /* sajson-ffi.h in Headers */,
 				8E3348621EC3B007006F6069 /* sajson_swift.h in Headers */,
 				8EE3561C1EC3A86900885763 /* sajson.h in Headers */,
 			);
@@ -157,7 +157,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8EE356201EC3A88600885763 /* sajson_header_wrapper.h in Headers */,
+				8EE356201EC3A88600885763 /* sajson-ffi.h in Headers */,
 				8E3348631EC3B101006F6069 /* sajson_swift.h in Headers */,
 				8EE3561F1EC3A88600885763 /* sajson.h in Headers */,
 			);

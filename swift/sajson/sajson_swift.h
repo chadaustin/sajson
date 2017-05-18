@@ -1,2 +1,3 @@
+#pragma once
 
-#include "sajson_header_wrapper.h"
+#include "sajson-ffi.h"
