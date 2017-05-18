@@ -1,17 +1,12 @@
-/// Wraps the header file to expose C bindings.
+#pragma once
 
-#ifndef sajson_header_wrapper_h
-#define sajson_header_wrapper_h
-
-#ifdef __cplusplus
-#else
+#ifndef __cplusplus
 #include <stddef.h>
 #endif
 
 struct sajson_document;
-struct sajson_value;
 
-// size_t gets turned into Int but we want unsigned on the Swift side
+// Swift turns size_t into Int but we want UInt on the Swift side
 typedef unsigned long sajson_element;
 
 #ifdef __cplusplus
@@ -37,6 +32,3 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-
-
-#endif /* sajson_header_wrapper_h */
