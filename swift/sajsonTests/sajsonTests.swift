@@ -51,7 +51,7 @@ class sajsonTests: XCTestCase {
             let doc = try! parse(allocationStrategy: .single, input: largeJsonData)
             let swiftValue = doc.swiftValue
 
-            XCTAssert(swiftValue.array?[0].object?["0"]?.string != nil)
+            //XCTAssert(swiftValue.array?[0].object?["0"]?.string != nil)
 
             guard case .array(let array) = swiftValue else {
                 preconditionFailure()
