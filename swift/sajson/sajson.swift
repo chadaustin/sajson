@@ -1,16 +1,6 @@
 import Foundation
 
-// Keep this in sync with sajson::type
-private struct RawValueType {
-    static let integer: UInt8 = 0
-    static let double: UInt8 = 1
-    static let null: UInt8 = 2
-    static let bfalse: UInt8 = 3
-    static let btrue: UInt8 = 4
-    static let string: UInt8 = 5
-    static let array: UInt8 = 6
-    static let object: UInt8 = 7
-}
+// MARK: ValueReader
 
 /// Represents a JSON value decoded from the sajson AST.  This type provides decoded access
 /// to array and object elements lazily.
@@ -26,6 +16,30 @@ public enum ValueReader {
     case string(String)
     case array(ArrayReader)
     case object(ObjectReader)
+
+    // Deeply inflate this ValueReader into a Value.
+    public var value: Value {
+        switch self {
+        case .integer(let i): return .integer(i)
+        case .double(let d): return .double(d)
+        case .null: return .null
+        case .bool(let b): return .bool(b)
+        case .string(let s): return .string(s)
+        case .array(let reader):
+            var result: [Value] = []
+            result.reserveCapacity(reader.count)
+            for element in reader {
+                result.append(element.value)
+            }
+            return .array(result)
+        case .object(let reader):
+            var result: [String: Value] = [:]
+            for (key, element) in reader {
+                result[key] = element.value
+            }
+            return .object(result)
+        }
+    }
 }
 
 // Encapsulates logic required to read from an array.
@@ -82,10 +96,31 @@ public struct ArrayReader: Sequence {
 }
 
 // Encapsulates logic required to read from an object.
-public struct ObjectReader {
+public struct ObjectReader: Sequence {
     fileprivate init(payload: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
         self.payload = payload
         self.input = input
+    }
+
+    public var count: Int {
+        return Int(payload[0])
+    }
+
+    public subscript(i: Int) -> (String, ValueReader) {
+        if i >= count {
+            preconditionFailure("Index out of range: \(i)")
+        }
+
+        let start = Int(payload[1 + i * 3])
+        let end = Int(payload[2 + i * 3])
+        let value = Int(payload[3 + i * 3])
+
+        let data = Data(input[start ..< end])
+        let key = String(data: data, encoding: .utf8)!
+
+        let valueType = UInt8(value & 7)
+        let valueOffset = Int(value >> 3)
+        return (key, ASTNode(type: valueType, payload: payload.advanced(by: valueOffset), input: input).valueReader)
     }
 
     public subscript(key: String) -> ValueReader? {
@@ -98,10 +133,6 @@ public struct ObjectReader {
         let elementType = UInt8(element & 7)
         let elementOffset = Int(element >> 3)
         return ASTNode(type: elementType, payload: payload.advanced(by: elementOffset), input: input).valueReader
-    }
-
-    public var count: Int {
-        return Int(payload[0])
     }
 
     /// Returns the object as a dictionary. Should generally be avoided, as it is less efficient than directly reading
@@ -123,14 +154,65 @@ public struct ObjectReader {
         return result
     }
 
+    // MARK: Sequence
+
+    public struct Iterator: IteratorProtocol {
+        fileprivate init(objectReader: ObjectReader) {
+            self.objectReader = objectReader
+        }
+
+        public mutating func next() -> (String, ValueReader)? {
+            if currentIndex < objectReader.count {
+                let value = objectReader[currentIndex]
+                currentIndex += 1
+                return value
+            } else {
+                return nil
+            }
+        }
+
+        private var currentIndex = 0
+        private let objectReader: ObjectReader
+    }
+    
+    public func makeIterator() -> ObjectReader.Iterator {
+        return Iterator(objectReader: self)
+    }
+
     // MARK: Private
 
     private let payload: UnsafePointer<UInt>
     private let input: UnsafeBufferPointer<UInt8>
 }
 
+// MARK: Value
+
+/// Represents a fully-decoded JSON parse tree.  This API is provided for convenience, but for
+/// optimal performance, consider using `ValueReader` instead.
+public enum Value {
+    case integer(Int32)
+    case double(Float64)
+    case null
+    case bool(Bool)
+    case string(String)
+    case array([Value])
+    case object([String: Value])
+}
+
 // Internal type that represents a decodable sajson AST node.
 private struct ASTNode {
+    // Keep this in sync with sajson::type
+    private struct RawType {
+        static let integer: UInt8 = 0
+        static let double: UInt8 = 1
+        static let null: UInt8 = 2
+        static let bfalse: UInt8 = 3
+        static let btrue: UInt8 = 4
+        static let string: UInt8 = 5
+        static let array: UInt8 = 6
+        static let object: UInt8 = 7
+    }
+    
     fileprivate init(type: UInt8, payload: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
         self.type = type
         self.payload = payload
@@ -139,31 +221,31 @@ private struct ASTNode {
 
     public var valueReader: ValueReader {
         switch type {
-        case RawValueType.integer:
+        case RawType.integer:
             // This syntax to read the bottom bits of a UInt as an Int32 is insane.
             return payload.withMemoryRebound(to: Int32.self, capacity: 1) { p in
                 return .integer(p[0])
             }
-        case RawValueType.double:
+        case RawType.double:
             let lo = UInt64(payload[0])
             let hi = UInt64(payload[1])
             let bitPattern = lo | (hi << 32)
             return .double(Float64(bitPattern: bitPattern))
-        case RawValueType.null:
+        case RawType.null:
             return .null
-        case RawValueType.bfalse:
+        case RawType.bfalse:
             return .bool(false)
-        case RawValueType.btrue:
+        case RawType.btrue:
             return .bool(true)
-        case RawValueType.string:
+        case RawType.string:
             let start = Int(payload[0])
             let end = Int(payload[1])
             // TODO: are the following two lines a single copy?
             let data = Data(input[start ..< end])
             return .string(String(data: data, encoding: .utf8)!)
-        case RawValueType.array:
+        case RawType.array:
             return .array(ArrayReader(payload: payload, input: input))
-        case RawValueType.object:
+        case RawType.object:
             return .object(ObjectReader(payload: payload, input: input))
         default:
             fatalError("Unknown sajson value type - memory corruption detected?")
@@ -205,6 +287,14 @@ public final class Document {
     /// holding onto a `ValueReader` before the `Document` has been deallocated.
     public func withRootValueReader<T>(_ cb: (ValueReader) -> T) -> T {
         return cb(rootNode.valueReader)
+    }
+
+    /// Decodes the entire document into a Swift `Value` tree.
+    /// This accessor is convenient, but for optimum performance, use `withRootValueReader` instead.
+    var rootValue: Value {
+        return withRootValueReader { rootReader in
+            return rootReader.value
+        }
     }
 
     // MARK: Private
