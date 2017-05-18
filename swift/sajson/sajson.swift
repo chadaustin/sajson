@@ -115,8 +115,7 @@ public struct ObjectReader: Sequence {
         let end = Int(payload[2 + i * 3])
         let value = Int(payload[3 + i * 3])
 
-        let data = Data(input[start ..< end])
-        let key = String(data: data, encoding: .utf8)!
+        let key = decodeString(input, start, end)
 
         let valueType = UInt8(value & 7)
         let valueOffset = Int(value >> 3)
@@ -144,8 +143,7 @@ public struct ObjectReader: Sequence {
             let end = Int(payload[2 + i * 3])
             let value = Int(payload[3 + i * 3])
 
-            let data = Data(input[start ..< end])
-            let key = String(data: data, encoding: .utf8)!
+            let key = decodeString(input, start, end)
 
             let valueType = UInt8(value & 7)
             let valueOffset = Int(value >> 3)
@@ -240,9 +238,7 @@ private struct ASTNode {
         case RawType.string:
             let start = Int(payload[0])
             let end = Int(payload[1])
-            // TODO: are the following two lines a single copy?
-            let data = Data(input[start ..< end])
-            return .string(String(data: data, encoding: .utf8)!)
+            return .string(decodeString(input, start, end))
         case RawType.array:
             return .array(ArrayReader(payload: payload, input: input))
         case RawType.object:
@@ -258,6 +254,15 @@ private struct ASTNode {
     private let type: UInt8
     private let payload: UnsafePointer<UInt>
     private let input: UnsafeBufferPointer<UInt8>
+}
+
+// Internal function that, as cheaply as possible, converts an in-memory buffer
+// containing UTF-8 into a Swift string.
+private func decodeString(_ input: UnsafeBufferPointer<UInt8>, _ start: Int, _ end: Int) -> String {
+    // TODO: are the following two lines a single copy?
+    // Does it validate the correctness of the UTF-8 or can we force it to simply memcpy?
+    let data = Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: input.baseAddress!.advanced(by: start)), count: end - start, deallocator: .none)
+    return String(data: data, encoding: .utf8)!
 }
 
 public final class Document {
