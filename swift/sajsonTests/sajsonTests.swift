@@ -9,27 +9,27 @@ class sajsonTests: XCTestCase {
 
     func test_array() {
         let doc = try! parse(allocationStrategy: .single, input: "[10, \"Hello\"]")
-        let docValue = doc.swiftValue
+        doc.withRootValueReader { docValue in
+            guard case .array(let array) = docValue else { XCTFail(); return }
+            XCTAssert(array.count == 2)
+            guard case .integer(10) = array[0] else { XCTFail(); return }
 
-        guard case .array(let array) = docValue else { XCTFail(); return }
-        XCTAssert(array.count == 2)
-        guard case .integer(10) = array[0] else { XCTFail(); return }
-
-        guard case .string("Hello") = array[1] else { XCTFail(); return }
+            guard case .string("Hello") = array[1] else { XCTFail(); return }
+        }
     }
 
     func test_object() {
         let doc = try! parse(allocationStrategy: .single, input: "{\"hello\": \"world\", \"hello2\": null}")
-        let docValue = doc.swiftValue
+        doc.withRootValueReader { docValue in
+            guard case .object(let objectReader) = docValue else { XCTFail(); return }
+            XCTAssert(objectReader.count == 2)
+            guard case .some(.string("world")) = objectReader["hello"] else { XCTFail(); return }
 
-        guard case .object(let objectReader) = docValue else { XCTFail(); return }
-        XCTAssert(objectReader.count == 2)
-        guard case .some(.string("world")) = objectReader["hello"] else { XCTFail(); return }
+            guard case .some(.null) = objectReader["hello2"] else { XCTFail(); return }
 
-        guard case .some(.null) = objectReader["hello2"] else { XCTFail(); return }
-
-        // Accessing a non-existent key will return none.
-        guard case .none = objectReader["hello3"] else { XCTFail(); return }
+            // Accessing a non-existent key will return none.
+            guard case .none = objectReader["hello3"] else { XCTFail(); return }
+        }
     }
 
 
@@ -49,16 +49,17 @@ class sajsonTests: XCTestCase {
 
         measure {
             let doc = try! parse(allocationStrategy: .single, input: largeJsonData)
-            let swiftValue = doc.swiftValue
+            doc.withRootValueReader { swiftValue in
 
-            //XCTAssert(swiftValue.array?[0].object?["0"]?.string != nil)
+                //XCTAssert(swiftValue.array?[0].object?["0"]?.string != nil)
 
-            guard case .array(let array) = swiftValue else {
-                preconditionFailure()
+                guard case .array(let array) = swiftValue else {
+                    preconditionFailure()
+                }
+
+                // Verify that something was actually deserialized.
+                XCTAssert(array.count == 1000)
             }
-
-            // Verify that something was actually deserialized.
-            XCTAssert(array.count == 1000)
         }
     }
 

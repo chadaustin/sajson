@@ -1,10 +1,5 @@
 import Foundation
 
-public enum AllocationStrategy {
-    case single
-    case dynamic
-}
-
 // Keep this in sync with sajson::type
 private struct RawValueType {
     static let integer: UInt8 = 0
@@ -19,7 +14,11 @@ private struct RawValueType {
 
 /// Represents a JSON value decoded from the sajson AST.  This type provides decoded access
 /// to array and object elements lazily.
-public enum ShallowValue {
+///
+/// WARNING: Do NOT store these outside of your immediate parsing code - `ValueReader`
+/// accesses memory owned by the Document, and if the Document is deallocated before a
+/// ValueReader is used, Bad Things Will Happen.
+public enum ValueReader {
     case integer(Int32)
     case double(Float64)
     case null
@@ -36,7 +35,7 @@ public struct ArrayReader: Sequence {
         self.input = input
     }
 
-    public subscript(i: Int)-> ShallowValue {
+    public subscript(i: Int)-> ValueReader {
         if i >= count {
             preconditionFailure("Index out of range: \(i)")
         }
@@ -44,7 +43,7 @@ public struct ArrayReader: Sequence {
         let element = payload[1 + i]
         let elementType = UInt8(element & 7)
         let elementOffset = Int(element >> 3)
-        return Value(type: elementType, payload: payload.advanced(by: elementOffset), input: input).shallowValue
+        return ASTNode(type: elementType, payload: payload.advanced(by: elementOffset), input: input).valueReader
     }
 
     public var count: Int {
@@ -58,7 +57,7 @@ public struct ArrayReader: Sequence {
             self.arrayReader = arrayReader
         }
 
-        public mutating func next() -> ShallowValue? {
+        public mutating func next() -> ValueReader? {
             if currentIndex < arrayReader.count {
                 let value = arrayReader[currentIndex]
                 currentIndex += 1
@@ -89,7 +88,7 @@ public struct ObjectReader {
         self.input = input
     }
 
-    public subscript(key: String) -> ShallowValue? {
+    public subscript(key: String) -> ValueReader? {
         let objectLocation = sajson_find_object_key(payload, key, key.lengthOfBytes(using: .utf8), input.baseAddress!)
         if objectLocation >= count {
             return nil
@@ -98,7 +97,7 @@ public struct ObjectReader {
         let element = payload[3 + objectLocation * 3]
         let elementType = UInt8(element & 7)
         let elementOffset = Int(element >> 3)
-        return Value(type: elementType, payload: payload.advanced(by: elementOffset), input: input).shallowValue
+        return ASTNode(type: elementType, payload: payload.advanced(by: elementOffset), input: input).valueReader
     }
 
     public var count: Int {
@@ -107,8 +106,8 @@ public struct ObjectReader {
 
     /// Returns the object as a dictionary. Should generally be avoided, as it is less efficient than directly reading
     /// values.
-    public func asDictionary() -> [String: ShallowValue] {
-        var result = [String: ShallowValue](minimumCapacity: self.count)
+    public func asDictionary() -> [String: ValueReader] {
+        var result = [String: ValueReader](minimumCapacity: self.count)
         for i in 0..<self.count {
             let start = Int(payload[1 + i * 3])
             let end = Int(payload[2 + i * 3])
@@ -119,7 +118,7 @@ public struct ObjectReader {
 
             let valueType = UInt8(value & 7)
             let valueOffset = Int(value >> 3)
-            result[key] = Value(type: valueType, payload: payload.advanced(by: valueOffset), input: input).shallowValue
+            result[key] = ASTNode(type: valueType, payload: payload.advanced(by: valueOffset), input: input).valueReader
         }
         return result
     }
@@ -130,16 +129,18 @@ public struct ObjectReader {
     private let input: UnsafeBufferPointer<UInt8>
 }
 
-private struct Value {
+// Internal type that represents a decodable sajson AST node.
+private struct ASTNode {
     fileprivate init(type: UInt8, payload: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
         self.type = type
         self.payload = payload
         self.input = input
     }
 
-    public var shallowValue: ShallowValue {
+    public var valueReader: ValueReader {
         switch type {
         case RawValueType.integer:
+            // This syntax to read the bottom bits of a UInt as an Int32 is insane.
             return payload.withMemoryRebound(to: Int32.self, capacity: 1) { p in
                 return .integer(p[0])
             }
@@ -165,7 +166,7 @@ private struct Value {
         case RawValueType.object:
             return .object(ObjectReader(payload: payload, input: input))
         default:
-            fatalError("Unknown sajson value type - memory corruption?")
+            fatalError("Unknown sajson value type - memory corruption detected?")
         }
     }
 
@@ -186,7 +187,7 @@ public final class Document {
         let inputPointer = sajson_get_input(doc)!
         let inputLength = sajson_get_input_length(doc)
 
-        self.rootValue = Value(
+        self.rootNode = ASTNode(
             type: rootType,
             payload: rootValuePaylod,
             input: UnsafeBufferPointer(start: inputPointer, count: inputLength))
@@ -196,17 +197,19 @@ public final class Document {
         sajson_free_document(doc)
     }
 
-    public lazy var swiftValue: ShallowValue = { [weak self] in
-        return self?.rootValue.shallowValue ?? .null
-    }()
+    /// Provides access to the root value reader of the JSON document.  Using `ValueReader`
+    /// is faster than `Value` because it avoids the need to construct intermediate Swift
+    /// arrays and dictionaries.
+    ///
+    /// This function is structured as a closure rather than a property to prevent accidentally
+    /// holding onto a `ValueReader` before the `Document` has been deallocated.
+    public func withRootValueReader<T>(_ cb: (ValueReader) -> T) -> T {
+        return cb(rootNode.valueReader)
+    }
 
     // MARK: Private
 
-    /// TODO: The document's full swift representation/copy isn't exposed until we can figure out how to ensure memory
-    /// associated with each value sticks around. Until then, all of the JSON is parsed at once and available through
-    /// the `swiftValue` field above.
-    private let rootValue: Value
-    
+    private let rootNode: ASTNode
     private let doc: OpaquePointer!
 }
 
@@ -220,6 +223,14 @@ public final class ParseError: Error {
     public let line: Int
     public let column: Int
     public let message: String
+}
+
+public enum AllocationStrategy {
+    /// Allocates one machine word per byte in the input document.  This mode is the fastest.
+    case single
+
+    /// Dynamically grows the AST buffer and parse stack at the cost of being about 10% slower.
+    case dynamic
 }
 
 public func parse(allocationStrategy: AllocationStrategy, input: Data) throws -> Document {
