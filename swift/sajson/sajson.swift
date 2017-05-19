@@ -266,8 +266,9 @@ private func decodeString(_ input: UnsafeBufferPointer<UInt8>, _ start: Int, _ e
 }
 
 public final class Document {
-    internal init(doc: OpaquePointer!) {
+    internal init(doc: OpaquePointer!, input: Data) {
         self.doc = doc
+        self.input = input
 
         let rootType = sajson_get_root_type(doc)
         let rootValuePaylod = sajson_get_root(doc)!
@@ -306,6 +307,7 @@ public final class Document {
 
     private let rootNode: ASTNode
     private let doc: OpaquePointer!
+    private let input: Data // We need to hold onto the memory from the buffer we parsed
 }
 
 public final class ParseError: Error {
@@ -329,7 +331,8 @@ public enum AllocationStrategy {
 }
 
 public func parse(allocationStrategy: AllocationStrategy, input: Data) throws -> Document {
-    var copy = input // TODO: figure out if this is actually necessary
+    // withUnsafeMutableBytes probably copies input into a new buffer
+    var copy = input
     let dptr: OpaquePointer! = copy.withUnsafeMutableBytes { (ptr: UnsafeMutablePointer<Int8>) in
         switch allocationStrategy {
         case .single:
@@ -350,7 +353,7 @@ public func parse(allocationStrategy: AllocationStrategy, input: Data) throws ->
             message: String(cString: sajson_get_error_message(dptr)))
     }
 
-    return Document(doc: dptr)
+    return Document(doc: dptr, input: copy)
 }
 
 public func parse(allocationStrategy: AllocationStrategy, input: String) throws -> Document {
