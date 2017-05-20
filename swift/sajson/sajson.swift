@@ -17,7 +17,7 @@ public enum ValueReader {
     case array(ArrayReader)
     case object(ObjectReader)
 
-    // Deeply inflate this ValueReader into a Value.
+    // Deeply inflate this ValueReader into a typed Value.
     public var value: Value {
         switch self {
         case .integer(let i): return .integer(i)
@@ -38,6 +38,30 @@ public enum ValueReader {
                 result[key] = element.value
             }
             return .object(result)
+        }
+    }
+
+    // Deeply inflate this ValueReader into an untyped Swift Any.
+    public var valueAsAny: Any {
+        switch self {
+        case .integer(let i): return i
+        case .double(let d): return d
+        case .null: return NSNull()
+        case .bool(let b): return b
+        case .string(let s): return s
+        case .array(let reader):
+            var result: [Any] = []
+            result.reserveCapacity(reader.count)
+            for element in reader {
+                result.append(element.valueAsAny)
+            }
+            return result
+        case .object(let reader):
+            var result: [String: Any] = [:]
+            for (key, element) in reader {
+                result[key] = element.valueAsAny
+            }
+            return result
         }
     }
 }
