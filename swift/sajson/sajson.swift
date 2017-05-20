@@ -391,7 +391,7 @@ public func parse(allocationStrategy: AllocationStrategy, mutating: inout Data) 
 /// Throws `ParseError` on failure.
 public func parse(allocationStrategy: AllocationStrategy, input: Data) throws -> Document {
     var copy = input
-    return try parse(allocationStrategy: allocationStrategy, mutating: copy)
+    return try parse(allocationStrategy: allocationStrategy, mutating: &copy)
 }
 
 /// Parses an input document given a String containing JSON.  If you have binary data, it's
@@ -401,5 +401,5 @@ public func parse(allocationStrategy: AllocationStrategy, input: Data) throws ->
 /// Throws `ParseError` on failure.
 public func parse(allocationStrategy: AllocationStrategy, input: String) throws -> Document {
     var copy = input.data(using: .utf8)!
-    return try parse(allocationStrategy: allocationStrategy, mutating: copy)
+    return try parse(allocationStrategy: allocationStrategy, mutating: &copy)
 }
