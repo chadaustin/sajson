@@ -289,6 +289,7 @@ private func decodeString(_ input: UnsafeBufferPointer<UInt8>, _ start: Int, _ e
     return String(data: data, encoding: .utf8)!
 }
 
+/// Represents a parsed JSON document and a handle to any referenced memory.
 public final class Document {
     internal init(doc: OpaquePointer!, input: Data) {
         self.doc = doc
@@ -354,22 +355,27 @@ public enum AllocationStrategy {
     case dynamic
 }
 
-public func parse(allocationStrategy: AllocationStrategy, input: Data) throws -> Document {
-    // withUnsafeMutableBytes probably copies input into a new buffer
-    var copy = input
-    let dptr: OpaquePointer! = copy.withUnsafeMutableBytes { (ptr: UnsafeMutablePointer<Int8>) in
+/// Parses an input document given a buffer of JSON data.  For efficiency, this function
+/// mutates the given data.  Use `parse(allocationStrategy:input:)` if you intend to use
+/// the passed buffer again.
+///
+/// Throws `ParseError` on failure.
+public func parse(allocationStrategy: AllocationStrategy, mutating: inout Data) throws -> Document {
+    let inputLength = mutating.count
+
+    let dptr: OpaquePointer! = mutating.withUnsafeMutableBytes { (ptr: UnsafeMutablePointer<Int8>) in
         switch allocationStrategy {
         case .single:
-            return sajson_parse_single_allocation(ptr, input.count)
+            return sajson_parse_single_allocation(ptr, inputLength)
         case .dynamic:
-            return sajson_parse_dynamic_allocation(ptr, input.count)
+            return sajson_parse_dynamic_allocation(ptr, inputLength)
         }
     }
-    
+
     if dptr == nil {
         fatalError("Out of memory: failed to allocate document structure")
     }
-    
+
     if sajson_has_error(dptr) != 0 {
         throw ParseError(
             line: sajson_get_error_line(dptr),
@@ -377,9 +383,23 @@ public func parse(allocationStrategy: AllocationStrategy, input: Data) throws ->
             message: String(cString: sajson_get_error_message(dptr)))
     }
 
-    return Document(doc: dptr, input: copy)
+    return Document(doc: dptr, input: mutating)
 }
 
+/// Parses an input document given a buffer of JSON data.
+///
+/// Throws `ParseError` on failure.
+public func parse(allocationStrategy: AllocationStrategy, input: Data) throws -> Document {
+    var copy = input
+    return try parse(allocationStrategy: allocationStrategy, mutating: copy)
+}
+
+/// Parses an input document given a String containing JSON.  If you have binary data, it's
+/// more efficient to use `parse(allocationStrategy:input:)` or `parse(allocationStrategy:mutating:)`
+/// instead.
+///
+/// Throws `ParseError` on failure.
 public func parse(allocationStrategy: AllocationStrategy, input: String) throws -> Document {
-    return try parse(allocationStrategy: allocationStrategy, input: input.data(using: .utf8)!)
+    var copy = input.data(using: .utf8)!
+    return try parse(allocationStrategy: allocationStrategy, mutating: copy)
 }
