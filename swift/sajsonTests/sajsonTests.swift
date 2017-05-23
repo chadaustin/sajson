@@ -32,6 +32,11 @@ class sajsonTests: XCTestCase {
         }
     }
 
+    func test_mutating_parse_changes_input() {
+        var data = "[\"\\n\"]".data(using: .utf8)!
+        let _ = try! parse(allocationStrategy: .single, mutating: &data)
+        XCTAssertEqual(10, data[2])
+    }
 
     // MARK: Benchmarks
 
