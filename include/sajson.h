@@ -51,7 +51,7 @@
 namespace sajson {
     namespace internal {
         // This template utilizes the One Definition Rule to create global arrays in a header.
-        // This trick courtesy of Rich Geldrich's Purple JSON parser.
+        // This trick courtesy of Rich Geldreich's Purple JSON parser.
         template<typename unused=void>
         struct globals_struct {
             static const unsigned char parse_flags[256];
