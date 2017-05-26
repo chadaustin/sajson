@@ -1685,7 +1685,7 @@ namespace sajson {
                 if (mask == 0) {
                     p += 32;
                 } else {
-                    unsigned index = __builtin_clz(mask);
+                    unsigned index = __builtin_ctz(mask);
                     p += index;
                     goto found;
                 }
