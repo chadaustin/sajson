@@ -586,6 +586,14 @@ SUITE(objects) {
 }
 
 SUITE(errors) {
+    ABSTRACT_TEST(incomplete_string) {
+        const sajson::document& document = parse(literal("[\""));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(2u, document.get_error_column());
+        CHECK_EQUAL("unexpected end of input", document.get_error_message());
+    }
+
     ABSTRACT_TEST(empty_file_is_invalid) {
         const sajson::document& document = parse(literal(""));
         CHECK_EQUAL(false, document.is_valid());
