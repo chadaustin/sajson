@@ -1669,21 +1669,21 @@ namespace sajson {
             ++p; // "
             size_t start = p - input.get_data();
             char* input_end_local = input_end;
-            auto low_mask = _mm256_set1_epi32(0x20202020);
-            auto quote_mask = _mm256_set1_epi32(0x22222222U);
-            auto backslash_mask = _mm256_set1_epi32(0x5c5c5c5c);
-            auto high_mask = _mm256_set1_epi32(0x7f7f7f7f);
-            while (input_end_local - p >= 32) {
-                auto block = _mm256_loadu_si256((const __m256i*)p);
-                auto is_low = _mm256_cmpgt_epi8(block, low_mask); 
-                auto is_quote = _mm256_cmpeq_epi8(block, quote_mask);
-                auto is_backslash = _mm256_cmpeq_epi8(block, backslash_mask);
-                auto is_high = _mm256_cmpgt_epi8(high_mask, block);
-                auto mask = _mm256_movemask_epi8(_mm256_or_si256(
-                    _mm256_or_si256(is_low, is_quote),
-                    _mm256_or_si256(is_backslash, is_high)));
+            __m128i low_mask = _mm_set1_epi8(0x20);
+            __m128i quote_mask = _mm_set1_epi8('"');
+            auto backslash_mask = _mm_set1_epi8('\\');
+            auto high_mask = _mm_set1_epi8(0x7f);
+            while (input_end_local - p >= 16) {
+                __m128i block = _mm_loadu_si128((const __m128i*)p);
+                auto is_low = _mm_cmpgt_epi8(block, low_mask); 
+                auto is_quote = _mm_cmpeq_epi8(block, quote_mask);
+                auto is_backslash = _mm_cmpeq_epi8(block, backslash_mask);
+                auto is_high = _mm_cmpgt_epi8(high_mask, block);
+                auto mask = _mm_movemask_epi8(_mm_or_si128(
+                    _mm_or_si128(is_low, is_quote),
+                    _mm_or_si128(is_backslash, is_high)));
                 if (mask == 0) {
-                    p += 32;
+                    p += 16;
                 } else {
                     unsigned index = __builtin_ctz(mask);
                     p += index;

@@ -47,7 +47,7 @@ def m64(env):
 
 env = Environment(
     ENV=os.environ,
-    CXXFLAGS=['-std=c++11', '-Wall', '-Werror', '-Wno-unused-private-field', '-mavx2'])
+    CXXFLAGS=['-std=c++11', '-Wall', '-Werror', '-Wno-unused-private-field', '-msse2'])
 
 builds = [
     ('gcc-32-opt', [gcc, m32, opt]),
