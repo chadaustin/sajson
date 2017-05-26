@@ -1669,12 +1669,33 @@ namespace sajson {
             ++p; // "
             size_t start = p - input.get_data();
             char* input_end_local = input_end;
-            while (input_end_local - p >= 4) {
+            auto low_mask = _mm256_set1_epi32(0x20202020);
+            auto quote_mask = _mm256_set1_epi32(0x22222222U);
+            auto backslash_mask = _mm256_set1_epi32(0x5c5c5c5c);
+            auto high_mask = _mm256_set1_epi32(0x7f7f7f7f);
+            while (input_end_local - p >= 32) {
+                auto block = _mm256_loadu_si256((const __m256i*)p);
+                auto is_low = _mm256_cmpgt_epi8(block, low_mask); 
+                auto is_quote = _mm256_cmpeq_epi8(block, quote_mask);
+                auto is_backslash = _mm256_cmpeq_epi8(block, backslash_mask);
+                auto is_high = _mm256_cmpgt_epi8(high_mask, block);
+                auto mask = _mm256_movemask_epi8(_mm256_or_si256(
+                    _mm256_or_si256(is_low, is_quote),
+                    _mm256_or_si256(is_backslash, is_high)));
+                if (mask == 0) {
+                    p += 32;
+                } else {
+                    unsigned index = __builtin_clz(mask);
+                    p += index;
+                    goto found;
+                }
+/*
                 if (!internal::is_plain_string_character(p[0])) { goto found; }
                 if (!internal::is_plain_string_character(p[1])) { p += 1; goto found; }
                 if (!internal::is_plain_string_character(p[2])) { p += 2; goto found; }
                 if (!internal::is_plain_string_character(p[3])) { p += 3; goto found; }
                 p += 4;
+*/
             }
             for (;;) {
                 if (SAJSON_UNLIKELY(p >= input_end_local)) {

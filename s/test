@@ -8,6 +8,6 @@ set -e
 
 for a in $(ls build); do
     echo "$a:"
-    valgrind -q build/$a/test
+    build/$a/test
     echo
 done
