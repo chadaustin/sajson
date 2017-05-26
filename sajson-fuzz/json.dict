@@ -20,7 +20,7 @@ escape_sequence_t="\\t"
 escape_sequence_quote="\\\""
 escape_sequence_backslash="\\\\"
 escape_sequence_slash="\\/"
-escpae_sequence_utf16_base="\\u"
+escape_sequence_utf16_base="\\u"
 escape_sequence_utf16="\\u12ab"
 
 number_integer="1"
