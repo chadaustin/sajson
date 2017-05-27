@@ -1821,8 +1821,64 @@ namespace sajson {
                         break;
                         
                     default:
-                        // TODO: if *p > 127, validate UTF-8
-                        *end++ = *p++;
+                        // validate UTF-8
+                        unsigned char c0 = p[0];
+                        if (c0 < 128) {
+                            *end++ = *p++;
+                        } else if (c0 < 224) {
+                            if (SAJSON_UNLIKELY(!has_remaining_characters(p, 2))) {
+                                return unexpected_end(p);
+                            }
+                            unsigned char c1 = p[1];
+                            if (c1 < 128 || c1 >= 192) {
+                                return error(p + 1, "invalid UTF-8");
+                            }
+                            end[0] = c0;
+                            end[1] = c1;
+                            end += 2;
+                            p += 2;
+                        } else if (c0 < 240) {
+                            if (SAJSON_UNLIKELY(!has_remaining_characters(p, 3))) {
+                                return unexpected_end(p);
+                            }
+                            unsigned char c1 = p[1];
+                            if (c1 < 128 || c1 >= 192) {
+                                return error(p + 1, "invalid UTF-8");
+                            }
+                            unsigned char c2 = p[2];
+                            if (c2 < 128 || c2 >= 192) {
+                                return error(p + 2, "invalid UTF-8");
+                            }
+                            end[0] = c0;
+                            end[1] = c1;
+                            end[2] = c2;
+                            end += 3;
+                            p += 3;
+                        } else if (c0 < 248) {
+                            if (SAJSON_UNLIKELY(!has_remaining_characters(p, 4))) {
+                                return unexpected_end(p);
+                            }
+                            unsigned char c1 = p[1];
+                            if (c1 < 128 || c1 >= 192) {
+                                return error(p + 1, "invalid UTF-8");
+                            }
+                            unsigned char c2 = p[2];
+                            if (c2 < 128 || c2 >= 192) {
+                                return error(p + 2, "invalid UTF-8");
+                            }
+                            unsigned char c3 = p[3];
+                            if (c3 < 128 || c3 >= 192) {
+                                return error(p + 3, "invalid UTF-8");
+                            }
+                            end[0] = c0;
+                            end[1] = c1;
+                            end[2] = c2;
+                            end[3] = c3;
+                            end += 4;
+                            p += 4;
+                        } else {
+                            return error(p, "invalid UTF-8");
+                        }
                         break;
                 }
             }

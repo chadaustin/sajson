@@ -322,6 +322,38 @@ SUITE(doubles) {
         CHECK_EQUAL(5u, document.get_error_column());
         CHECK_EQUAL("missing exponent", document.get_error_message());
     }
+
+    ABSTRACT_TEST(invalid_2_byte_utf8) {
+        const auto& document = parse(literal("[\"\xdf\x7f\"]"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(4u, document.get_error_column());
+        CHECK_EQUAL("invalid UTF-8", document.get_error_message());
+    }
+
+    ABSTRACT_TEST(invalid_3_byte_utf8) {
+        const auto& document = parse(literal("[\"\xef\x8f\x7f\"]"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(5u, document.get_error_column());
+        CHECK_EQUAL("invalid UTF-8", document.get_error_message());
+    }
+
+    ABSTRACT_TEST(invalid_4_byte_utf8) {
+        const auto& document = parse(literal("[\"\xf7\x8f\x8f\x7f\"]"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(6u, document.get_error_column());
+        CHECK_EQUAL("invalid UTF-8", document.get_error_message());
+    }
+
+    ABSTRACT_TEST(invalid_utf8_prefix) {
+        const auto& document = parse(literal("[\"\xff\"]"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(3u, document.get_error_column());
+        CHECK_EQUAL("invalid UTF-8", document.get_error_message());
+    }
 }
 
 SUITE(commas) {
@@ -446,6 +478,20 @@ SUITE(strings) {
         CHECK_EQUAL(TYPE_STRING, e0.get_type());
         CHECK_EQUAL(4u, e0.get_string_length());
         CHECK_EQUAL("\xf1\xa4\x8c\xa1", e0.as_string());
+    }
+
+    ABSTRACT_TEST(utf8_shifting) {
+        const auto& document = parse(literal("[\"\\n\xc2\x80\xe0\xa0\x80\xf0\x90\x80\x80\"]"));
+        assert(success(document));
+
+        const value& root = document.get_root();
+        CHECK_EQUAL(TYPE_ARRAY, root.get_type());
+        CHECK_EQUAL(1u, root.get_length());
+        
+        const value& e0 = root.get_array_element(0);
+        CHECK_EQUAL(TYPE_STRING, e0.get_type());
+        CHECK_EQUAL(10u, e0.get_string_length());
+        CHECK_EQUAL("\n\xc2\x80\xe0\xa0\x80\xf0\x90\x80\x80", e0.as_string());
     }
 }
 
