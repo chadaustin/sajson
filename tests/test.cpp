@@ -77,7 +77,7 @@ ABSTRACT_TEST(nested_array) {
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(1u, root.get_length());
-        
+
     const value& e1 = root.get_array_element(0);
     CHECK_EQUAL(TYPE_ARRAY, e1.get_type());
     CHECK_EQUAL(0u, e1.get_length());
@@ -125,7 +125,7 @@ ABSTRACT_TEST(deep_nesting) {
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(1u, root.get_length());
-        
+
     const value& e1 = root.get_array_element(0);
     CHECK_EQUAL(TYPE_ARRAY, e1.get_type());
     CHECK_EQUAL(1u, e1.get_length());
@@ -145,7 +145,7 @@ ABSTRACT_TEST(more_array_integer_packing) {
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
     CHECK_EQUAL(1u, root.get_length());
-        
+
     const value& e1 = root.get_array_element(0);
     CHECK_EQUAL(TYPE_ARRAY, e1.get_type());
     CHECK_EQUAL(1u, e1.get_length());
@@ -233,7 +233,7 @@ ABSTRACT_TEST(unit_types) {
 
     const value& e1 = root.get_array_element(1);
     CHECK_EQUAL(TYPE_FALSE, e1.get_type());
-        
+
     const value& e2 = root.get_array_element(2);
     CHECK_EQUAL(TYPE_NULL, e2.get_type());
 }
@@ -285,7 +285,7 @@ SUITE(doubles) {
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
         CHECK_EQUAL(2u, root.get_length());
-        
+
         const value& e0 = root.get_array_element(0);
         CHECK_EQUAL(TYPE_DOUBLE, e0.get_type());
         CHECK_EQUAL(9999999999.0, e0.get_double_value());
@@ -301,7 +301,7 @@ SUITE(doubles) {
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
         CHECK_EQUAL(1u, root.get_length());
-        
+
         const value& e0 = root.get_array_element(0);
         CHECK_EQUAL(TYPE_DOUBLE, e0.get_type());
         CHECK_EQUAL(5.0, e0.get_double_value());
@@ -397,12 +397,12 @@ SUITE(strings) {
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
         CHECK_EQUAL(2u, root.get_length());
-        
+
         const value& e0 = root.get_array_element(0);
         CHECK_EQUAL(TYPE_STRING, e0.get_type());
         CHECK_EQUAL(0u, e0.get_string_length());
         CHECK_EQUAL("", e0.as_string());
-        
+
         const value& e1 = root.get_array_element(1);
         CHECK_EQUAL(TYPE_STRING, e1.get_type());
         CHECK_EQUAL(6u, e1.get_string_length());
@@ -416,7 +416,7 @@ SUITE(strings) {
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
         CHECK_EQUAL(1u, root.get_length());
-        
+
         const value& e0 = root.get_array_element(0);
         CHECK_EQUAL(TYPE_STRING, e0.get_type());
         CHECK_EQUAL(8u, e0.get_string_length());
@@ -429,7 +429,7 @@ SUITE(strings) {
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
         CHECK_EQUAL(1u, root.get_length());
-        
+
         const value& e0 = root.get_array_element(0);
         CHECK_EQUAL(TYPE_STRING, e0.get_type());
         CHECK_EQUAL(7u, e0.get_string_length());
@@ -473,7 +473,7 @@ SUITE(strings) {
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
         CHECK_EQUAL(1u, root.get_length());
-        
+
         const value& e0 = root.get_array_element(0);
         CHECK_EQUAL(TYPE_STRING, e0.get_type());
         CHECK_EQUAL(4u, e0.get_string_length());
@@ -487,7 +487,7 @@ SUITE(strings) {
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
         CHECK_EQUAL(1u, root.get_length());
-        
+
         const value& e0 = root.get_array_element(0);
         CHECK_EQUAL(TYPE_STRING, e0.get_type());
         CHECK_EQUAL(10u, e0.get_string_length());
@@ -544,7 +544,7 @@ SUITE(objects) {
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_OBJECT, root.get_type());
         CHECK_EQUAL(2u, root.get_length());
-        
+
         const string& k0 = root.get_object_key(0);
         const value& e0 = root.get_object_value(0);
         CHECK_EQUAL("a", k0.as_string());
@@ -564,7 +564,7 @@ SUITE(objects) {
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_OBJECT, root.get_type());
         CHECK_EQUAL(2u, root.get_length());
-        
+
         const string& k0 = root.get_object_key(0);
         const value& e0 = root.get_object_value(0);
         CHECK_EQUAL("b", k0.as_string());
@@ -613,7 +613,7 @@ SUITE(objects) {
 
         int ib = root.get_value_of_key(literal("b")).get_integer_value();
         CHECK_EQUAL(123, ib);
-        
+
         int iaa = root.get_value_of_key(literal("aa")).get_integer_value();
         CHECK_EQUAL(456, iaa);
     }

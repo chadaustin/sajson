@@ -269,7 +269,7 @@ namespace sajson {
         char* get_data() const {
             return data;
         }
-        
+
     private:
         refcount uses;
         size_t length_;
@@ -462,7 +462,7 @@ namespace sajson {
         : p(p.p) {
             p.p = 0;
         }
-        
+
         ~ownership() {
             delete[] p;
         }
@@ -531,12 +531,12 @@ namespace sajson {
         const std::string& get_error_message() const {
             return error_message;
         }
-        
+
         /// WARNING: Internal function exposed only for high-performance language bindings.
         type _internal_get_root_type() const {
             return root_type;
         }
-        
+
         /// WARNING: Internal function exposed only for high-performance language bindings.
         const size_t* _internal_get_root() const {
             return root;
@@ -632,7 +632,7 @@ namespace sajson {
                 , write_cursor(structure_end)
                 , should_deallocate(should_deallocate)
             {}
-            
+
             explicit allocator(std::nullptr_t)
                 : structure(0)
                 , structure_end(0)
@@ -1064,7 +1064,7 @@ namespace sajson {
 
             error_line = 1;
             error_column = 1;
-            
+
             char* c = input.get_data();
             while (c < p) {
                 if (*c == '\r') {
@@ -1085,7 +1085,7 @@ namespace sajson {
                 }
                 ++c;
             }
-            
+
             char buf[1024];
             buf[1023] = 0;
             va_list ap;
@@ -1405,7 +1405,7 @@ namespace sajson {
             }
             return p + 4;
         }
-        
+
         static double pow10(int exponent) {
             if (exponent > 308) {
                 return std::numeric_limits<double>::infinity();
@@ -1494,7 +1494,7 @@ namespace sajson {
                 if (c < '0' || c > '9') {
                     break;
                 }
-                
+
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
                     return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
@@ -1656,7 +1656,7 @@ namespace sajson {
                 type element_type = get_element_type(element);
                 size_t element_value = get_element_value(element);
                 size_t* element_ptr = structure_end - element_value;
-                
+
                 *--out = make_element(element_type, element_ptr - new_base);
                 *--out = *--object_end;
                 *--out = *--object_end;
@@ -1745,7 +1745,7 @@ namespace sajson {
         char* parse_string_slow(char* p, size_t* tag, size_t start) {
             char* end = p;
             char* input_end_local = input_end;
-            
+
             for (;;) {
                 if (SAJSON_UNLIKELY(p >= input_end_local)) {
                     return error(p, "unexpected end of input");
@@ -1754,7 +1754,7 @@ namespace sajson {
                 if (SAJSON_UNLIKELY(*p >= 0 && *p < 0x20)) {
                     return error(p, "illegal unprintable codepoint in string: %d", static_cast<int>(*p));
                 }
-            
+
                 switch (*p) {
                     case '"':
                         tag[0] = start;
@@ -1771,7 +1771,7 @@ namespace sajson {
                         switch (*p) {
                             case '"': replacement = '"'; goto replace;
                             case '\\': replacement = '\\'; goto replace;
-                            case '/': replacement = '/'; goto replace; 
+                            case '/': replacement = '/'; goto replace;
                             case 'b': replacement = '\b'; goto replace;
                             case 'f': replacement = '\f'; goto replace;
                             case 'n': replacement = '\n'; goto replace;
@@ -1819,7 +1819,7 @@ namespace sajson {
                                 return error(p, "unknown escape");
                         }
                         break;
-                        
+
                     default:
                         // validate UTF-8
                         unsigned char c0 = p[0];
