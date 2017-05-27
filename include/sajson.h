@@ -420,6 +420,12 @@ namespace sajson {
         }
 
         // valid iff get_type() is TYPE_STRING
+        const char* get_string_value() const {
+            assert_type(TYPE_STRING);
+            return text + payload[0];
+        }
+
+        // valid iff get_type() is TYPE_STRING
         std::string as_string() const {
             assert_type(TYPE_STRING);
             return std::string(text + payload[0], text + payload[1]);
@@ -1691,6 +1697,7 @@ namespace sajson {
             if (SAJSON_LIKELY(*p == '"')) {
                 tag[0] = start;
                 tag[1] = p - input.get_data();
+                *p = '\0';
                 return p + 1;
             }
 
@@ -1759,6 +1766,7 @@ namespace sajson {
                     case '"':
                         tag[0] = start;
                         tag[1] = end - input.get_data();
+                        *end = '\0';
                         return p + 1;
 
                     case '\\':
