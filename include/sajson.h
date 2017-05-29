@@ -483,6 +483,31 @@ namespace sajson {
         size_t* p;
     };
 
+    enum error {
+        ERROR_SUCCESS,
+        ERROR_OUT_OF_MEMORY,
+        ERROR_UNEXPECTED_END,
+        ERROR_MISSING_ROOT_ELEMENT,
+        ERROR_BAD_ROOT,
+        ERROR_EXPECTED_COMMA,
+        ERROR_MISSING_OBJECT_KEY,
+        ERROR_EXPECTED_COLON,
+        ERROR_EXPECTED_END_OF_INPUT,
+        ERROR_UNEXPECTED_COMMA,
+        ERROR_EXPECTED_VALUE,
+        ERROR_EXPECTED_NULL,
+        ERROR_EXPECTED_FALSE,
+        ERROR_EXPECTED_TRUE,
+        ERROR_MSSING_EXPONENT,
+        ERROR_ILLEGAL_CODEPOINT,
+        ERROR_INVALID_UNICODE_ESCAPE,
+        ERROR_UNEXPECTED_END_OF_UTF16,
+        ERROR_EXPECTED_U,
+        ERROR_INVALID_UTF16_TRAIL_SURROGATE,
+        ERROR_UNKNOWN_ESCAPE,
+        ERROR_INVALID_UTF8,
+    };
+
     class document {
     public:
         explicit document(const mutable_string_view& input, ownership&& structure, type root_type, const size_t* root)
@@ -492,17 +517,19 @@ namespace sajson {
             , root(root)
             , error_line(0)
             , error_column(0)
-            , error_message()
+            , error_code(ERROR_SUCCESS)
+            , error_arg(0)
         {}
 
-        explicit document(const mutable_string_view& input, size_t error_line, size_t error_column, const std::string& error_message)
+        explicit document(const mutable_string_view& input, size_t error_line, size_t error_column, const error error_code, int error_arg)
             : input(input)
             , structure(0)
             , root_type(TYPE_NULL)
             , root(0)
             , error_line(error_line)
             , error_column(error_column)
-            , error_message(error_message)
+            , error_code(error_code)
+            , error_arg(error_arg)
         {}
 
         document(const document&) = delete;
@@ -515,7 +542,8 @@ namespace sajson {
             , root(rhs.root)
             , error_line(rhs.error_line)
             , error_column(rhs.error_column)
-            , error_message(rhs.error_message)
+            , error_code(rhs.error_code)
+            , error_arg(rhs.error_arg)
         {
             // should rhs's fields be zeroed too?
         }
@@ -536,8 +564,12 @@ namespace sajson {
             return error_column;
         }
 
-        const std::string& get_error_message() const {
-            return error_message;
+        error get_error_code() const {
+            return error_code;
+        }
+
+        int get_error_arg() const {
+            return error_arg;
         }
 
         /// WARNING: Internal function exposed only for high-performance language bindings.
@@ -561,7 +593,8 @@ namespace sajson {
         const size_t* const root;
         const size_t error_line;
         const size_t error_column;
-        const std::string error_message;
+        const error error_code;
+        const int error_arg;
     };
 
     class single_allocation {
@@ -1018,7 +1051,7 @@ namespace sajson {
                 size_t* ast_root = allocator.get_ast_root();
                 return document(input, allocator.transfer_ownership(), root_type, ast_root);
             } else {
-                return document(input, error_line, error_column, error_message);
+                return document(input, error_line, error_column, error_code, error_arg);
             }
         }
 
@@ -1054,18 +1087,18 @@ namespace sajson {
         }
 
         error_result oom(char* p) {
-            return error(p, "out of memory");
+            return make_error(p, ERROR_OUT_OF_MEMORY);
         }
 
         error_result unexpected_end() {
-            return error(0, "unexpected end of input");
+            return make_error(0, ERROR_UNEXPECTED_END);
         }
 
         error_result unexpected_end(char* p) {
-            return error(p, "unexpected end of input");
+            return make_error(p, ERROR_UNEXPECTED_END);
         }
 
-        error_result error(char* p, const char* format, ...) {
+        error_result make_error(char* p, error code, int arg = 0) {
             if (!p) {
                 p = input_end;
             }
@@ -1094,14 +1127,8 @@ namespace sajson {
                 ++c;
             }
 
-            char buf[1024];
-            buf[1023] = 0;
-            va_list ap;
-            va_start(ap, format);
-            vsnprintf(buf, 1023, format, ap);
-            va_end(ap);
-
-            error_message = buf;
+            error_code = code;
+            error_arg = arg;
             return error_result();
         }
 
@@ -1116,7 +1143,7 @@ namespace sajson {
 
             p = skip_whitespace(p);
             if (SAJSON_UNLIKELY(!p)) {
-                return error(p, "missing root element");
+                return make_error(p, ERROR_MISSING_ROOT_ELEMENT);
             }
 
             // current_base is an offset to the first element of the current structure (object or array)
@@ -1137,7 +1164,7 @@ namespace sajson {
                 }
                 goto object_close_or_element;
             } else {
-                return error(p, "document root must be object or array");
+                return make_error(p, ERROR_BAD_ROOT);
             }
 
             // BEGIN STATE MACHINE
@@ -1184,7 +1211,7 @@ namespace sajson {
                         goto pop_array;
                     } else {
                         if (SAJSON_UNLIKELY(*p != ',')) {
-                            return error(p, "expected ,");
+                            return make_error(p, ERROR_EXPECTED_COMMA);
                         }
                         ++p;
                         goto next_element;
@@ -1195,7 +1222,7 @@ namespace sajson {
                         goto pop_object;
                     } else {
                         if (SAJSON_UNLIKELY(*p != ',')) {
-                            return error(p, "expected ,");
+                            return make_error(p, ERROR_EXPECTED_COMMA);
                         }
                         ++p;
                         goto object_key;
@@ -1232,7 +1259,7 @@ namespace sajson {
                     return unexpected_end();
                 }
                 if (SAJSON_UNLIKELY(*p != '"')) {
-                    return error(p, "missing object key");
+                    return make_error(p, ERROR_MISSING_OBJECT_KEY);
                 }
                 size_t* out = stack.reserve(2);
                 if (SAJSON_UNLIKELY(stack.has_allocation_error())) {
@@ -1244,7 +1271,7 @@ namespace sajson {
                 }
                 p = skip_whitespace(p);
                 if (SAJSON_UNLIKELY(!p || *p != ':')) {
-                    return error(p, "expected :");
+                    return make_error(p, ERROR_EXPECTED_COLON);
                 }
                 ++p;
                 goto next_element;
@@ -1340,7 +1367,7 @@ namespace sajson {
                             root_type = current_structure_type;
                             p = skip_whitespace(p);
                             if (SAJSON_UNLIKELY(p)) {
-                                return error(p, "expected end of input");
+                                return make_error(p, ERROR_EXPECTED_END_OF_INPUT);
                             }
                             return true;
                         }
@@ -1352,9 +1379,9 @@ namespace sajson {
                     }
 
                     case ',':
-                        return error(p, "unexpected comma");
+                        return make_error(p, ERROR_UNEXPECTED_COMMA);
                     default:
-                        return error(p, "expected value");
+                        return make_error(p, ERROR_EXPECTED_VALUE);
                 }
 
                 stack.push(make_element(value_type_result, allocator.get_write_offset()));
@@ -1374,14 +1401,14 @@ namespace sajson {
 
         char* parse_null(char* p) {
             if (SAJSON_UNLIKELY(!has_remaining_characters(p, 4))) {
-                error(p, "unexpected end of input");
+                make_error(p, ERROR_UNEXPECTED_END);
                 return 0;
             }
             char p1 = p[1];
             char p2 = p[2];
             char p3 = p[3];
             if (SAJSON_UNLIKELY(p1 != 'u' || p2 != 'l' || p3 != 'l')) {
-                error(p, "expected 'null'");
+                make_error(p, ERROR_EXPECTED_NULL);
                 return 0;
             }
             return p + 4;
@@ -1389,27 +1416,27 @@ namespace sajson {
 
         char* parse_false(char* p) {
             if (SAJSON_UNLIKELY(!has_remaining_characters(p, 5))) {
-                return error(p, "unexpected end of input");
+                return make_error(p, ERROR_UNEXPECTED_END);
             }
             char p1 = p[1];
             char p2 = p[2];
             char p3 = p[3];
             char p4 = p[4];
             if (SAJSON_UNLIKELY(p1 != 'a' || p2 != 'l' || p3 != 's' || p4 != 'e')) {
-                return error(p, "expected 'false'");
+                return make_error(p, ERROR_EXPECTED_FALSE);
             }
             return p + 5;
         }
 
         char* parse_true(char* p) {
             if (SAJSON_UNLIKELY(!has_remaining_characters(p, 4))) {
-                return error(p, "unexpected end of input");
+                return make_error(p, ERROR_UNEXPECTED_END);
             }
             char p1 = p[1];
             char p2 = p[2];
             char p3 = p[3];
             if (SAJSON_UNLIKELY(p1 != 'r' || p2 != 'u' || p3 != 'e')) {
-                return error(p, "expected 'true'");
+                return make_error(p, ERROR_EXPECTED_TRUE);
             }
             return p + 4;
         }
@@ -1487,7 +1514,7 @@ namespace sajson {
                 negative = true;
 
                 if (SAJSON_UNLIKELY(at_eof(p))) {
-                    return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
+                    return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
                 }
             }
 
@@ -1505,7 +1532,7 @@ namespace sajson {
 
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
-                    return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
+                    return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
                 }
 
                 unsigned char digit = c - '0';
@@ -1531,7 +1558,7 @@ namespace sajson {
                 }
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
-                    return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
+                    return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
                 }
                 for (;;) {
                     char c = *p;
@@ -1541,7 +1568,7 @@ namespace sajson {
 
                     ++p;
                     if (SAJSON_UNLIKELY(at_eof(p))) {
-                        return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
+                        return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
                     }
                     d = d * 10 + (c - '0');
                     --exponent;
@@ -1556,7 +1583,7 @@ namespace sajson {
                 }
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
-                    return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
+                    return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
                 }
 
                 bool negativeExponent = false;
@@ -1564,12 +1591,12 @@ namespace sajson {
                     negativeExponent = true;
                     ++p;
                     if (SAJSON_UNLIKELY(at_eof(p))) {
-                        return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
+                        return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
                     }
                 } else if ('+' == *p) {
                     ++p;
                     if (SAJSON_UNLIKELY(at_eof(p))) {
-                        return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
+                        return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
                     }
                 }
 
@@ -1577,14 +1604,14 @@ namespace sajson {
 
                 char c = *p;
                 if (SAJSON_UNLIKELY(c < '0' || c > '9')) {
-                    return std::make_pair(error(p, "missing exponent"), TYPE_NULL);
+                    return std::make_pair(make_error(p, ERROR_MSSING_EXPONENT), TYPE_NULL);
                 }
                 for (;;) {
                     exp = 10 * exp + (c - '0');
 
                     ++p;
                     if (SAJSON_UNLIKELY(at_eof(p))) {
-                        return std::make_pair(error(p, "unexpected end of input"), TYPE_NULL);
+                        return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
                     }
 
                     c = *p;
@@ -1686,7 +1713,7 @@ namespace sajson {
             }
             for (;;) {
                 if (SAJSON_UNLIKELY(p >= input_end_local)) {
-                    return error(p, "unexpected end of input");
+                    return make_error(p, ERROR_UNEXPECTED_END);
                 }
 
                 if (!internal::is_plain_string_character(*p)) {
@@ -1704,7 +1731,7 @@ namespace sajson {
             }
 
             if (*p >= 0 && *p < 0x20) {
-                return error(p, "illegal unprintable codepoint in string: %d", static_cast<int>(*p));
+                return make_error(p, ERROR_ILLEGAL_CODEPOINT, static_cast<int>(*p));
             } else {
                 // backslash or >0x7f
                 return parse_string_slow(p, tag, start);
@@ -1723,7 +1750,7 @@ namespace sajson {
                 } else if (c >= 'A' && c <= 'F') {
                     c = c - 'A' + 10;
                 } else {
-                    return error(p, "invalid character in unicode escape");
+                    return make_error(p, ERROR_INVALID_UNICODE_ESCAPE);
                 }
                 v = (v << 4) + c;
             }
@@ -1757,11 +1784,11 @@ namespace sajson {
 
             for (;;) {
                 if (SAJSON_UNLIKELY(p >= input_end_local)) {
-                    return error(p, "unexpected end of input");
+                    return make_error(p, ERROR_UNEXPECTED_END);
                 }
 
                 if (SAJSON_UNLIKELY(*p >= 0 && *p < 0x20)) {
-                    return error(p, "illegal unprintable codepoint in string: %d", static_cast<int>(*p));
+                    return make_error(p, ERROR_ILLEGAL_CODEPOINT, static_cast<int>(*p));
                 }
 
                 switch (*p) {
@@ -1774,7 +1801,7 @@ namespace sajson {
                     case '\\':
                         ++p;
                         if (SAJSON_UNLIKELY(p >= input_end_local)) {
-                            return error(p, "unexpected end of input");
+                            return make_error(p, ERROR_UNEXPECTED_END);
                         }
 
                         char replacement;
@@ -1794,7 +1821,7 @@ namespace sajson {
                             case 'u': {
                                 ++p;
                                 if (SAJSON_UNLIKELY(!has_remaining_characters(p, 4))) {
-                                    return error(p, "unexpected end of input");
+                                    return make_error(p, ERROR_UNEXPECTED_END);
                                 }
                                 unsigned u = 0; // gcc's complaining that this could be used uninitialized. wrong.
                                 p = read_hex(p, u);
@@ -1803,12 +1830,12 @@ namespace sajson {
                                 }
                                 if (u >= 0xD800 && u <= 0xDBFF) {
                                     if (SAJSON_UNLIKELY(!has_remaining_characters(p, 6))) {
-                                        return error(p, "unexpected end of input during UTF-16 surrogate pair");
+                                        return make_error(p, ERROR_UNEXPECTED_END_OF_UTF16);
                                     }
                                     char p0 = p[0];
                                     char p1 = p[1];
                                     if (p0 != '\\' || p1 != 'u') {
-                                        return error(p, "expected \\u");
+                                        return make_error(p, ERROR_EXPECTED_U);
                                     }
                                     p += 2;
                                     unsigned v = 0; // gcc's complaining that this could be used uninitialized. wrong.
@@ -1818,7 +1845,7 @@ namespace sajson {
                                     }
 
                                     if (v < 0xDC00 || v > 0xDFFF) {
-                                        return error(p, "invalid UTF-16 trail surrogate");
+                                        return make_error(p, ERROR_INVALID_UTF16_TRAIL_SURROGATE);
                                     }
                                     u = 0x10000 + (((u - 0xD800) << 10) | (v - 0xDC00));
                                 }
@@ -1826,7 +1853,7 @@ namespace sajson {
                                 break;
                             }
                             default:
-                                return error(p, "unknown escape");
+                                return make_error(p, ERROR_UNKNOWN_ESCAPE);
                         }
                         break;
 
@@ -1841,7 +1868,7 @@ namespace sajson {
                             }
                             unsigned char c1 = p[1];
                             if (c1 < 128 || c1 >= 192) {
-                                return error(p + 1, "invalid UTF-8");
+                                return make_error(p + 1, ERROR_INVALID_UTF8);
                             }
                             end[0] = c0;
                             end[1] = c1;
@@ -1853,11 +1880,11 @@ namespace sajson {
                             }
                             unsigned char c1 = p[1];
                             if (c1 < 128 || c1 >= 192) {
-                                return error(p + 1, "invalid UTF-8");
+                                return make_error(p + 1, ERROR_INVALID_UTF8);
                             }
                             unsigned char c2 = p[2];
                             if (c2 < 128 || c2 >= 192) {
-                                return error(p + 2, "invalid UTF-8");
+                                return make_error(p + 2, ERROR_INVALID_UTF8);
                             }
                             end[0] = c0;
                             end[1] = c1;
@@ -1870,15 +1897,15 @@ namespace sajson {
                             }
                             unsigned char c1 = p[1];
                             if (c1 < 128 || c1 >= 192) {
-                                return error(p + 1, "invalid UTF-8");
+                                return make_error(p + 1, ERROR_INVALID_UTF8);
                             }
                             unsigned char c2 = p[2];
                             if (c2 < 128 || c2 >= 192) {
-                                return error(p + 2, "invalid UTF-8");
+                                return make_error(p + 2, ERROR_INVALID_UTF8);
                             }
                             unsigned char c3 = p[3];
                             if (c3 < 128 || c3 >= 192) {
-                                return error(p + 3, "invalid UTF-8");
+                                return make_error(p + 3, ERROR_INVALID_UTF8);
                             }
                             end[0] = c0;
                             end[1] = c1;
@@ -1887,7 +1914,7 @@ namespace sajson {
                             end += 4;
                             p += 4;
                         } else {
-                            return error(p, "invalid UTF-8");
+                            return make_error(p, ERROR_INVALID_UTF8);
                         }
                         break;
                 }
@@ -1901,7 +1928,8 @@ namespace sajson {
         type root_type;
         size_t error_line;
         size_t error_column;
-        std::string error_message;
+        error error_code;
+        int error_arg; // optional argument for the error
     };
 
     template<typename AllocationStrategy, typename StringType>
@@ -1911,7 +1939,7 @@ namespace sajson {
         bool success;
         auto allocator = strategy.make_allocator(input.length(), &success);
         if (!success) {
-            return document(input, 1, 1, "out of memory initializing allocator");
+            return document(input, 1, 1, ERROR_OUT_OF_MEMORY, 0);
         }
 
         return parser<typename AllocationStrategy::allocator>(
