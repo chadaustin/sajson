@@ -402,13 +402,13 @@ SUITE(strings) {
         CHECK_EQUAL(TYPE_STRING, e0.get_type());
         CHECK_EQUAL(0u, e0.get_string_length());
         CHECK_EQUAL("", e0.as_string());
-        CHECK_EQUAL("", e0.get_string_value());
+        CHECK_EQUAL("", e0.as_cstring());
 
         const value& e1 = root.get_array_element(1);
         CHECK_EQUAL(TYPE_STRING, e1.get_type());
         CHECK_EQUAL(6u, e1.get_string_length());
         CHECK_EQUAL("foobar", e1.as_string());
-        CHECK_EQUAL("foobar", e1.get_string_value());
+        CHECK_EQUAL("foobar", e1.as_cstring());
     }
 
     ABSTRACT_TEST(common_escapes) {
@@ -423,7 +423,7 @@ SUITE(strings) {
         CHECK_EQUAL(TYPE_STRING, e0.get_type());
         CHECK_EQUAL(8u, e0.get_string_length());
         CHECK_EQUAL("\"\\/\b\f\n\r\t", e0.as_string());
-        CHECK_EQUAL("\"\\/\b\f\n\r\t", e0.get_string_value());
+        CHECK_EQUAL("\"\\/\b\f\n\r\t", e0.as_cstring());
     }
 
     ABSTRACT_TEST(escape_midstring) {
@@ -437,7 +437,7 @@ SUITE(strings) {
         CHECK_EQUAL(TYPE_STRING, e0.get_type());
         CHECK_EQUAL(7u, e0.get_string_length());
         CHECK_EQUAL("foo\tbar", e0.as_string());
-        CHECK_EQUAL("foo\tbar", e0.get_string_value());
+        CHECK_EQUAL("foo\tbar", e0.as_cstring());
     }
 
     ABSTRACT_TEST(unfinished_string) {
@@ -482,7 +482,7 @@ SUITE(strings) {
         CHECK_EQUAL(TYPE_STRING, e0.get_type());
         CHECK_EQUAL(4u, e0.get_string_length());
         CHECK_EQUAL("\xf1\xa4\x8c\xa1", e0.as_string());
-        CHECK_EQUAL("\xf1\xa4\x8c\xa1", e0.get_string_value());
+        CHECK_EQUAL("\xf1\xa4\x8c\xa1", e0.as_cstring());
     }
 
     ABSTRACT_TEST(utf8_shifting) {
@@ -497,7 +497,7 @@ SUITE(strings) {
         CHECK_EQUAL(TYPE_STRING, e0.get_type());
         CHECK_EQUAL(10u, e0.get_string_length());
         CHECK_EQUAL("\n\xc2\x80\xe0\xa0\x80\xf0\x90\x80\x80", e0.as_string());
-        CHECK_EQUAL("\n\xc2\x80\xe0\xa0\x80\xf0\x90\x80\x80", e0.get_string_value());
+        CHECK_EQUAL("\n\xc2\x80\xe0\xa0\x80\xf0\x90\x80\x80", e0.as_cstring());
     }
 }
 
