@@ -420,7 +420,9 @@ namespace sajson {
         }
 
         // valid iff get_type() is TYPE_STRING
-        const char* get_string_value() const {
+        // WARNING: if a string has embedded NULs, it will be appear
+        // truncated to the caller of this function.
+        const char* as_cstring() const {
             assert_type(TYPE_STRING);
             return text + payload[0];
         }
