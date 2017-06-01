@@ -35,6 +35,7 @@
 #include <limits>
 
 #include <string> // for error messages.  kill someday?
+#include <sstream>
 
 #if defined(__GNUC__) || defined(__clang__)
 #define SAJSON_LIKELY(x) __builtin_expect(!!(x), 1)
@@ -564,12 +565,86 @@ namespace sajson {
             return error_column;
         }
 
-        error get_error_code() const {
+        size_t get_error_string_length() const {
+            const char* msg = _internal_get_error_text();
+            size_t len = strlen(msg);
+            if(has_significant_error_arg()) {
+                if (error_arg == 0) {
+                    ++len;
+                } else {
+                    len += 2; // ": "
+                    int arg = error_arg;
+                    // simple log10 which doesn't work for 0, hence the if (error_arg == 0)
+                    while (arg) {
+                        arg /= 10;
+                        ++len;
+                    }
+                    if (error_arg < 0) {
+                        len += 1; // '-'
+                    }
+                }
+            }
+            return len;
+        }
+
+        // writes at most length bytes of the error text in buffer
+        // returns number of bytes written
+        size_t format_error(char* buffer, size_t length) const {
+            if (has_significant_error_arg()) {
+                return size_t(snprintf(buffer, length, "%s: %d", _internal_get_error_text(), error_arg));
+            } else {
+                return size_t(snprintf(buffer, length, "%s", _internal_get_error_text()));
+            }
+        }
+
+        std::string get_error_as_string() const {
+            std::ostringstream sout;
+            sout << _internal_get_error_text();
+            if(has_significant_error_arg()) {
+                sout << ": " << error_arg;
+            }
+            return sout.str();
+        }
+
+        /// WARNING: Internal function which is subject to change
+        error _internal_get_error_code() const {
             return error_code;
         }
 
-        int get_error_arg() const {
+        /// WARNING: Internal function which is subject to change
+        int _internal_get_error_argument() const {
             return error_arg;
+        }
+
+        /// WARNING: Internal function which is subject to change
+        const char* _internal_get_error_text() const {
+            switch (error_code) {
+                case ERROR_SUCCESS: return "no error";
+                case ERROR_OUT_OF_MEMORY: return  "out of memory";
+                case ERROR_UNEXPECTED_END: return  "unexpected end of input";
+                case ERROR_MISSING_ROOT_ELEMENT: return  "missing root element";
+                case ERROR_BAD_ROOT: return  "document root must be object or array";
+                case ERROR_EXPECTED_COMMA: return  "expected ,";
+                case ERROR_MISSING_OBJECT_KEY: return  "missing object key";
+                case ERROR_EXPECTED_COLON: return  "expected :";
+                case ERROR_EXPECTED_END_OF_INPUT: return  "expected end of input";
+                case ERROR_UNEXPECTED_COMMA: return  "unexpected comma";
+                case ERROR_EXPECTED_VALUE: return  "expected value";
+                case ERROR_EXPECTED_NULL: return  "expected 'null'";
+                case ERROR_EXPECTED_FALSE: return  "expected 'false'";
+                case ERROR_EXPECTED_TRUE: return  "expected 'true'";
+                case ERROR_MSSING_EXPONENT: return  "missing exponent";
+                case ERROR_ILLEGAL_CODEPOINT: return  "illegal unprintable codepoint in string";
+                case ERROR_INVALID_UNICODE_ESCAPE: return  "invalid character in unicode escape";
+                case ERROR_UNEXPECTED_END_OF_UTF16: return  "unexpected end of input during UTF-16 surrogate pair";
+                case ERROR_EXPECTED_U: return  "expected \\u";
+                case ERROR_INVALID_UTF16_TRAIL_SURROGATE: return  "invalid UTF-16 trail surrogate";
+                case ERROR_UNKNOWN_ESCAPE: return  "unknown escape";
+                case ERROR_INVALID_UTF8: return  "invalid UTF-8";
+            }
+
+            assert(false);
+            return "unknown error";
         }
 
         /// WARNING: Internal function exposed only for high-performance language bindings.
@@ -587,6 +662,10 @@ namespace sajson {
         }
 
     private:
+        bool has_significant_error_arg() const {
+            return error_code == ERROR_ILLEGAL_CODEPOINT;
+        }
+
         mutable_string_view input;
         ownership structure;
         const type root_type;
