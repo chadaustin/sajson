@@ -24,12 +24,12 @@
 
 #pragma once
 
-#include <assert.h>
-#include <stdarg.h>
-#include <stddef.h>
-#include <string.h>
-#include <math.h>
-#include <limits.h>
+#include <cassert>
+#include <cstdarg>
+#include <cstddef>
+#include <cstring>
+#include <cmath>
+#include <climits>
 #include <algorithm>
 #include <cstdio>
 #include <limits>
