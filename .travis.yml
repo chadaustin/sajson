@@ -1,8 +1,8 @@
-sudo: false
+sudo: required
 language: cpp
 dist: xenial
 
 install:
-- apt-get install libstdc++-dev g++-multilib libc6-dbg:i386
+- sudo apt-get install libstdc++-dev g++-multilib libc6-dbg:i386
 
 script: s/build
