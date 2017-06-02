@@ -2,7 +2,7 @@ sudo: required
 language: cpp
 dist: trusty
 
-install:
-- sudo apt-get install libstdc++6-4.6-dev g++-multilib libc6-dbg:i386
+#install:
+#- sudo apt-get install libstdc++6-4.6-dev g++-multilib libc6-dbg:i386
 
 script: s/build -j1
