@@ -5,4 +5,4 @@ dist: xenial
 install:
 - sudo apt-get install libstdc++6-4.6-dev g++-multilib libc6-dbg:i386
 
-script: s/build
+script: s/build -j1
