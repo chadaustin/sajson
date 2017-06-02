@@ -1,6 +1,6 @@
 sudo: required
 language: cpp
-dist: xenial
+dist: trusty
 
 install:
 - sudo apt-get install libstdc++6-4.6-dev g++-multilib libc6-dbg:i386
