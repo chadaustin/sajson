@@ -1,2 +1,6 @@
 sudo: false
 language: cpp
+
+compiler:
+  - clang
+  - gcc
