@@ -1,5 +1,7 @@
-#include "sajson.h"
-#include "sajson_ostream.h"
+// included first to verify sajson includes.
+#include <sajson.h>
+#include <sajson_ostream.h>
+
 #include <UnitTest++.h>
 
 using sajson::TYPE_ARRAY;

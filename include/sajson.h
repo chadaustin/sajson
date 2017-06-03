@@ -34,7 +34,9 @@
 #include <cstdio>
 #include <limits>
 
-#include <string> // for error messages.  kill someday?
+#ifndef SAJSON_NO_STD_STRING
+#include <string> // for convenient access to error messages and string values.
+#endif
 
 #if defined(__GNUC__) || defined(__clang__)
 #define SAJSON_LIKELY(x) __builtin_expect(!!(x), 1)
@@ -137,9 +139,11 @@ namespace sajson {
             return _length;
         }
 
+#ifndef SAJSON_NO_STD_STRING
         std::string as_string() const {
             return std::string(text, text + _length);
         }
+#endif
 
     private:
         const char* const text;
@@ -420,18 +424,22 @@ namespace sajson {
         }
 
         // valid iff get_type() is TYPE_STRING
-        // WARNING: if a string has embedded NULs, it will be appear
-        // truncated to the caller of this function.
+        // WARNING: calling this function and using the return value as a
+        // C-style string (that is, without also using get_string_length())
+        // will cause the string to appear truncated if the string has
+        // embedded NULs.
         const char* as_cstring() const {
             assert_type(TYPE_STRING);
             return text + payload[0];
         }
 
+#ifndef SAJSON_NO_STD_STRING
         // valid iff get_type() is TYPE_STRING
         std::string as_string() const {
             assert_type(TYPE_STRING);
             return std::string(text + payload[0], text + payload[1]);
         }
+#endif
 
         const size_t* _internal_get_payload() const {
             return payload;
