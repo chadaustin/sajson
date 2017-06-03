@@ -17,13 +17,12 @@ using sajson::value;
 
 inline bool success(const document& doc) {
     if (!doc.is_valid()) {
-        std::string msg = doc.get_error_as_string();
         fprintf(
             stderr,
             "parse failed at %i, %i: %s\n",
             static_cast<int>(doc.get_error_line()),
             static_cast<int>(doc.get_error_column()),
-            msg.c_str());
+            doc.get_error_message_as_cstring());
         return false;
     }
     return true;
@@ -464,7 +463,7 @@ SUITE(strings) {
         //CHECK_EQUAL(3, document.get_error_column());
         CHECK_EQUAL(sajson::ERROR_ILLEGAL_CODEPOINT, document._internal_get_error_code());
         CHECK_EQUAL(25, document._internal_get_error_argument());
-        CHECK_EQUAL("illegal unprintable codepoint in string: 25", document.get_error_as_string());
+        CHECK_EQUAL("illegal unprintable codepoint in string: 25", document.get_error_message_as_string());
     }
 
     ABSTRACT_TEST(unprintables_are_not_valid_in_strings_after_escapes) {
@@ -473,7 +472,7 @@ SUITE(strings) {
         CHECK_EQUAL(2u, document.get_error_column());
         CHECK_EQUAL(sajson::ERROR_ILLEGAL_CODEPOINT, document._internal_get_error_code());
         CHECK_EQUAL(1, document._internal_get_error_argument());
-        CHECK_EQUAL("illegal unprintable codepoint in string: 1", document.get_error_as_string());
+        CHECK_EQUAL("illegal unprintable codepoint in string: 1", document.get_error_message_as_string());
     }
 
     ABSTRACT_TEST(utf16_surrogate_pair) {
@@ -657,7 +656,6 @@ SUITE(errors) {
         {
             document d(dummy, 0, 0, ERROR_SUCCESS, 0);
             CHECK_EQUAL(d._internal_get_error_text(), "no error");
-            CHECK_EQUAL(d.get_error_string_length(), 8);
         }
         {
             document d(dummy, 0, 0, ERROR_OUT_OF_MEMORY, 0);
@@ -718,7 +716,6 @@ SUITE(errors) {
         {
             document d(dummy, 0, 0, ERROR_ILLEGAL_CODEPOINT, -123);
             CHECK_EQUAL(d._internal_get_error_text(), "illegal unprintable codepoint in string");
-            CHECK_EQUAL(d.get_error_string_length(), 45);
         }
         {
             document d(dummy, 0, 0, ERROR_INVALID_UNICODE_ESCAPE, 0);

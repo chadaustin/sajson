@@ -35,7 +35,6 @@
 #include <limits>
 
 #include <string> // for error messages.  kill someday?
-#include <sstream>
 
 #if defined(__GNUC__) || defined(__clang__)
 #define SAJSON_LIKELY(x) __builtin_expect(!!(x), 1)
@@ -520,7 +519,9 @@ namespace sajson {
             , error_column(0)
             , error_code(ERROR_SUCCESS)
             , error_arg(0)
-        {}
+        {
+            formatted_error_message[0] = 0;
+        }
 
         explicit document(const mutable_string_view& input, size_t error_line, size_t error_column, const error error_code, int error_arg)
             : input(input)
@@ -531,7 +532,14 @@ namespace sajson {
             , error_column(error_column)
             , error_code(error_code)
             , error_arg(error_arg)
-        {}
+        {
+            formatted_error_message[ERROR_BUFFER_LENGTH - 1] = 0;
+            int written = has_significant_error_arg()
+                ? snprintf(formatted_error_message, ERROR_BUFFER_LENGTH - 1, "%s: %d", _internal_get_error_text(), error_arg)
+                : snprintf(formatted_error_message, ERROR_BUFFER_LENGTH - 1, "%s", _internal_get_error_text());
+            (void)written;
+            assert(written >= 0 && written < ERROR_BUFFER_LENGTH);
+        }
 
         document(const document&) = delete;
         void operator=(const document&) = delete;
@@ -546,6 +554,9 @@ namespace sajson {
             , error_code(rhs.error_code)
             , error_arg(rhs.error_arg)
         {
+            // Yikes... but strcpy is okay here because formatted_error is
+            // guaranteed to be null-terminated.
+            strcpy(formatted_error_message, rhs.formatted_error_message);
             // should rhs's fields be zeroed too?
         }
 
@@ -565,45 +576,12 @@ namespace sajson {
             return error_column;
         }
 
-        size_t get_error_string_length() const {
-            const char* msg = _internal_get_error_text();
-            size_t len = strlen(msg);
-            if(has_significant_error_arg()) {
-                if (error_arg == 0) {
-                    ++len;
-                } else {
-                    len += 2; // ": "
-                    int arg = error_arg;
-                    // simple log10 which doesn't work for 0, hence the if (error_arg == 0)
-                    while (arg) {
-                        arg /= 10;
-                        ++len;
-                    }
-                    if (error_arg < 0) {
-                        len += 1; // '-'
-                    }
-                }
-            }
-            return len;
+        std::string get_error_message_as_string() const {
+            return formatted_error_message;
         }
 
-        // writes at most length bytes of the error text in buffer
-        // returns number of bytes written
-        size_t format_error(char* buffer, size_t length) const {
-            if (has_significant_error_arg()) {
-                return size_t(snprintf(buffer, length, "%s: %d", _internal_get_error_text(), error_arg));
-            } else {
-                return size_t(snprintf(buffer, length, "%s", _internal_get_error_text()));
-            }
-        }
-
-        std::string get_error_as_string() const {
-            std::ostringstream sout;
-            sout << _internal_get_error_text();
-            if(has_significant_error_arg()) {
-                sout << ": " << error_arg;
-            }
-            return sout.str();
+        const char* get_error_message_as_cstring() const {
+            return formatted_error_message;
         }
 
         /// WARNING: Internal function which is subject to change
@@ -643,8 +621,7 @@ namespace sajson {
                 case ERROR_INVALID_UTF8: return  "invalid UTF-8";
             }
 
-            assert(false);
-            return "unknown error";
+            SAJSON_UNREACHABLE();
         }
 
         /// WARNING: Internal function exposed only for high-performance language bindings.
@@ -674,6 +651,9 @@ namespace sajson {
         const size_t error_column;
         const error error_code;
         const int error_arg;
+
+        enum { ERROR_BUFFER_LENGTH = 128 };
+        char formatted_error_message[ERROR_BUFFER_LENGTH];
     };
 
     class single_allocation {

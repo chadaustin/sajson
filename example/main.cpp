@@ -5,7 +5,7 @@ using namespace sajson;
 
 inline bool success(const document& doc) {
     if (!doc.is_valid()) {
-        fprintf(stderr, "%s\n", doc.get_error_message().c_str());
+        fprintf(stderr, "%s\n", doc.get_error_message_as_cstring());
         return false;
     }
     return true;
