@@ -1,6 +1,6 @@
-#include <UnitTest++.h>
 #include "sajson.h"
 #include "sajson_ostream.h"
+#include <UnitTest++.h>
 
 using sajson::TYPE_ARRAY;
 using sajson::TYPE_DOUBLE;
@@ -22,7 +22,7 @@ inline bool success(const document& doc) {
             "parse failed at %i, %i: %s\n",
             static_cast<int>(doc.get_error_line()),
             static_cast<int>(doc.get_error_column()),
-            doc.get_error_message().c_str());
+            doc.get_error_message_as_cstring());
         return false;
     }
     return true;
@@ -217,7 +217,7 @@ SUITE(integers) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(3u, document.get_error_column());
-        CHECK_EQUAL("expected ,", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_EXPECTED_COMMA, document._internal_get_error_code());
     }
 }
 
@@ -312,7 +312,7 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(4u, document.get_error_column());
-        CHECK_EQUAL("missing exponent", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_MSSING_EXPONENT, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(missing_exponent_plus) {
@@ -320,7 +320,7 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(5u, document.get_error_column());
-        CHECK_EQUAL("missing exponent", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_MSSING_EXPONENT, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(invalid_2_byte_utf8) {
@@ -328,7 +328,7 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(4u, document.get_error_column());
-        CHECK_EQUAL("invalid UTF-8", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_INVALID_UTF8, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(invalid_3_byte_utf8) {
@@ -336,7 +336,7 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(5u, document.get_error_column());
-        CHECK_EQUAL("invalid UTF-8", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_INVALID_UTF8, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(invalid_4_byte_utf8) {
@@ -344,7 +344,7 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(6u, document.get_error_column());
-        CHECK_EQUAL("invalid UTF-8", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_INVALID_UTF8, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(invalid_utf8_prefix) {
@@ -352,7 +352,7 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(3u, document.get_error_column());
-        CHECK_EQUAL("invalid UTF-8", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_INVALID_UTF8, document._internal_get_error_code());
     }
 }
 
@@ -362,7 +362,7 @@ SUITE(commas) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL("unexpected comma", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_UNEXPECTED_COMMA, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(leading_comma_object) {
@@ -370,7 +370,7 @@ SUITE(commas) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL("missing object key", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_MISSING_OBJECT_KEY, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(trailing_comma_array) {
@@ -378,7 +378,7 @@ SUITE(commas) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(6u, document.get_error_column());
-        CHECK_EQUAL("expected value", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_EXPECTED_VALUE, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(trailing_comma_object) {
@@ -386,7 +386,7 @@ SUITE(commas) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(11u, document.get_error_column());
-        CHECK_EQUAL("missing object key", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_MISSING_OBJECT_KEY, document._internal_get_error_code());
     }
 }
 
@@ -445,7 +445,7 @@ SUITE(strings) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         //CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL("unexpected end of input", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_UNEXPECTED_END, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(unfinished_escape) {
@@ -453,7 +453,7 @@ SUITE(strings) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         //CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL("unexpected end of input", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_UNEXPECTED_END, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(unprintables_are_not_valid_in_strings) {
@@ -461,14 +461,18 @@ SUITE(strings) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         //CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL("illegal unprintable codepoint in string: 25", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_ILLEGAL_CODEPOINT, document._internal_get_error_code());
+        CHECK_EQUAL(25, document._internal_get_error_argument());
+        CHECK_EQUAL("illegal unprintable codepoint in string: 25", document.get_error_message_as_string());
     }
 
     ABSTRACT_TEST(unprintables_are_not_valid_in_strings_after_escapes) {
         const sajson::document& document = parse(literal("[\"\\n\x01\"]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL("illegal unprintable codepoint in string: 1", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_ILLEGAL_CODEPOINT, document._internal_get_error_code());
+        CHECK_EQUAL(1, document._internal_get_error_argument());
+        CHECK_EQUAL("illegal unprintable codepoint in string: 1", document.get_error_message_as_string());
     }
 
     ABSTRACT_TEST(utf16_surrogate_pair) {
@@ -645,12 +649,106 @@ SUITE(objects) {
 }
 
 SUITE(errors) {
+
+    ABSTRACT_TEST(error_extension) {
+        using namespace sajson;
+        mutable_string_view dummy;
+        {
+            document d(dummy, 0, 0, ERROR_SUCCESS, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "no error");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_OUT_OF_MEMORY, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "out of memory");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_UNEXPECTED_END, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "unexpected end of input");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_MISSING_ROOT_ELEMENT, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "missing root element");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_BAD_ROOT, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "document root must be object or array");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_EXPECTED_COMMA, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "expected ,");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_MISSING_OBJECT_KEY, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "missing object key");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_EXPECTED_COLON, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "expected :");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_EXPECTED_END_OF_INPUT, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "expected end of input");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_UNEXPECTED_COMMA, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "unexpected comma");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_EXPECTED_VALUE, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "expected value");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_EXPECTED_NULL, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "expected 'null'");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_EXPECTED_FALSE, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "expected 'false'");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_EXPECTED_TRUE, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "expected 'true'");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_MSSING_EXPONENT, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "missing exponent");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_ILLEGAL_CODEPOINT, -123);
+            CHECK_EQUAL(d._internal_get_error_text(), "illegal unprintable codepoint in string");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_INVALID_UNICODE_ESCAPE, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "invalid character in unicode escape");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_UNEXPECTED_END_OF_UTF16, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "unexpected end of input during UTF-16 surrogate pair");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_EXPECTED_U, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "expected \\u");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_INVALID_UTF16_TRAIL_SURROGATE, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "invalid UTF-16 trail surrogate");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_UNKNOWN_ESCAPE, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "unknown escape");
+        }
+        {
+            document d(dummy, 0, 0, ERROR_INVALID_UTF8, 0);
+            CHECK_EQUAL(d._internal_get_error_text(), "invalid UTF-8");
+        }
+    }
+
     ABSTRACT_TEST(empty_file_is_invalid) {
         const sajson::document& document = parse(literal(""));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(1u, document.get_error_column());
-        CHECK_EQUAL("missing root element", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_MISSING_ROOT_ELEMENT, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(two_roots_are_invalid) {
@@ -658,7 +756,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         //CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL("expected end of input", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_EXPECTED_END_OF_INPUT, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(root_must_be_object_or_array) {
@@ -666,7 +764,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(1u, document.get_error_column());
-        CHECK_EQUAL("document root must be object or array", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_BAD_ROOT, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(incomplete_object_key) {
@@ -674,7 +772,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(4u, document.get_error_column());
-        CHECK_EQUAL("unknown escape", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_UNKNOWN_ESCAPE, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(commas_are_necessary_between_elements) {
@@ -682,7 +780,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         //CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL("expected ,", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_EXPECTED_COMMA, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(keys_must_be_strings) {
@@ -690,7 +788,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL("missing object key", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_MISSING_OBJECT_KEY, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(objects_must_have_keys) {
@@ -698,7 +796,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(5u, document.get_error_column());
-        CHECK_EQUAL("expected :", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_EXPECTED_COLON, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(too_many_commas) {
@@ -706,7 +804,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(4u, document.get_error_column());
-        CHECK_EQUAL("unexpected comma", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_UNEXPECTED_COMMA, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(object_missing_value) {
@@ -714,7 +812,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(6u, document.get_error_column());
-        CHECK_EQUAL("expected value", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_EXPECTED_VALUE, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(invalid_true_literal) {
@@ -722,7 +820,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         //CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL("expected 'true'", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_EXPECTED_TRUE, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(incomplete_true_literal) {
@@ -730,7 +828,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         //CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL("unexpected end of input", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_UNEXPECTED_END, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(must_close_array_with_square_bracket) {
@@ -738,7 +836,7 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         //CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL("expected value", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_EXPECTED_VALUE, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(must_close_object_with_curly_brace) {
@@ -746,25 +844,25 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL("missing object key", document.get_error_message());
+        CHECK_EQUAL(sajson::ERROR_MISSING_OBJECT_KEY, document._internal_get_error_code());
     }
 
-#define CHECK_PARSE_ERROR(text, error_message)                          \
+#define CHECK_PARSE_ERROR(text, code)                                   \
     do {                                                                \
         const sajson::document& document = parse(literal(text));        \
         CHECK_EQUAL(false, document.is_valid());                        \
-        CHECK_EQUAL(error_message, document.get_error_message());       \
+        CHECK_EQUAL(sajson::code, document._internal_get_error_code());           \
     } while (0)
 
     ABSTRACT_TEST(invalid_number) {
-        CHECK_PARSE_ERROR("[-", "unexpected end of input");
-        CHECK_PARSE_ERROR("[-12", "unexpected end of input");
-        CHECK_PARSE_ERROR("[-12.", "unexpected end of input");
-        CHECK_PARSE_ERROR("[-12.3", "unexpected end of input");
-        CHECK_PARSE_ERROR("[-12e", "unexpected end of input");
-        CHECK_PARSE_ERROR("[-12e-", "unexpected end of input");
-        CHECK_PARSE_ERROR("[-12e+", "unexpected end of input");
-        CHECK_PARSE_ERROR("[-12e3", "unexpected end of input");
+        CHECK_PARSE_ERROR("[-", ERROR_UNEXPECTED_END);
+        CHECK_PARSE_ERROR("[-12", ERROR_UNEXPECTED_END);
+        CHECK_PARSE_ERROR("[-12.", ERROR_UNEXPECTED_END);
+        CHECK_PARSE_ERROR("[-12.3", ERROR_UNEXPECTED_END);
+        CHECK_PARSE_ERROR("[-12e", ERROR_UNEXPECTED_END);
+        CHECK_PARSE_ERROR("[-12e-", ERROR_UNEXPECTED_END);
+        CHECK_PARSE_ERROR("[-12e+", ERROR_UNEXPECTED_END);
+        CHECK_PARSE_ERROR("[-12e3", ERROR_UNEXPECTED_END);
     }
 }
 
