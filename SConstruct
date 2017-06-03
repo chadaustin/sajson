@@ -1,5 +1,6 @@
 import os
 import multiprocessing
+import sys
 
 SetOption('num_jobs', multiprocessing.cpu_count())
 
@@ -49,16 +50,22 @@ env = Environment(
     ENV=os.environ,
     CXXFLAGS=['-std=c++11', '-Wall', '-Werror', '-Wno-unused-private-field'])
 
-builds = [
-    ('gcc-32-opt', [gcc, m32, opt]),
-    ('gcc-32-dbg', [gcc, m32, dbg]),
-    ('gcc-64-opt', [gcc, m64, opt]),
-    ('gcc-64-dbg', [gcc, m64, dbg]),
-    ('clang-32-opt', [clang, m32, opt]),
-    ('clang-32-dbg', [clang, m32, dbg]),
-    ('clang-64-opt', [clang, m64, opt]),
-    ('clang-64-dbg', [clang, m64, dbg]),
-]
+if sys.platform == 'darwin':
+    builds = [
+        ('clang-64-opt', [clang, m64, opt]),
+        ('clang-64-dbg', [clang, m64, dbg]),
+    ]
+else:
+    builds = [
+        ('gcc-32-opt', [gcc, m32, opt]),
+        ('gcc-32-dbg', [gcc, m32, dbg]),
+        ('gcc-64-opt', [gcc, m64, opt]),
+        ('gcc-64-dbg', [gcc, m64, dbg]),
+        ('clang-32-opt', [clang, m32, opt]),
+        ('clang-32-dbg', [clang, m32, dbg]),
+        ('clang-64-opt', [clang, m64, opt]),
+        ('clang-64-dbg', [clang, m64, dbg]),
+    ]
 
 for name, tools in builds:
     e = env.Clone(tools=tools)
