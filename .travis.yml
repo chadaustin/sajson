@@ -3,6 +3,6 @@ language: cpp
 dist: trusty
 
 #install:
-- sudo apt-get install libstdc++-dev g++-multilib
+- sudo apt-get install libstdc++6 g++-multilib
 
 script: s/build -j1
