@@ -11,6 +11,6 @@ language: cpp
 #- sudo apt-get install libstdc++6 gcc-multilib g++-multilib
 
 install:
-- brew install scons
+- brew install scons valgrind
 
 script: s/build -j1 && s/test
