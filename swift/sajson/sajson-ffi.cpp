@@ -40,8 +40,7 @@ size_t sajson_get_error_column(sajson_document* doc) {
 }
 
 const char* sajson_get_error_message(sajson_document* doc) {
-    // This is okay because get_error_message returns a reference to the internal std::string
-    return unwrap(doc)->get_error_message().c_str();
+    return unwrap(doc)->get_error_message_as_cstring();
 }
 
 uint8_t sajson_get_root_type(sajson_document* doc) {
