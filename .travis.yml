@@ -13,4 +13,7 @@ language: cpp
 install:
 - brew install scons valgrind
 
-script: s/build -j1 && s/test
+script:
+- s/build
+- s/test
+- xcodebuild clean build test -project swift/sajson.xcodeproj -scheme sajson_macOS
