@@ -1,8 +1,13 @@
-sudo: required
+os:
+- osx
+
 language: cpp
-dist: trusty
+
+# sudo: required
+
+# dist: trusty
 
 #install:
-- sudo apt-get install libstdc++6 gcc-multilib g++-multilib
+#- sudo apt-get install libstdc++6 gcc-multilib g++-multilib
 
-script: s/build -j1
+script: s/build -j1 && s/test
