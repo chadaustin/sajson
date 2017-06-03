@@ -10,4 +10,7 @@ language: cpp
 #install:
 #- sudo apt-get install libstdc++6 gcc-multilib g++-multilib
 
+install:
+- brew install scons
+
 script: s/build -j1 && s/test
