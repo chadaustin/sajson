@@ -584,9 +584,11 @@ namespace sajson {
             return error_column;
         }
 
+#ifndef SAJSON_NO_STD_STRING
         std::string get_error_message_as_string() const {
             return formatted_error_message;
         }
+#endif
 
         const char* get_error_message_as_cstring() const {
             return formatted_error_message;
