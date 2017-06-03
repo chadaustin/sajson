@@ -849,6 +849,14 @@ SUITE(errors) {
         CHECK_EQUAL(sajson::ERROR_MISSING_OBJECT_KEY, document._internal_get_error_code());
     }
 
+    ABSTRACT_TEST(incomplete_array_with_vero) {
+        const sajson::document& document = parse(literal("[0"));
+        CHECK_EQUAL(false, document.is_valid());
+        CHECK_EQUAL(1u, document.get_error_line());
+        CHECK_EQUAL(3u, document.get_error_column());
+        CHECK_EQUAL(sajson::ERROR_UNEXPECTED_END, document._internal_get_error_code());
+    }
+
 #define CHECK_PARSE_ERROR(text, code)                                   \
     do {                                                                \
         const sajson::document& document = parse(literal(text));        \

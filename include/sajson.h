@@ -1593,6 +1593,9 @@ namespace sajson {
             double d = 0.0; // gcc complains that d might be used uninitialized which isn't true. appease the warning anyway.
             if (*p == '0') {
                 ++p;
+                if (SAJSON_UNLIKELY(at_eof(p))) {
+                    return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                }
             } else for (;;) {
                 unsigned char c = *p;
                 if (c < '0' || c > '9') {
