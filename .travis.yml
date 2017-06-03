@@ -1,5 +1,5 @@
 os: osx
-osx_image: xcode8.3
+osx_image: xcode8
 
 language: cpp
 
@@ -16,4 +16,6 @@ install:
 script:
 - s/build
 - s/test
-- xcodebuild clean build test -project swift/sajson.xcodeproj -scheme sajson-macOS
+# TODO: add test.  (can't run swift tests until newer osx_image, but newer osx_image
+# has broken valgrind.)
+- xcodebuild clean build -project swift/sajson.xcodeproj -scheme sajson-macOS
