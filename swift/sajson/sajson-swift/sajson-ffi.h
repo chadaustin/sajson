@@ -2,6 +2,7 @@
 
 #ifndef __cplusplus
 #include <stddef.h>
+#include <stdint.h>
 #endif
 
 struct sajson_document;
