@@ -261,6 +261,18 @@ SUITE(doubles) {
         CHECK_EQUAL(-34.25, e2.get_double_value());
     }
 
+    ABSTRACT_TEST(large_number) {
+        const auto& document = parse(literal("[1496756396000]"));
+        assert(success(document));
+        const value& root = document.get_root();
+        CHECK_EQUAL(TYPE_ARRAY, root.get_type());
+        CHECK_EQUAL(1u, root.get_length());
+
+        const value& element = root.get_array_element(0);
+        CHECK_EQUAL(TYPE_DOUBLE, element.get_type());
+        CHECK_EQUAL(1496756396000.0, element.get_double_value());
+    }
+
     ABSTRACT_TEST(exponents) {
         const sajson::document& document = parse(literal("[2e+3,0.5E-5,10E+22]"));
         assert(success(document));
