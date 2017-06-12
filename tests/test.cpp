@@ -271,6 +271,10 @@ SUITE(doubles) {
         const value& element = root.get_array_element(0);
         CHECK_EQUAL(TYPE_DOUBLE, element.get_type());
         CHECK_EQUAL(1496756396000.0, element.get_double_value());
+
+        int64_t out;
+        CHECK_EQUAL(true, element.get_int53_value(&out));
+        CHECK_EQUAL(1496756396000LL, out);
     }
 
     ABSTRACT_TEST(exponents) {
@@ -367,6 +371,69 @@ SUITE(doubles) {
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(3u, document.get_error_column());
         CHECK_EQUAL(sajson::ERROR_INVALID_UTF8, document._internal_get_error_code());
+    }
+}
+
+SUITE(int53) {
+    ABSTRACT_TEST(int32) {
+        const auto& document = parse(literal("[-54]"));
+        assert(success(document));
+        const value& root = document.get_root();
+        const value& element = root.get_array_element(0);
+
+        int64_t out;
+        CHECK_EQUAL(true, element.get_int53_value(&out));
+        CHECK_EQUAL(-54, out);
+    }
+
+    ABSTRACT_TEST(integer_double) {
+        const auto& document = parse(literal("[10.0]"));
+        assert(success(document));
+        const value& root = document.get_root();
+        const value& element = root.get_array_element(0);
+
+        int64_t out;
+        CHECK_EQUAL(true, element.get_int53_value(&out));
+        CHECK_EQUAL(10, out);
+    }
+
+    ABSTRACT_TEST(non_integer_double) {
+        const auto& document = parse(literal("[10.5]"));
+        assert(success(document));
+        const value& root = document.get_root();
+        const value& element = root.get_array_element(0);
+        CHECK_EQUAL(TYPE_DOUBLE, element.get_type());
+        CHECK_EQUAL(10.5, element.get_double_value());
+
+        int64_t out;
+        CHECK_EQUAL(false, element.get_int53_value(&out));
+    }
+
+    ABSTRACT_TEST(endpoints) {
+        // TODO: What should we do about (1<<53)+1?
+        // When parsed into a double it loses that last bit of precision, so
+        // sajson doesn't distinguish between 9007199254740992 and 9007199254740993.
+        // So for now ignore this boundary condition and unit test one extra value away.
+        const auto& document = parse(literal(
+            "[-9007199254740992, 9007199254740992, -9007199254740994, 9007199254740994]"
+        ));
+        assert(success(document));
+        const value& root = document.get_root();
+        const value& e0 = root.get_array_element(0);
+        const value& e1 = root.get_array_element(1);
+        const value& e2 = root.get_array_element(2);
+        const value& e3 = root.get_array_element(3);
+
+        int64_t out;
+
+        CHECK_EQUAL(true, e0.get_int53_value(&out));
+        CHECK_EQUAL(-9007199254740992LL, out);
+
+        CHECK_EQUAL(true, e1.get_int53_value(&out));
+        CHECK_EQUAL(9007199254740992LL, out);
+
+        CHECK_EQUAL(false, e2.get_int53_value(&out));
+        CHECK_EQUAL(false, e3.get_int53_value(&out));
     }
 }
 

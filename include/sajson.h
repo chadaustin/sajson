@@ -417,6 +417,36 @@ namespace sajson {
             }
         }
 
+        // valid iff get_type() is TYPE_INTEGER or TYPE_DOUBLE
+        // returns true if out is modified written.
+        // returns false if the value is a non-integral double
+        // or out of range of a 53-bit integer.
+        bool get_int53_value(int64_t* out) const {
+            // Make sure the output variable is always defined to avoid any
+            // possible situation like
+            // https://gist.github.com/chadaustin/2c249cb850619ddec05b23ca42cf7a18
+            *out = 0;
+
+            assert_type_2(TYPE_INTEGER, TYPE_DOUBLE);
+            if (get_type() == TYPE_INTEGER) {
+                *out = get_integer_value();
+                return true;
+            } else if (get_type() == TYPE_DOUBLE) {
+                double v = get_double_value();
+                if (v < -(1LL << 53) || v > (1LL << 53)) {
+                    return false;
+                }
+                int64_t as_int = static_cast<int64_t>(v);
+                if (as_int != v) {
+                    return false;
+                }
+                *out = as_int;
+                return true;
+            } else {
+                return false;
+            }
+        }
+
         // valid iff get_type() is TYPE_STRING
         size_t get_string_length() const {
             assert_type(TYPE_STRING);
