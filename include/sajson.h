@@ -43,10 +43,15 @@
 #define SAJSON_UNLIKELY(x) __builtin_expect(!!(x), 0)
 #define SAJSON_ALWAYS_INLINE __attribute__((always_inline))
 #define SAJSON_UNREACHABLE() __builtin_unreachable()
-#else
+#elif defined(_MSC_VER)
 #define SAJSON_LIKELY(x) x
 #define SAJSON_UNLIKELY(x) x
 #define SAJSON_ALWAYS_INLINE __forceinline
+#define SAJSON_UNREACHABLE() __assume(0)
+#else
+#define SAJSON_LIKELY(x) x
+#define SAJSON_UNLIKELY(x) x
+#define SAJSON_ALWAYS_INLINE inline
 #define SAJSON_UNREACHABLE() assert(!"unreachable")
 #endif
 
