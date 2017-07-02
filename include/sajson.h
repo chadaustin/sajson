@@ -44,6 +44,9 @@
 #define SAJSON_ALWAYS_INLINE __attribute__((always_inline))
 #define SAJSON_UNREACHABLE() __builtin_unreachable()
 #elif defined(_MSC_VER)
+#if (_MSC_VER <= 1800)
+#define snprintf _snprintf
+#endif
 #define SAJSON_LIKELY(x) x
 #define SAJSON_UNLIKELY(x) x
 #define SAJSON_ALWAYS_INLINE __forceinline
