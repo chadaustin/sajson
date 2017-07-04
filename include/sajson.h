@@ -43,19 +43,23 @@
 #define SAJSON_UNLIKELY(x) __builtin_expect(!!(x), 0)
 #define SAJSON_ALWAYS_INLINE __attribute__((always_inline))
 #define SAJSON_UNREACHABLE() __builtin_unreachable()
+#define SAJSON_snprintf snprintf
 #elif defined(_MSC_VER)
-#if (_MSC_VER <= 1800)
-#define snprintf _snprintf
-#endif
 #define SAJSON_LIKELY(x) x
 #define SAJSON_UNLIKELY(x) x
 #define SAJSON_ALWAYS_INLINE __forceinline
 #define SAJSON_UNREACHABLE() __assume(0)
+#if (_MSC_VER <= 1800)
+#define SAJSON_snprintf _snprintf
+#else
+#define SAJSON_snprintf snprintf
+#endif
 #else
 #define SAJSON_LIKELY(x) x
 #define SAJSON_UNLIKELY(x) x
 #define SAJSON_ALWAYS_INLINE inline
 #define SAJSON_UNREACHABLE() assert(!"unreachable")
+#define SAJSON_snprintf snprintf
 #endif
 
 namespace sajson {
@@ -581,8 +585,8 @@ namespace sajson {
         {
             formatted_error_message[ERROR_BUFFER_LENGTH - 1] = 0;
             int written = has_significant_error_arg()
-                ? snprintf(formatted_error_message, ERROR_BUFFER_LENGTH - 1, "%s: %d", _internal_get_error_text(), error_arg)
-                : snprintf(formatted_error_message, ERROR_BUFFER_LENGTH - 1, "%s", _internal_get_error_text());
+                ? SAJSON_snprintf(formatted_error_message, ERROR_BUFFER_LENGTH - 1, "%s: %d", _internal_get_error_text(), error_arg)
+                : SAJSON_snprintf(formatted_error_message, ERROR_BUFFER_LENGTH - 1, "%s", _internal_get_error_text());
             (void)written;
             assert(written >= 0 && written < ERROR_BUFFER_LENGTH);
         }
