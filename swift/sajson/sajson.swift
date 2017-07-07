@@ -249,10 +249,14 @@ private struct ASTNode {
                 return .integer(p[0])
             }
         case RawType.double:
-            let lo = UInt64(payload[0])
-            let hi = UInt64(payload[1])
-            let bitPattern = lo | (hi << 32)
-            return .double(Float64(bitPattern: bitPattern))
+            if MemoryLayout<Int>.size == MemoryLayout<Int32>.size {
+                let lo = UInt64(payload[0])
+                let hi = UInt64(payload[1])
+                let bitPattern = lo | (hi << 32)
+                return .double(Float64(bitPattern: bitPattern))
+            } else {
+                return .double(Float64(bitPattern: UInt64(payload[0])))
+            }
         case RawType.null:
             return .null
         case RawType.bfalse:

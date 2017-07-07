@@ -68,6 +68,19 @@ class sajsonTests: XCTestCase {
         }
     }
 
+    func test_floats() {
+        let doc = try! parse(allocationStrategy: .single, input: "{\"start\": 12.948, \"end\": 42.1234}")
+        doc.withRootValueReader { docValue in
+            guard case .object(let objectReader) = docValue else { XCTFail(); return }
+            XCTAssert(objectReader.count == 2)
+            guard case .some(.double(let start)) = objectReader["start"] else { XCTFail(); return }
+            guard case .some(.double(let end)) = objectReader["end"] else { XCTFail(); return }
+
+            XCTAssertEqualWithAccuracy(12.948, start, accuracy: 0.001)
+            XCTAssertEqualWithAccuracy(42.1234, end, accuracy: 0.001)
+        }
+    }
+
     // MARK: Helpers
 
     func createLargeTestJsonData(objectCount: Int) -> Data {
