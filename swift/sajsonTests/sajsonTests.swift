@@ -7,6 +7,16 @@ class sajsonTests: XCTestCase {
         _ = try! parse(allocationStrategy: .single, input: "[]")
     }
 
+    func test_zero_embedded_strings() {
+        let doc = try! parse(allocationStrategy: .single, input: "[\"a\\u0000b\"]")
+        doc.withRootValueReader { docValue in
+            guard case .array(let array) = docValue else { XCTFail(); return }
+            XCTAssertEqual(1, array.count)
+            guard case .string(let str) = array[0] else { XCTFail(); return }
+            XCTAssertEqual("a\0b", str)
+        }
+    }
+
     func test_array() {
         let doc = try! parse(allocationStrategy: .single, input: "[10, \"Hello\"]")
         doc.withRootValueReader { docValue in
