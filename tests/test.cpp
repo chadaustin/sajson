@@ -330,7 +330,7 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(4u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_MSSING_EXPONENT, document._internal_get_error_code());
+        CHECK_EQUAL(sajson::ERROR_MISSING_EXPONENT, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(missing_exponent_plus) {
@@ -338,7 +338,7 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(5u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_MSSING_EXPONENT, document._internal_get_error_code());
+        CHECK_EQUAL(sajson::ERROR_MISSING_EXPONENT, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(invalid_2_byte_utf8) {
@@ -791,7 +791,7 @@ SUITE(errors) {
             CHECK_EQUAL(d._internal_get_error_text(), "expected 'true'");
         }
         {
-            document d(dummy, 0, 0, ERROR_MSSING_EXPONENT, 0);
+            document d(dummy, 0, 0, ERROR_MISSING_EXPONENT, 0);
             CHECK_EQUAL(d._internal_get_error_text(), "missing exponent");
         }
         {
@@ -943,7 +943,7 @@ SUITE(errors) {
         CHECK_EQUAL(sajson::code, document._internal_get_error_code());           \
     } while (0)
 
-    ABSTRACT_TEST(invalid_number) {
+    ABSTRACT_TEST(eof_after_number) {
         CHECK_PARSE_ERROR("[-", ERROR_UNEXPECTED_END);
         CHECK_PARSE_ERROR("[-12", ERROR_UNEXPECTED_END);
         CHECK_PARSE_ERROR("[-12.", ERROR_UNEXPECTED_END);
@@ -952,6 +952,24 @@ SUITE(errors) {
         CHECK_PARSE_ERROR("[-12e-", ERROR_UNEXPECTED_END);
         CHECK_PARSE_ERROR("[-12e+", ERROR_UNEXPECTED_END);
         CHECK_PARSE_ERROR("[-12e3", ERROR_UNEXPECTED_END);
+    }
+
+    ABSTRACT_TEST(invalid_number) {
+        CHECK_PARSE_ERROR("[-]", ERROR_INVALID_NUMBER);
+        CHECK_PARSE_ERROR("[-12.]", ERROR_INVALID_NUMBER);
+        CHECK_PARSE_ERROR("[-12e]", ERROR_MISSING_EXPONENT);
+        CHECK_PARSE_ERROR("[-12e-]", ERROR_MISSING_EXPONENT);
+        CHECK_PARSE_ERROR("[-12e+]", ERROR_MISSING_EXPONENT);
+
+        // from https://github.com/chadaustin/sajson/issues/31
+        CHECK_PARSE_ERROR("[-]", ERROR_INVALID_NUMBER);
+        CHECK_PARSE_ERROR("[-2.]", ERROR_INVALID_NUMBER);
+        CHECK_PARSE_ERROR("[0.e1]", ERROR_INVALID_NUMBER);
+        CHECK_PARSE_ERROR("[2.e+3]", ERROR_INVALID_NUMBER);
+        CHECK_PARSE_ERROR("[2.e-3]", ERROR_INVALID_NUMBER);
+        CHECK_PARSE_ERROR("[2.e3]", ERROR_INVALID_NUMBER);
+        CHECK_PARSE_ERROR("[-.123]", ERROR_INVALID_NUMBER);
+        CHECK_PARSE_ERROR("[1.]", ERROR_INVALID_NUMBER);
     }
 }
 
