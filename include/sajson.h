@@ -25,7 +25,7 @@
 #pragma once
 
 #include <assert.h>
-#include <stdarg.h>
+#include <stdint.h>
 #include <stddef.h>
 #include <string.h>
 #include <math.h>
