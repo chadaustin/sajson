@@ -147,7 +147,7 @@ namespace sajson {
             return text;
         }
 
-        const size_t length() const {
+        size_t length() const {
             return _length;
         }
 
