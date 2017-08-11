@@ -777,19 +777,15 @@ namespace sajson {
                 , stack_top(other.stack_top)
             {}
 
-            bool has_allocation_error() {
-                return false;
-            }
-
             bool push(size_t element) {
                 *stack_top++ = element;
                 return true;
             }
 
-            // check has_allocation_error() immediately after calling
-            size_t* reserve(size_t amount) {
+            size_t* reserve(size_t amount, bool* success) {
                 size_t* rv = stack_top;
                 stack_top += amount;
+                *success = true;
                 return rv;
             }
 
@@ -972,10 +968,6 @@ namespace sajson {
                 delete[] stack_bottom;
             }
 
-            bool has_allocation_error() {
-                return !stack_bottom;
-            }
-
             bool push(size_t element) {
                 if (can_grow(1)) {
                     *stack_top++ = element;
@@ -985,13 +977,14 @@ namespace sajson {
                 }
             }
 
-            // check has_allocation_error() immediately after calling
-            size_t* reserve(size_t amount) {
+            size_t* reserve(size_t amount, bool* success) {
                 if (can_grow(amount)) {
                     size_t* rv = stack_top;
                     stack_top += amount;
+                    *success = true;
                     return rv;
                 } else {
+                    *success = false;
                     return 0;
                 }
             }
@@ -1109,14 +1102,13 @@ namespace sajson {
                 return ast_buffer_top - v;
             }
 
-            // check has_allocation_error immediately after calling
             size_t* reserve(size_t size, bool* success) {
-                bool rv = can_grow(size);
-                *success = rv;
-                if (rv) {
+                if (can_grow(size)) {
                     ast_write_head -= size;
+                    *success = true;
                     return ast_write_head;
                 } else {
+                    *success = false;
                     return 0;
                 }
             }
@@ -1431,8 +1423,9 @@ namespace sajson {
                 if (SAJSON_UNLIKELY(*p != '"')) {
                     return make_error(p, ERROR_MISSING_OBJECT_KEY);
                 }
-                size_t* out = stack.reserve(2);
-                if (SAJSON_UNLIKELY(stack.has_allocation_error())) {
+                bool success;
+                size_t* out = stack.reserve(2, &success);
+                if (SAJSON_UNLIKELY(!success)) {
                     return oom(p);
                 }
                 p = parse_string(p, out);
