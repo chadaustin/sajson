@@ -293,58 +293,46 @@ namespace sajson {
         bool owns;
     };
 
-    union integer_storage {
+    namespace integer_storage {
         enum {
             word_length = 1
         };
 
-        static void store(size_t* location, int value) {
-            integer_storage is;
-            is.i = value;
-            *location = is.u;
+        inline int load(const size_t* location) {
+            int value;
+            memcpy(&value, location, sizeof(value));
+            return value;
         }
 
-        int i;
-        size_t u;
+        inline void store(size_t* location, int value) {
+            // NOTE: Most modern compilers optimize away this constant-size
+            // memcpy into a single instruction. If any don't, and treat
+            // punning through a union as legal, they can be special-cased.
+            static_assert(
+                sizeof(value) <= sizeof(*location),
+                "size_t must not be smaller than int");
+            memcpy(location, &value, sizeof(value));
+        }
     };
-    static_assert(sizeof(integer_storage) == sizeof(size_t), "integer_storage must have same size as one structure slot");
 
-    union double_storage {
+    namespace double_storage {
         enum {
             word_length = sizeof(double) / sizeof(size_t)
         };
 
-#if defined(_M_IX86) || defined(__i386__) || defined(_X86_)
-        static double load(const size_t* location) {
-            return *reinterpret_cast<const double*>(location);
-        }
-        static void store(size_t* location, double value) {
-            *reinterpret_cast<double*>(location) = value;
-        }
-#else
-        static double load(const size_t* location) {
-            double_storage s;
-            for (unsigned i = 0; i < double_storage::word_length; ++i) {
-                s.u[i] = location[i];
-            }
-            return s.d;
+        inline double load(const size_t* location) {
+            double value;
+            memcpy(&value, location, sizeof(double));
+            return value;
         }
 
-        static void store(size_t* location, double value) {
-            double_storage ns;
-            ns.d = value;
-
-            for (int i = 0; i < ns.word_length; ++i) {
-                location[i] = ns.u[i];
-            }
+        inline void store(size_t* location, double value) {
+            // NOTE: Most modern compilers optimize away this constant-size
+            // memcpy into a single instruction. If any don't, and treat
+            // punning through a union as legal, they can be special-cased.
+            memcpy(location, &value, sizeof(double));
         }
-
-        double d;
-        size_t u[word_length];
-#endif
     };
-    // TODO: reinstate with c++03 implementation
-    //static_assert(sizeof(double_storage) == sizeof(double), "double_storage should have same size as double");
 
     class value {
     public:
@@ -408,9 +396,7 @@ namespace sajson {
         // valid iff get_type() is TYPE_INTEGER
         int get_integer_value() const {
             assert_type(TYPE_INTEGER);
-            integer_storage s;
-            s.u = payload[0];
-            return s.i;
+            return integer_storage::load(payload);
         }
 
         // valid iff get_type() is TYPE_DOUBLE
