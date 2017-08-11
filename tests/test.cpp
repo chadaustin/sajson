@@ -993,6 +993,29 @@ ABSTRACT_TEST(object_array_with_integers) {
     CHECK_EQUAL(7890U, node2.get_number_value());
 }
 
+SUITE(api) {
+    TEST(mutable_string_view_assignment) {
+        sajson::mutable_string_view one(sajson::literal("hello"));
+        sajson::mutable_string_view two;
+        two = one;
+
+        CHECK_EQUAL(5u, one.length());
+        CHECK_EQUAL(5u, two.length());
+    }
+
+    TEST(mutable_string_view_self_assignment) {
+        sajson::mutable_string_view one(sajson::literal("hello"));
+        one = one;
+        CHECK_EQUAL(5u, one.length());
+    }
+
+    TEST(mutable_string_view_self_move_assignment) {
+        sajson::mutable_string_view one(sajson::literal("hello"));
+        one = std::move(one);
+        CHECK_EQUAL(5u, one.length());
+    }
+}
+
 SUITE(allocator_tests) {
     TEST(single_allocation_into_existing_memory) {
         size_t buffer[2];

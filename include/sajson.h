@@ -244,16 +244,20 @@ namespace sajson {
         }
 
         allocated_buffer& operator=(const allocated_buffer& that) {
-            decref();
-            memory = that.memory;
-            incref();
+            if (this != &that) {
+                decref();
+                memory = that.memory;
+                incref();
+            }
             return *this;
         }
 
         allocated_buffer& operator=(allocated_buffer&& that) {
-            decref();
-            memory = that.memory;
-            that.memory = 0;
+            if (this != &that) {
+                decref();
+                memory = that.memory;
+                that.memory = 0;
+            }
             return *this;
         }
 
@@ -328,11 +332,22 @@ namespace sajson {
         }
 
         mutable_string_view& operator=(mutable_string_view&& that) {
-            length_ = that.length_;
-            data = that.data;
-            buffer = std::move(that.buffer);
-            that.length_ = 0;
-            that.data = 0;
+            if (this != &that) {
+                length_ = that.length_;
+                data = that.data;
+                buffer = std::move(that.buffer);
+                that.length_ = 0;
+                that.data = 0;
+            }
+            return *this;
+        }
+
+        mutable_string_view& operator=(const mutable_string_view& that) {
+            if (this != &that) {
+                length_ = that.length_;
+                data = that.data;
+                buffer = that.buffer;
+            }
             return *this;
         }
 
