@@ -214,32 +214,72 @@ namespace sajson {
         const char* data;
     };
 
-    class refcount {
+    class allocated_buffer {
     public:
-        refcount()
-            : pn(new size_t(1))
+        allocated_buffer()
+            : memory(0)
         {}
 
-        refcount(const refcount& rc)
-            : pn(rc.pn)
+        explicit allocated_buffer(size_t length) {
+            // throws std::bad_alloc upon allocation failure
+            void* buffer = operator new(sizeof(size_t) + length);
+            memory = static_cast<layout*>(buffer);
+            memory->refcount = 1;
+        }
+
+        allocated_buffer(const allocated_buffer& that)
+            : memory(that.memory)
         {
-            ++*pn;
+            incref();
         }
 
-        ~refcount() {
-            if (--*pn == 0) {
-                delete pn;
-            }
+        allocated_buffer(allocated_buffer&& that)
+            : memory(that.memory)
+        {
+            that.memory = 0;
         }
 
-        size_t count() const {
-            return *pn;
+        ~allocated_buffer() {
+            decref();
+        }
+
+        allocated_buffer& operator=(const allocated_buffer& that) {
+            decref();
+            memory = that.memory;
+            incref();
+            return *this;
+        }
+
+        allocated_buffer& operator=(allocated_buffer&& that) {
+            decref();
+            memory = that.memory;
+            that.memory = 0;
+            return *this;
+        }
+
+        char* get_data() const {
+            return memory ? memory->data : 0;
         }
 
     private:
-        size_t* pn;
+        void incref() const {
+            if (memory) {
+                ++(memory->refcount);
+            }
+        }
 
-        refcount& operator=(const refcount&) = delete;
+        void decref() const {
+            if (memory && --(memory->refcount) == 0) {
+                operator delete(memory);
+            }
+        }
+
+        struct layout {
+            size_t refcount;
+            char data[];
+        };
+
+        layout* memory;
     };
 
     class mutable_string_view {
@@ -247,35 +287,53 @@ namespace sajson {
         mutable_string_view()
             : length_(0)
             , data(0)
-            , owns(false)
+            , buffer()
         {}
 
         mutable_string_view(size_t length, char* data)
             : length_(length)
             , data(data)
-            , owns(false)
+            , buffer()
         {}
 
         mutable_string_view(const literal& s)
             : length_(s.length())
-            , owns(true)
+            , buffer(length_)
         {
-            data = new char[length_];
+            data = buffer.get_data();
             memcpy(data, s.data(), length_);
         }
 
         mutable_string_view(const string& s)
             : length_(s.length())
-            , owns(true)
+            , buffer(length_)
         {
-            data = new char[length_];
+            data = buffer.get_data();
             memcpy(data, s.data(), length_);
         }
 
-        ~mutable_string_view() {
-            if (uses.count() == 1 && owns) {
-                delete[] data;
-            }
+        mutable_string_view(const mutable_string_view& that)
+            : length_(that.length_)
+            , data(that.data)
+            , buffer(that.buffer)
+        {}
+
+        mutable_string_view(mutable_string_view&& that)
+            : length_(that.length_)
+            , data(that.data)
+            , buffer(std::move(that.buffer))
+        {
+            that.length_ = 0;
+            that.data = 0;
+        }
+
+        mutable_string_view& operator=(mutable_string_view&& that) {
+            length_ = that.length_;
+            data = that.data;
+            buffer = std::move(that.buffer);
+            that.length_ = 0;
+            that.data = 0;
+            return *this;
         }
 
         size_t length() const {
@@ -287,10 +345,9 @@ namespace sajson {
         }
 
     private:
-        refcount uses;
         size_t length_;
         char* data;
-        bool owns;
+        allocated_buffer buffer; // may not be allocated
     };
 
     namespace integer_storage {
