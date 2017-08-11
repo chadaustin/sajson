@@ -870,7 +870,8 @@ namespace sajson {
                 }
             }
 
-            stack_head get_stack_head() {
+            stack_head get_stack_head(bool* success) {
+                *success = true;
                 return stack_head(structure);
             }
 
@@ -882,12 +883,8 @@ namespace sajson {
                 return structure_end - v;
             }
 
-            bool has_allocation_error() {
-                return false;
-            }
-
-            // check has_allocation_error immediately after calling
-            size_t* reserve(size_t size) {
+            size_t* reserve(size_t size, bool* success) {
+                *success = true;
                 write_cursor -= size;
                 return write_cursor;
             }
@@ -1017,7 +1014,7 @@ namespace sajson {
             stack_head(const stack_head&) = delete;
             void operator=(const stack_head&) = delete;
 
-            explicit stack_head(size_t initial_capacity) {
+            explicit stack_head(size_t initial_capacity, bool* success) {
                 assert(initial_capacity);
                 stack_bottom = new(std::nothrow) size_t[initial_capacity];
                 stack_top = stack_bottom;
@@ -1026,6 +1023,7 @@ namespace sajson {
                 } else {
                     stack_limit = 0;
                 }
+                *success = !!stack_bottom;
             }
 
             bool can_grow(size_t amount) {
@@ -1097,8 +1095,8 @@ namespace sajson {
                 delete[] ast_buffer_bottom;
             }
 
-            stack_head get_stack_head() {
-                return stack_head(initial_stack_capacity);
+            stack_head get_stack_head(bool* success) {
+                return stack_head(initial_stack_capacity, success);
             }
 
             size_t get_write_offset() {
@@ -1109,13 +1107,11 @@ namespace sajson {
                 return ast_buffer_top - v;
             }
 
-            bool has_allocation_error() {
-                return !ast_buffer_bottom;
-            }
-
             // check has_allocation_error immediately after calling
-            size_t* reserve(size_t size) {
-                if (can_grow(size)) {
+            size_t* reserve(size_t size, bool* success) {
+                bool rv = can_grow(size);
+                *success = rv;
+                if (rv) {
                     ast_write_head -= size;
                     return ast_write_head;
                 } else {
@@ -1307,8 +1303,9 @@ namespace sajson {
             // p points to the character currently being parsed
             char* p = input.get_data();
 
-            auto stack = allocator.get_stack_head();
-            if (SAJSON_UNLIKELY(stack.has_allocation_error())) {
+            bool success;
+            auto stack = allocator.get_stack_head(&success);
+            if (SAJSON_UNLIKELY(!success)) {
                 return oom(p);
             }
 
@@ -1500,8 +1497,9 @@ namespace sajson {
                         break;
                     }
                     case '"': {
-                        size_t* string_tag = allocator.reserve(2);
-                        if (allocator.has_allocation_error()) {
+                        bool success;
+                        size_t* string_tag = allocator.reserve(2, &success);
+                        if (SAJSON_UNLIKELY(!success)) {
                             return oom(p);
                         }
                         p = parse_string(p, string_tag);
@@ -1815,15 +1813,17 @@ namespace sajson {
                 }
             }
             if (try_double) {
-                size_t* out = allocator.reserve(double_storage::word_length);
-                if (allocator.has_allocation_error()) {
+                bool success;
+                size_t* out = allocator.reserve(double_storage::word_length, &success);
+                if (SAJSON_UNLIKELY(!success)) {
                     return std::make_pair(oom(p), TYPE_NULL);
                 }
                 double_storage::store(out, d);
                 return std::make_pair(p, TYPE_DOUBLE);
             } else {
-                size_t* out = allocator.reserve(integer_storage::word_length);
-                if (allocator.has_allocation_error()) {
+                bool success;
+                size_t* out = allocator.reserve(integer_storage::word_length, &success);
+                if (SAJSON_UNLIKELY(!success)) {
                     return std::make_pair(oom(p), TYPE_NULL);
                 }
                 integer_storage::store(out, i);
@@ -1833,8 +1833,9 @@ namespace sajson {
 
         bool install_array(size_t* array_base, size_t* array_end) {
             const size_t length = array_end - array_base;
-            size_t* const new_base = allocator.reserve(length + 1);
-            if (SAJSON_UNLIKELY(allocator.has_allocation_error())) {
+            bool success;
+            size_t* const new_base = allocator.reserve(length + 1, &success);
+            if (SAJSON_UNLIKELY(!success)) {
                 return false;
             }
             size_t* out = new_base + length + 1;
@@ -1859,8 +1860,9 @@ namespace sajson {
                 reinterpret_cast<object_key_record*>(object_end),
                 object_key_comparator(input.get_data()));
 
-            size_t* const new_base = allocator.reserve(length_times_3 + 1);
-            if (SAJSON_UNLIKELY(allocator.has_allocation_error())) {
+            bool success;
+            size_t* const new_base = allocator.reserve(length_times_3 + 1, &success);
+            if (SAJSON_UNLIKELY(!success)) {
                 return false;
             }
             size_t* out = new_base + length_times_3 + 1;
