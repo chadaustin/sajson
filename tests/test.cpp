@@ -1009,9 +1009,13 @@ SUITE(api) {
         CHECK_EQUAL(5u, one.length());
     }
 
+    static sajson::mutable_string_view&& my_move(sajson::mutable_string_view& that) {
+        return std::move(that);
+    }
+
     TEST(mutable_string_view_self_move_assignment) {
         sajson::mutable_string_view one(sajson::literal("hello"));
-        one = std::move(one);
+        one = my_move(one);
         CHECK_EQUAL(5u, one.length());
     }
 }
