@@ -313,7 +313,7 @@ namespace sajson {
                 "size_t must not be smaller than int");
             memcpy(location, &value, sizeof(value));
         }
-    };
+    }
 
     namespace double_storage {
         enum {
@@ -332,7 +332,7 @@ namespace sajson {
             // punning through a union as legal, they can be special-cased.
             memcpy(location, &value, sizeof(double));
         }
-    };
+    }
 
     class value {
     public:
