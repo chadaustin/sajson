@@ -781,9 +781,9 @@ namespace sajson {
                 return false;
             }
 
-            // check has_allocation_error() immediately after calling
-            void push(size_t element) {
+            bool push(size_t element) {
                 *stack_top++ = element;
+                return true;
             }
 
             // check has_allocation_error() immediately after calling
@@ -976,10 +976,12 @@ namespace sajson {
                 return !stack_bottom;
             }
 
-            // check has_allocation_error() immediately after calling
-            void push(size_t element) {
+            bool push(size_t element) {
                 if (can_grow(1)) {
                     *stack_top++ = element;
+                    return true;
+                } else {
+                    return false;
                 }
             }
 
@@ -1319,15 +1321,15 @@ namespace sajson {
             type current_structure_type;
             if (*p == '[') {
                 current_structure_type = TYPE_ARRAY;
-                stack.push(make_element(current_structure_type, ROOT_MARKER));
-                if (SAJSON_UNLIKELY(stack.has_allocation_error())) {
+                bool s = stack.push(make_element(current_structure_type, ROOT_MARKER));
+                if (SAJSON_UNLIKELY(!s)) {
                     return oom(p);
                 }
                 goto array_close_or_element;
             } else if (*p == '{') {
                 current_structure_type = TYPE_OBJECT;
-                stack.push(make_element(current_structure_type, ROOT_MARKER));
-                if (SAJSON_UNLIKELY(stack.has_allocation_error())) {
+                bool s = stack.push(make_element(current_structure_type, ROOT_MARKER));
+                if (SAJSON_UNLIKELY(!s)) {
                     return oom(p);
                 }
                 goto object_close_or_element;
@@ -1513,8 +1515,8 @@ namespace sajson {
                     case '[': {
                         size_t previous_base = current_base;
                         current_base = stack.get_size();
-                        stack.push(make_element(current_structure_type, previous_base));
-                        if (stack.has_allocation_error()) {
+                        bool s = stack.push(make_element(current_structure_type, previous_base));
+                        if (SAJSON_UNLIKELY(!s)) {
                             return oom(p);
                         }
                         current_structure_type = TYPE_ARRAY;
@@ -1523,8 +1525,8 @@ namespace sajson {
                     case '{': {
                         size_t previous_base = current_base;
                         current_base = stack.get_size();
-                        stack.push(make_element(current_structure_type, previous_base));
-                        if (stack.has_allocation_error()) {
+                        bool s = stack.push(make_element(current_structure_type, previous_base));
+                        if (SAJSON_UNLIKELY(!s)) {
                             return oom(p);
                         }
                         current_structure_type = TYPE_OBJECT;
@@ -1553,8 +1555,8 @@ namespace sajson {
                         return make_error(p, ERROR_EXPECTED_VALUE);
                 }
 
-                stack.push(make_element(value_type_result, allocator.get_write_offset()));
-                if (SAJSON_UNLIKELY(stack.has_allocation_error())) {
+                bool s = stack.push(make_element(value_type_result, allocator.get_write_offset()));
+                if (SAJSON_UNLIKELY(!s)) {
                     return oom(p);
                 }
 
