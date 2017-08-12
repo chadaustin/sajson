@@ -47,6 +47,13 @@ That is, on 32-bit platforms, sajson allocates 4 bytes per input character.  On 
 
 The dynamic allocation mode grows the parse stack and AST buffer as needed.  It's about 10-40% slower than single allocation because it needs to check for out-of-memory every time data is appended, and occasionally the buffers need to be reallocated and copied.
 
+### Bounded
+
+The bounded allocation mode takes a fixed-size memory buffer and uses it for both
+the parse stack and the resulting AST.  If the parse stack and AST fit in the given
+buffer, the parse succeeds.  This allocation mode allows using sajson without
+the library making any allocations.
+
 ## Performance
 
 sajson's performance is excellent - it frequently benchmarks faster than RapidJSON, for example.
@@ -60,5 +67,3 @@ Implementation details are available at [http://chadaustin.me/tag/sajson/](http:
 * No support for 64-bit integers.  If this is something you want, just ask.  (There's little technical reason not to support it.  It's just that most people avoid 64-bit integers in JSON because JavaScript can't read them.)
 
 * Requires C++11.  Some of the ownership semantics were awkward to express in C++03.
-
-* A bounded allocation mode would be nice, especially if it can take an existing buffer of a given size and try to fit the parse stack and AST within that.
