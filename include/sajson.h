@@ -62,8 +62,46 @@
 #define SAJSON_snprintf snprintf
 #endif
 
+/**
+ * sajson Public API
+ */
 namespace sajson {
+
+    /**
+     * Tag indicating a JSON value's type.
+     */
+    enum type: uint8_t {
+        TYPE_INTEGER = 0,
+        TYPE_DOUBLE = 1,
+        TYPE_NULL = 2,
+        TYPE_FALSE = 3,
+        TYPE_TRUE = 4,
+        TYPE_STRING = 5,
+        TYPE_ARRAY = 6,
+        TYPE_OBJECT = 7,
+    };
+    
     namespace internal {
+        static const size_t TYPE_BITS = 3;
+        static const size_t TYPE_MASK = (1 << TYPE_BITS) - 1;
+        static const size_t VALUE_MASK = size_t(-1) >> TYPE_BITS;
+    
+        static const size_t ROOT_MARKER = VALUE_MASK;
+    
+        inline type get_element_type(size_t s) {
+            return static_cast<type>(s & TYPE_MASK);
+        }
+    
+        inline size_t get_element_value(size_t s) {
+            return s >> TYPE_BITS;
+        }
+    
+        inline size_t make_element(type t, size_t value) {
+            //assert((value & ~VALUE_MASK) == 0);
+            //value &= VALUE_MASK;
+            return static_cast<size_t>(t) | (value << TYPE_BITS);
+        }
+            
         // This template utilizes the One Definition Rule to create global arrays in a header.
         // This trick courtesy of Rich Geldreich's Purple JSON parser.
         template<typename unused=void>
@@ -103,37 +141,6 @@ namespace sajson {
             //return c == '\r' || c == '\n' || c == '\t' || c == ' ';
             return (globals::parse_flags[static_cast<unsigned char>(c)] & 2) != 0;
         }
-    }
-
-    enum type: uint8_t {
-        TYPE_INTEGER = 0,
-        TYPE_DOUBLE = 1,
-        TYPE_NULL = 2,
-        TYPE_FALSE = 3,
-        TYPE_TRUE = 4,
-        TYPE_STRING = 5,
-        TYPE_ARRAY = 6,
-        TYPE_OBJECT = 7,
-    };
-
-    static const size_t TYPE_BITS = 3;
-    static const size_t TYPE_MASK = (1 << TYPE_BITS) - 1;
-    static const size_t VALUE_MASK = size_t(-1) >> TYPE_BITS;
-
-    static const size_t ROOT_MARKER = VALUE_MASK;
-
-    inline type get_element_type(size_t s) {
-        return static_cast<type>(s & TYPE_MASK);
-    }
-
-    inline size_t get_element_value(size_t s) {
-        return s >> TYPE_BITS;
-    }
-
-    inline size_t make_element(type t, size_t value) {
-        //assert((value & ~VALUE_MASK) == 0);
-        //value &= VALUE_MASK;
-        return static_cast<size_t>(t) | (value << TYPE_BITS);
     }
 
     class string {
@@ -426,6 +433,7 @@ namespace sajson {
 
         // valid iff get_type() is TYPE_ARRAY
         value get_array_element(size_t index) const {
+            using namespace internal;
             assert_type(TYPE_ARRAY);
             size_t element = payload[1 + index];
             return value(get_element_type(element), payload + get_element_value(element), text);
@@ -440,6 +448,7 @@ namespace sajson {
 
         // valid iff get_type() is TYPE_OBJECT
         value get_object_value(size_t index) const {
+            using namespace internal;
             assert_type(TYPE_OBJECT);
             size_t element = payload[3 + index * 3];
             return value(get_element_type(element), payload + get_element_value(element), text);
@@ -1456,6 +1465,8 @@ namespace sajson {
         }
 
         bool parse() {
+            using namespace internal;
+
             // p points to the character currently being parsed
             char* p = input.get_data();
 
@@ -1710,7 +1721,9 @@ namespace sajson {
                         return make_error(p, ERROR_EXPECTED_VALUE);
                 }
 
-                bool s = stack.push(make_element(value_type_result, allocator.get_write_offset()));
+                bool s = stack.push(make_element(
+                    value_type_result,
+                    allocator.get_write_offset()));
                 if (SAJSON_UNLIKELY(!s)) {
                     return oom(p);
                 }
@@ -1989,6 +2002,8 @@ namespace sajson {
         }
 
         bool install_array(size_t* array_base, size_t* array_end) {
+            using namespace sajson::internal;
+
             const size_t length = array_end - array_base;
             bool success;
             size_t* const new_base = allocator.reserve(length + 1, &success);
@@ -2010,6 +2025,8 @@ namespace sajson {
         }
 
         bool install_object(size_t* object_base, size_t* object_end) {
+            using namespace internal;
+
             assert((object_end - object_base) % 3 == 0);
             const size_t length_times_3 = object_end - object_base;
             std::sort(
@@ -2040,14 +2057,16 @@ namespace sajson {
         }
 
         char* parse_string(char* p, size_t* tag) {
+            using namespace internal;
+
             ++p; // "
             size_t start = p - input.get_data();
             char* input_end_local = input_end;
             while (input_end_local - p >= 4) {
-                if (!internal::is_plain_string_character(p[0])) { goto found; }
-                if (!internal::is_plain_string_character(p[1])) { p += 1; goto found; }
-                if (!internal::is_plain_string_character(p[2])) { p += 2; goto found; }
-                if (!internal::is_plain_string_character(p[3])) { p += 3; goto found; }
+                if (!is_plain_string_character(p[0])) { goto found; }
+                if (!is_plain_string_character(p[1])) { p += 1; goto found; }
+                if (!is_plain_string_character(p[2])) { p += 2; goto found; }
+                if (!is_plain_string_character(p[3])) { p += 3; goto found; }
                 p += 4;
             }
             for (;;) {
@@ -2055,7 +2074,7 @@ namespace sajson {
                     return make_error(p, ERROR_UNEXPECTED_END);
                 }
 
-                if (!internal::is_plain_string_character(*p)) {
+                if (!is_plain_string_character(*p)) {
                     break;
                 }
 
