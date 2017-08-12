@@ -925,6 +925,11 @@ namespace sajson {
             , existing_buffer_size(size_in_words)
         {}
 
+        template<size_t N>
+        explicit single_allocation(size_t (&existing_buffer)[N])
+            : single_allocation(existing_buffer, N)
+        {}
+
         allocator make_allocator(size_t input_document_size_in_bytes, bool* succeeded) const {
             if (has_existing_buffer) {
                 if (existing_buffer_size < input_document_size_in_bytes) {
@@ -1193,6 +1198,163 @@ namespace sajson {
     private:
         size_t initial_ast_capacity;
         size_t initial_stack_capacity;
+    };
+
+    class bounded_allocation {
+    public:
+        class allocator;
+
+        class stack_head {
+        public:
+            stack_head(stack_head&& other)
+                : source_allocator(other.source_allocator)
+            {
+                other.source_allocator = 0;
+            }
+
+            bool push(size_t element) {
+                if (SAJSON_LIKELY(source_allocator->can_grow(1))) {
+                    *(source_allocator->stack_top)++ = element;
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            size_t* reserve(size_t amount, bool* success) {
+                if (SAJSON_LIKELY(source_allocator->can_grow(amount))) {
+                    size_t* rv = source_allocator->stack_top;
+                    source_allocator->stack_top += amount;
+                    *success = true;
+                    return rv;
+                } else {
+                    *success = false;
+                    return 0;
+                }
+            }
+
+            void reset(size_t new_top) {
+                source_allocator->stack_top = source_allocator->structure + new_top;
+            }
+
+            size_t get_size() {
+                return source_allocator->stack_top - source_allocator->structure;
+            }
+
+            size_t* get_top() {
+                return source_allocator->stack_top;
+            }
+
+            size_t* get_pointer_from_offset(size_t offset) {
+                return source_allocator->structure + offset;
+            }
+
+        private:
+            stack_head(const stack_head&) = delete;
+            void operator=(const stack_head&) = delete;
+
+            explicit stack_head(allocator* source_allocator)
+                : source_allocator(source_allocator)
+            {}
+
+            allocator* source_allocator;
+
+            friend class bounded_allocation;
+        };
+
+        class allocator {
+        public:
+            allocator() = delete;
+            allocator(const allocator&) = delete;
+            void operator=(const allocator&) = delete;
+
+            explicit allocator(size_t* existing_buffer, size_t existing_buffer_size)
+                : structure(existing_buffer)
+                , structure_end(existing_buffer + existing_buffer_size)
+                , write_cursor(structure_end)
+                , stack_top(structure)
+            {}
+
+            allocator(allocator&& other)
+                : structure(other.structure)
+                , structure_end(other.structure_end)
+                , write_cursor(other.write_cursor)
+                , stack_top(other.stack_top)
+            {
+                other.structure = 0;
+                other.structure_end = 0;
+                other.write_cursor = 0;
+                other.stack_top = 0;
+            }
+
+            stack_head get_stack_head(bool* success) {
+                *success = true;
+                return stack_head(this);
+            }
+
+            size_t get_write_offset() {
+                return structure_end - write_cursor;
+            }
+
+            size_t* get_write_pointer_of(size_t v) {
+                return structure_end - v;
+            }
+
+            size_t* reserve(size_t size, bool* success) {
+                if (can_grow(size)) {
+                    write_cursor -= size;
+                    *success = true;
+                    return write_cursor;
+                } else {
+                    *success = false;
+                    return 0;
+                }
+            }
+
+            size_t* get_ast_root() {
+                return write_cursor;
+            }
+
+            ownership transfer_ownership() {
+                structure = 0;
+                structure_end = 0;
+                write_cursor = 0;
+                return ownership(0);
+            }
+
+        private:
+            bool can_grow(size_t amount) {
+                // invariant: stack_top <= write_cursor
+                // thus: write_cursor - stack_top is positive
+                return static_cast<size_t>(write_cursor - stack_top) >= amount;
+            }
+
+            size_t* structure;
+            size_t* structure_end;
+            size_t* write_cursor;
+            size_t* stack_top;
+
+            friend class bounded_allocation;
+        };
+
+        bounded_allocation(size_t* existing_buffer, size_t size_in_words)
+            : existing_buffer(existing_buffer)
+            , existing_buffer_size(size_in_words)
+        {}
+
+        template<size_t N>
+        explicit bounded_allocation(size_t (&existing_buffer)[N])
+            : bounded_allocation(existing_buffer, N)
+        {}
+
+        allocator make_allocator(size_t input_document_size_in_bytes, bool* succeeded) const {
+            *succeeded = true;
+            return allocator(existing_buffer, existing_buffer_size);
+        }
+
+    private:
+        size_t* existing_buffer;
+        size_t existing_buffer_size;
     };
 
     template<typename Allocator>

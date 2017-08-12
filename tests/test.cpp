@@ -30,6 +30,9 @@ inline bool success(const document& doc) {
     return true;
 }
 
+static const size_t ast_buffer_size = 100;
+static size_t ast_buffer[ast_buffer_size];
+
 #define ABSTRACT_TEST(name) \
     static void name##internal(sajson::document (*parse)(const sajson::literal&)); \
     TEST(single_allocation_##name) { \
@@ -40,6 +43,11 @@ inline bool success(const document& doc) {
     TEST(dynamic_allocation_##name) { \
         name##internal([](const sajson::literal& literal) { \
             return sajson::parse(sajson::dynamic_allocation(), literal); \
+        }); \
+    } \
+    TEST(bounded_allocation_##name) { \
+        name##internal([](const sajson::literal& literal) { \
+            return sajson::parse(sajson::bounded_allocation(ast_buffer, ast_buffer_size), literal); \
         }); \
     } \
     static void name##internal(sajson::document (*parse)(const sajson::literal&))
@@ -1024,13 +1032,48 @@ SUITE(allocator_tests) {
     TEST(single_allocation_into_existing_memory) {
         size_t buffer[2];
         const sajson::document& document = sajson::parse(
-            sajson::single_allocation(buffer, 2),
+            sajson::single_allocation(buffer),
             literal("[]"));
         assert(success(document));
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
         CHECK_EQUAL(0u, root.get_length());
         CHECK_EQUAL(0u, buffer[1]);
+    }
+
+    TEST(bounded_allocation_size_just_right) {
+        // This is awkward: the bounded allocator needs more memory in the worst
+        // case than the single-allocation allocator.  That's because sajson's
+        // AST construction algorithm briefly results in overlapping stack
+        // and AST memory ranges, but it works because install_array and
+        // install_object are careful to shift back-to-front.  However,
+        // the bounded allocator disallows any overlapping ranges.
+        size_t buffer[5];
+        const auto& document = sajson::parse(
+            sajson::bounded_allocation(buffer),
+            literal("[[]]"));
+        assert(success(document));
+        const auto& root = document.get_root();
+        CHECK_EQUAL(TYPE_ARRAY, root.get_type());
+        CHECK_EQUAL(1u, root.get_length());
+        const auto& element = root.get_array_element(0);
+        CHECK_EQUAL(TYPE_ARRAY, element.get_type());
+        CHECK_EQUAL(0u, element.get_length());
+    }
+
+    TEST(bounded_allocation_size_too_small) {
+        // This is awkward: the bounded allocator needs more memory in the worst
+        // case than the single-allocation allocator.  That's because sajson's
+        // AST construction algorithm briefly results in overlapping stack
+        // and AST memory ranges, but it works because install_array and
+        // install_object are careful to shift back-to-front.  However,
+        // the bounded allocator disallows any overlapping ranges.
+        size_t buffer[4];
+        const auto& document = sajson::parse(
+            sajson::bounded_allocation(buffer),
+            literal("[[]]"));
+        CHECK(!document.is_valid());
+        CHECK_EQUAL(sajson::ERROR_OUT_OF_MEMORY, document._internal_get_error_code());
     }
 }
 
