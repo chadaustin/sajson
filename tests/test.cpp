@@ -724,6 +724,16 @@ SUITE(objects) {
         CHECK_EQUAL(456, iaa);
     }
 
+    ABSTRACT_TEST(get_missing_value_returns_null) {
+        const sajson::document& document = parse(literal("{\"a\": 123}"));
+        assert(success(document));
+        const value& root = document.get_root();
+        CHECK_EQUAL(TYPE_OBJECT, root.get_type());
+        CHECK_EQUAL(1u, root.get_length());
+
+        const value& vb = root.get_value_of_key(literal("b"));
+        CHECK_EQUAL(TYPE_NULL, vb.get_type());
+    }
 
     ABSTRACT_TEST(binary_search_handles_prefix_keys) {
         const sajson::document& document = parse(literal(" { \"prefix_key\" : 0 } "));
@@ -738,7 +748,6 @@ SUITE(objects) {
 }
 
 SUITE(errors) {
-
     ABSTRACT_TEST(error_extension) {
         using namespace sajson;
         using namespace sajson::internal;

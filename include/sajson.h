@@ -139,87 +139,7 @@ namespace sajson {
             //return c == '\r' || c == '\n' || c == '\t' || c == ' ';
             return (globals::parse_flags[static_cast<unsigned char>(c)] & 2) != 0;
         }
-    }
 
-    class string {
-    public:
-        string(const char* text, size_t length)
-            : text(text)
-            , _length(length)
-        {}
-
-        const char* data() const {
-            return text;
-        }
-
-        size_t length() const {
-            return _length;
-        }
-
-#ifndef SAJSON_NO_STD_STRING
-        std::string as_string() const {
-            return std::string(text, text + _length);
-        }
-#endif
-
-    private:
-        const char* const text;
-        const size_t _length;
-
-        string(); /*=delete*/
-    };
-
-    class literal : public string {
-    public:
-        explicit literal(const char* text)
-            : string(text, strlen(text))
-        {}
-    };
-
-    struct object_key_record {
-        size_t key_start;
-        size_t key_end;
-        size_t value;
-    };
-
-    struct object_key_comparator {
-        object_key_comparator(const char* object_data)
-            : data(object_data)
-        {}
-
-        bool operator()(const object_key_record& lhs, const string& rhs) const {
-            const size_t lhs_length = lhs.key_end - lhs.key_start;
-            const size_t rhs_length = rhs.length();
-            if (lhs_length < rhs_length) {
-                return true;
-            } else if (lhs_length > rhs_length) {
-                return false;
-            }
-            return memcmp(data + lhs.key_start, rhs.data(), lhs_length) < 0;
-        }
-
-        bool operator()(const string& lhs, const object_key_record& rhs) const {
-            return !(*this)(rhs, lhs);
-        }
-
-        bool operator()(const object_key_record& lhs, const
-                object_key_record& rhs)
-        {
-            const size_t lhs_length = lhs.key_end - lhs.key_start;
-            const size_t rhs_length = rhs.key_end - rhs.key_start;
-            if (lhs_length < rhs_length) {
-                return true;
-            } else if (lhs_length > rhs_length) {
-                return false;
-            }
-            return memcmp(data + lhs.key_start, data + rhs.key_start,
-                    lhs_length) < 0;
-        }
-
-        const char* data;
-    };
-
-    namespace internal {
         class allocated_buffer {
         public:
             allocated_buffer()
@@ -293,20 +213,68 @@ namespace sajson {
         };
     }
 
+    /// A simple type encoding a pointer to some memory and a length (in bytes).
+    /// Does not maintain any memory.
+    class string {
+    public:
+        string(const char* text, size_t length)
+            : text(text)
+            , _length(length)
+        {}
+
+        const char* data() const {
+            return text;
+        }
+
+        size_t length() const {
+            return _length;
+        }
+
+#ifndef SAJSON_NO_STD_STRING
+        std::string as_string() const {
+            return std::string(text, text + _length);
+        }
+#endif
+
+    private:
+        const char* const text;
+        const size_t _length;
+
+        string(); /*=delete*/
+    };
+
+    /// A convenient way to parse JSON from a string literal.  The string ends
+    /// at its first NUL character.
+    class literal : public string {
+    public:
+        explicit literal(const char* text)
+            : string(text, strlen(text))
+        {}
+    };
+
+    /// A pointer to a mutable buffer, its size in bytes, and strong ownership of any
+    /// copied memory.
     class mutable_string_view {
     public:
+        /// Creates an empty, zero-sized view.
         mutable_string_view()
             : length_(0)
             , data(0)
             , buffer()
         {}
 
+        /// Given a length in bytes and a pointer, constructs a view
+        /// that does not allocate a copy of the data or maintain its life.
+        /// The given pointer must stay valid for the duration of the parse and the
+        /// resulting \ref document's life.
         mutable_string_view(size_t length, char* data)
             : length_(length)
             , data(data)
             , buffer()
         {}
 
+        /// Allocates a copy of the given \ref literal string and exposes a
+        /// mutable view into it.  Throws std::bad_alloc if allocation fails.
         mutable_string_view(const literal& s)
             : length_(s.length())
             , buffer(length_)
@@ -315,6 +283,8 @@ namespace sajson {
             memcpy(data, s.data(), length_);
         }
 
+        /// Allocates a copy of the given \ref string and exposes a mutable view
+        /// into it.  Throws std::bad_alloc if allocation fails.
         mutable_string_view(const string& s)
             : length_(s.length())
             , buffer(length_)
@@ -323,12 +293,16 @@ namespace sajson {
             memcpy(data, s.data(), length_);
         }
 
+        /// Copies a mutable_string_view.  If any backing memory has been
+        /// allocated, its refcount is incremented - both views can safely
+        /// use the memory.
         mutable_string_view(const mutable_string_view& that)
             : length_(that.length_)
             , data(that.data)
             , buffer(that.buffer)
         {}
 
+        /// Move constructor - neuters the old mutable_string_view.
         mutable_string_view(mutable_string_view&& that)
             : length_(that.length_)
             , data(that.data)
@@ -372,6 +346,55 @@ namespace sajson {
         internal::allocated_buffer buffer; // may not be allocated
     };
 
+    namespace internal {
+        struct object_key_record {
+            size_t key_start;
+            size_t key_end;
+            size_t value;
+        };
+
+        struct object_key_comparator {
+            object_key_comparator(const char* object_data)
+                : data(object_data)
+            {}
+
+            bool operator()(const object_key_record& lhs, const string& rhs) const {
+                const size_t lhs_length = lhs.key_end - lhs.key_start;
+                const size_t rhs_length = rhs.length();
+                if (lhs_length < rhs_length) {
+                    return true;
+                } else if (lhs_length > rhs_length) {
+                    return false;
+                }
+                return memcmp(data + lhs.key_start, rhs.data(), lhs_length) < 0;
+            }
+
+            bool operator()(const string& lhs, const object_key_record& rhs) const {
+                return !(*this)(rhs, lhs);
+            }
+
+            bool operator()(
+                const object_key_record& lhs,
+                const object_key_record& rhs
+            ) {
+                const size_t lhs_length = lhs.key_end - lhs.key_start;
+                const size_t rhs_length = rhs.key_end - rhs.key_start;
+                if (lhs_length < rhs_length) {
+                    return true;
+                } else if (lhs_length > rhs_length) {
+                    return false;
+                }
+                return memcmp(
+                    data + lhs.key_start,
+                    data + rhs.key_start,
+                    lhs_length
+                ) < 0;
+            }
+
+            const char* data;
+        };
+    }
+
     namespace integer_storage {
         enum {
             word_length = 1
@@ -413,25 +436,29 @@ namespace sajson {
         }
     }
 
+    /// Represents a JSON value.  First, call get_type() to check its type,
+    /// which determines which methods are available.
+    ///
+    /// Note that \ref value does not maintain any backing memory, only the
+    /// corresponding \ref document does.  It is illegal to access a \ref value
+    /// after its \ref document has been destroyed.
     class value {
     public:
-        explicit value(type value_type, const size_t* payload, const char* text)
-            : value_type(value_type)
-            , payload(payload)
-            , text(text)
-        {}
-
+        /// Returns the JSON value's \ref type.
         type get_type() const {
             return value_type;
         }
 
-        // valid iff get_type() is TYPE_ARRAY or TYPE_OBJECT
+        /// Returns the length of the object or array.
+        /// Only legal if get_type() is TYPE_ARRAY or TYPE_OBJECT.
         size_t get_length() const {
             assert_type_2(TYPE_ARRAY, TYPE_OBJECT);
             return payload[0];
         }
 
-        // valid iff get_type() is TYPE_ARRAY
+        /// Returns the nth element of an array.  Calling with an out-of-bound
+        /// index is undefined behavior.
+        /// Only legal if get_type() is TYPE_ARRAY.
         value get_array_element(size_t index) const {
             using namespace internal;
             assert_type(TYPE_ARRAY);
@@ -439,14 +466,17 @@ namespace sajson {
             return value(get_element_type(element), payload + get_element_value(element), text);
         }
 
-        // valid iff get_type() is TYPE_OBJECT
+        /// Returns the nth key of an object.  Calling with an out-of-bound
+        /// index is undefined behavior.
+        /// Only legal if get_type() is TYPE_OBJECT.
         string get_object_key(size_t index) const {
             assert_type(TYPE_OBJECT);
             const size_t* s = payload + 1 + index * 3;
             return string(text + s[0], s[1] - s[0]);
         }
 
-        // valid iff get_type() is TYPE_OBJECT
+        /// Returns the nth value of an object.  Calling with an out-of-bound
+        /// index is undefined behavior.  Only legal if get_type() is TYPE_OBJECT.
         value get_object_value(size_t index) const {
             using namespace internal;
             assert_type(TYPE_OBJECT);
@@ -454,17 +484,25 @@ namespace sajson {
             return value(get_element_type(element), payload + get_element_value(element), text);
         }
 
-        // valid iff get_type() is TYPE_OBJECT
+        /// Given a string key, returns the value with that key or a null value
+        /// if the key is not found.  Running time is O(lg N).
+        /// Only legal if get_type() is TYPE_OBJECT.
         value get_value_of_key(const string& key) const {
             assert_type(TYPE_OBJECT);
             size_t i = find_object_key(key);
-            assert_in_bounds(i);
-            return get_object_value(i);
+            if (i < get_length()) {
+                return get_object_value(i);
+            } else {
+                return value(TYPE_NULL, 0, 0);
+            }
         }
 
-        // valid iff get_type() is TYPE_OBJECT
-        // return get_length() if there is no such key
+        /// Given a string key, returns the index of the associated value if
+        /// one exists.  Returns get_length() if there is no such key.
+        /// Note: sajson sorts object keys, so the running time is O(lg N).
+        /// Only legal if get_type() is TYPE_OBJECT
         size_t find_object_key(const string& key) const {
+            using namespace internal;
             assert_type(TYPE_OBJECT);
             const object_key_record* start = reinterpret_cast<const object_key_record*>(payload + 1);
             const object_key_record* end = start + get_length();
@@ -474,19 +512,22 @@ namespace sajson {
                     && memcmp(key.data(), text + i->key_start, key.length()) == 0)? i - start : get_length();
         }
 
-        // valid iff get_type() is TYPE_INTEGER
+        /// If a numeric value was parsed as a 32-bit integer, returns it.
+        /// Only legal if get_type() is TYPE_INTEGER. 
         int get_integer_value() const {
             assert_type(TYPE_INTEGER);
             return integer_storage::load(payload);
         }
 
-        // valid iff get_type() is TYPE_DOUBLE
+        /// If a numeric value was parsed as a double, returns it.
+        /// Only legal if get_type() is TYPE_DOUBLE.
         double get_double_value() const {
             assert_type(TYPE_DOUBLE);
             return double_storage::load(payload);
         }
 
-        // valid iff get_type() is TYPE_INTEGER or TYPE_DOUBLE
+        /// Returns a numeric value as a double-precision float.
+        /// Only legal if get_type() is TYPE_INTEGER or TYPE_DOUBLE.
         double get_number_value() const {
             assert_type_2(TYPE_INTEGER, TYPE_DOUBLE);
             if (get_type() == TYPE_INTEGER) {
@@ -496,10 +537,13 @@ namespace sajson {
             }
         }
 
-        // valid iff get_type() is TYPE_INTEGER or TYPE_DOUBLE
-        // returns true if out is modified written.
-        // returns false if the value is a non-integral double
-        // or out of range of a 53-bit integer.
+        /// Returns true and writes to the output argument if the numeric value
+        /// fits in a 53-bit integer.  This is useful for timestamps and other
+        /// situations where integral values with greater than 32-bit precision
+        /// are used, as 64-bit values are not understood by all JSON
+        /// implementations or languages.
+        /// Returns false if the value is not an integer or not in range.
+        /// Only legal if get_type() is TYPE_INTEGER or TYPE_DOUBLE.
         bool get_int53_value(int64_t* out) const {
             // Make sure the output variable is always defined to avoid any
             // possible situation like
@@ -526,36 +570,46 @@ namespace sajson {
             }
         }
 
-        // valid iff get_type() is TYPE_STRING
+        /// Returns the length of the string.
+        /// Only legal if get_type() is TYPE_STRING.
         size_t get_string_length() const {
             assert_type(TYPE_STRING);
             return payload[1] - payload[0];
         }
 
-        // valid iff get_type() is TYPE_STRING
-        // WARNING: calling this function and using the return value as a
-        // C-style string (that is, without also using get_string_length())
-        // will cause the string to appear truncated if the string has
-        // embedded NULs.
+        /// Returns a pointer to the beginning of a string value's data.
+        /// WARNING: Calling this function and using the return value as a
+        /// C-style string (that is, without also using get_string_length())
+        /// will cause the string to appear truncated if the string has
+        /// embedded NULs.
+        /// Only legal if get_type() is TYPE_STRING.
         const char* as_cstring() const {
             assert_type(TYPE_STRING);
             return text + payload[0];
         }
 
 #ifndef SAJSON_NO_STD_STRING
-        // valid iff get_type() is TYPE_STRING
+        /// Returns a string's value as a std::string.
+        /// Only legal if get_type() is TYPE_STRING.
         std::string as_string() const {
             assert_type(TYPE_STRING);
             return std::string(text + payload[0], text + payload[1]);
         }
 #endif
 
+        /// \cond INTERNAL
         const size_t* _internal_get_payload() const {
             return payload;
         }
-
+        /// \endcond
 
     private:
+        explicit value(type value_type, const size_t* payload, const char* text)
+            : value_type(value_type)
+            , payload(payload)
+            , text(text)
+        {}
+
         void assert_type(type expected) const {
             assert(expected == get_type());
         }
@@ -571,33 +625,8 @@ namespace sajson {
         const type value_type;
         const size_t* const payload;
         const char* const text;
-    };
 
-    class ownership {
-    public:
-        ownership() = delete;
-        ownership(const ownership&) = delete;
-        void operator=(const ownership&) = delete;
-
-        explicit ownership(size_t* p)
-            : p(p)
-        {}
-
-        ownership(ownership&& p)
-        : p(p.p) {
-            p.p = 0;
-        }
-
-        ~ownership() {
-            delete[] p;
-        }
-
-        bool is_valid() const {
-            return !!p;
-        }
-
-    private:
-        size_t* p;
+        friend class document;
     };
 
     /// Error code indicating why parse failed.
@@ -628,6 +657,33 @@ namespace sajson {
     };
 
     namespace internal {
+        class ownership {
+        public:
+            ownership() = delete;
+            ownership(const ownership&) = delete;
+            void operator=(const ownership&) = delete;
+    
+            explicit ownership(size_t* p)
+                : p(p)
+            {}
+    
+            ownership(ownership&& p)
+            : p(p.p) {
+                p.p = 0;
+            }
+    
+            ~ownership() {
+                delete[] p;
+            }
+    
+            bool is_valid() const {
+                return !!p;
+            }
+    
+        private:
+            size_t* p;
+        };
+
         inline const char* get_error_text(error error_code) {
             switch (error_code) {
                 case ERROR_SUCCESS: return "no error";
@@ -761,7 +817,7 @@ namespace sajson {
         document(const document&) = delete;
         void operator=(const document&) = delete;
 
-        explicit document(const mutable_string_view& input, ownership&& structure, type root_type, const size_t* root)
+        explicit document(const mutable_string_view& input, internal::ownership&& structure, type root_type, const size_t* root)
             : input(input)
             , structure(std::move(structure))
             , root_type(root_type)
@@ -797,7 +853,7 @@ namespace sajson {
         }
 
         mutable_string_view input;
-        ownership structure;
+        internal::ownership structure;
         const type root_type;
         const size_t* const root;
         const size_t error_line;
@@ -814,8 +870,13 @@ namespace sajson {
         friend class parser;
     };
 
+    /// Allocation policy that allocates one large buffer guaranteed to hold the
+    /// resulting AST.  This allocation policy is the fastest since it requires
+    /// no conditionals to see if more memory must be allocated.
     class single_allocation {
     public:
+        /// \cond INTERNAL
+
         class stack_head {
         public:
             stack_head(stack_head&& other)
@@ -935,15 +996,15 @@ namespace sajson {
                 return write_cursor;
             }
 
-            ownership transfer_ownership() {
+            internal::ownership transfer_ownership() {
                 auto p = structure;
                 structure = 0;
                 structure_end = 0;
                 write_cursor = 0;
                 if (should_deallocate) {
-                    return ownership(p);
+                    return internal::ownership(p);
                 } else {
-                    return ownership(0);
+                    return internal::ownership(0);
                 }
             }
 
@@ -953,6 +1014,8 @@ namespace sajson {
             size_t* write_cursor;
             bool should_deallocate;
         };
+
+        /// \endcond
 
         /// Allocate a single worst-case AST buffer with one word per byte in
         /// the input document.
@@ -964,17 +1027,22 @@ namespace sajson {
 
         /// Write the AST into an existing buffer.  Will fail with an out of
         /// memory error if the buffer is not guaranteed to be big enough for
-        /// the document.
+        /// the document.  The caller must guarantee the memory is valid for
+        /// the duration of the parse and the AST traversal.
         single_allocation(size_t* existing_buffer, size_t size_in_words)
             : has_existing_buffer(true)
             , existing_buffer(existing_buffer)
             , existing_buffer_size(size_in_words)
         {}
 
+        /// Convenience wrapper for single_allocation(size_t*, size_t) that
+        /// automatically infers the length of a given array.
         template<size_t N>
         explicit single_allocation(size_t (&existing_buffer)[N])
             : single_allocation(existing_buffer, N)
         {}
+
+        /// \cond INTERNAL
 
         allocator make_allocator(size_t input_document_size_in_bytes, bool* succeeded) const {
             if (has_existing_buffer) {
@@ -995,14 +1063,21 @@ namespace sajson {
             }
         }
 
+        /// \endcond
+
     private:
         bool has_existing_buffer;
         size_t* existing_buffer;
         size_t existing_buffer_size;
     };
 
+    /// Allocation policy that uses dynamically-growing buffers for both the
+    /// parse stack and the AST.  This allocation policy minimizes peak memory
+    /// usage at the cost of some allocation and copying churn.
     class dynamic_allocation {
     public:
+        /// \cond INTERNAL
+
         class stack_head {
         public:
             stack_head(stack_head&& other)
@@ -1168,12 +1243,12 @@ namespace sajson {
                 return ast_write_head;
             }
 
-            ownership transfer_ownership() {
+            internal::ownership transfer_ownership() {
                 auto p = ast_buffer_bottom;
                 ast_buffer_bottom = 0;
                 ast_buffer_top = 0;
                 ast_write_head = 0;
-                return ownership(p);
+                return internal::ownership(p);
             }
 
         private:
@@ -1214,10 +1289,16 @@ namespace sajson {
             size_t initial_stack_capacity;
         };
 
+        /// \endcond
+
+        /// Creates a dynamic_allocation policy with the given initial AST
+        /// and stack buffer sizes.
         dynamic_allocation(size_t initial_ast_capacity = 0, size_t initial_stack_capacity = 0)
             : initial_ast_capacity(initial_ast_capacity)
             , initial_stack_capacity(initial_stack_capacity)
         {}
+
+        /// \cond INTERNAL
 
         allocator make_allocator(size_t input_document_size_in_bytes, bool* succeeded) const {
             size_t capacity = initial_ast_capacity;
@@ -1240,14 +1321,22 @@ namespace sajson {
             *succeeded = true;
             return allocator(buffer, capacity, stack_capacity);
         }
+    
+        /// \endcond
 
     private:
         size_t initial_ast_capacity;
         size_t initial_stack_capacity;
     };
 
+    /// Allocation policy that attempts to fit the parsed AST into an existing
+    /// memory buffer.  This allocation policy is useful when using sajson in
+    /// a zero-allocation context or when there are constraints on the amount
+    // of memory that can be used.
     class bounded_allocation {
     public:
+        /// \cond INTERNAL
+
         class allocator;
 
         class stack_head {
@@ -1361,11 +1450,11 @@ namespace sajson {
                 return write_cursor;
             }
 
-            ownership transfer_ownership() {
+            internal::ownership transfer_ownership() {
                 structure = 0;
                 structure_end = 0;
                 write_cursor = 0;
-                return ownership(0);
+                return internal::ownership(0);
             }
 
         private:
@@ -1383,26 +1472,40 @@ namespace sajson {
             friend class bounded_allocation;
         };
 
+        /// \endcond
+
+        /// Uses an existing buffer to hold the parsed AST, if it fits.  The
+        /// specified buffer must not be deallocated until after the document
+        /// is parsed and the AST traversed.
         bounded_allocation(size_t* existing_buffer, size_t size_in_words)
             : existing_buffer(existing_buffer)
             , existing_buffer_size(size_in_words)
         {}
 
+        /// Convenience wrapper for bounded_allocation(size_t*, size) that
+        /// automatically infers the size of the given array.
         template<size_t N>
         explicit bounded_allocation(size_t (&existing_buffer)[N])
             : bounded_allocation(existing_buffer, N)
         {}
+
+        /// \cond INTERNAL
 
         allocator make_allocator(size_t input_document_size_in_bytes, bool* succeeded) const {
             *succeeded = true;
             return allocator(existing_buffer, existing_buffer_size);
         }
 
+        /// \endcond
+
     private:
         size_t* existing_buffer;
         size_t existing_buffer_size;
     };
 
+    // I thought about putting parser in the internal namespace but I don't
+    // want to indent it further...
+    /// \cond INTERNAL
     template<typename Allocator>
     class parser {
     public:
@@ -2326,6 +2429,7 @@ namespace sajson {
         error error_code;
         int error_arg; // optional argument for the error
     };
+    /// \endcond
 
     /**
      * Parses a string of JSON bytes into a \ref document, given an allocation
