@@ -60,6 +60,10 @@ sajson's performance is excellent - it frequently benchmarks faster than RapidJS
 
 Implementation details are available at [http://chadaustin.me/tag/sajson/](http://chadaustin.me/tag/sajson/).
 
+## Documentation
+
+API documentation is available at http://chadaustin.github.io/sajson/doxygen/
+
 ## Downsides / Missing Features
 
 * sajson does not support UTF-16 or UTF-32.  However, I have never seen one of those in the wild, so I suspect they may be a case of aggressive overspecification.  Some JSON specifications indicate that UTF-8 is the only valid encoding.  Either way, just transcode to UTF-8 first.
