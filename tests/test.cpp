@@ -741,95 +741,30 @@ SUITE(errors) {
 
     ABSTRACT_TEST(error_extension) {
         using namespace sajson;
-        mutable_string_view dummy;
-        {
-            document d(dummy, 0, 0, ERROR_SUCCESS, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "no error");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_OUT_OF_MEMORY, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "out of memory");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_UNEXPECTED_END, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "unexpected end of input");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_MISSING_ROOT_ELEMENT, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "missing root element");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_BAD_ROOT, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "document root must be object or array");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_EXPECTED_COMMA, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "expected ,");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_MISSING_OBJECT_KEY, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "missing object key");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_EXPECTED_COLON, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "expected :");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_EXPECTED_END_OF_INPUT, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "expected end of input");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_UNEXPECTED_COMMA, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "unexpected comma");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_EXPECTED_VALUE, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "expected value");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_EXPECTED_NULL, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "expected 'null'");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_EXPECTED_FALSE, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "expected 'false'");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_EXPECTED_TRUE, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "expected 'true'");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_MISSING_EXPONENT, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "missing exponent");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_ILLEGAL_CODEPOINT, -123);
-            CHECK_EQUAL(d._internal_get_error_text(), "illegal unprintable codepoint in string");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_INVALID_UNICODE_ESCAPE, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "invalid character in unicode escape");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_UNEXPECTED_END_OF_UTF16, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "unexpected end of input during UTF-16 surrogate pair");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_EXPECTED_U, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "expected \\u");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_INVALID_UTF16_TRAIL_SURROGATE, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "invalid UTF-16 trail surrogate");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_UNKNOWN_ESCAPE, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "unknown escape");
-        }
-        {
-            document d(dummy, 0, 0, ERROR_INVALID_UTF8, 0);
-            CHECK_EQUAL(d._internal_get_error_text(), "invalid UTF-8");
-        }
+        using namespace sajson::internal;
+
+        CHECK_EQUAL(get_error_text(ERROR_SUCCESS), "no error");
+        CHECK_EQUAL(get_error_text(ERROR_OUT_OF_MEMORY), "out of memory");
+        CHECK_EQUAL(get_error_text(ERROR_UNEXPECTED_END), "unexpected end of input");
+        CHECK_EQUAL(get_error_text(ERROR_MISSING_ROOT_ELEMENT), "missing root element");
+        CHECK_EQUAL(get_error_text(ERROR_BAD_ROOT), "document root must be object or array");
+        CHECK_EQUAL(get_error_text(ERROR_EXPECTED_COMMA), "expected ,");
+        CHECK_EQUAL(get_error_text(ERROR_MISSING_OBJECT_KEY), "missing object key");
+        CHECK_EQUAL(get_error_text(ERROR_EXPECTED_COLON), "expected :");
+        CHECK_EQUAL(get_error_text(ERROR_EXPECTED_END_OF_INPUT), "expected end of input");
+        CHECK_EQUAL(get_error_text(ERROR_UNEXPECTED_COMMA), "unexpected comma");
+        CHECK_EQUAL(get_error_text(ERROR_EXPECTED_VALUE), "expected value");
+        CHECK_EQUAL(get_error_text(ERROR_EXPECTED_NULL), "expected 'null'");
+        CHECK_EQUAL(get_error_text(ERROR_EXPECTED_FALSE), "expected 'false'");
+        CHECK_EQUAL(get_error_text(ERROR_EXPECTED_TRUE), "expected 'true'");
+        CHECK_EQUAL(get_error_text(ERROR_MISSING_EXPONENT), "missing exponent");
+        CHECK_EQUAL(get_error_text(ERROR_ILLEGAL_CODEPOINT), "illegal unprintable codepoint in string");
+        CHECK_EQUAL(get_error_text(ERROR_INVALID_UNICODE_ESCAPE), "invalid character in unicode escape");
+        CHECK_EQUAL(get_error_text(ERROR_UNEXPECTED_END_OF_UTF16), "unexpected end of input during UTF-16 surrogate pair");
+        CHECK_EQUAL(get_error_text(ERROR_EXPECTED_U), "expected \\u");
+        CHECK_EQUAL(get_error_text(ERROR_INVALID_UTF16_TRAIL_SURROGATE), "invalid UTF-16 trail surrogate");
+        CHECK_EQUAL(get_error_text(ERROR_UNKNOWN_ESCAPE), "unknown escape");
+        CHECK_EQUAL(get_error_text(ERROR_INVALID_UTF8), "invalid UTF-8");
     }
 
     ABSTRACT_TEST(empty_file_is_invalid) {

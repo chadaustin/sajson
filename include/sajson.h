@@ -67,9 +67,7 @@
  */
 namespace sajson {
 
-    /**
-     * Tag indicating a JSON value's type.
-     */
+    /// Tag indicating a JSON value's type.
     enum type: uint8_t {
         TYPE_INTEGER = 0,
         TYPE_DOUBLE = 1,
@@ -221,77 +219,79 @@ namespace sajson {
         const char* data;
     };
 
-    class allocated_buffer {
-    public:
-        allocated_buffer()
-            : memory(0)
-        {}
+    namespace internal {
+        class allocated_buffer {
+        public:
+            allocated_buffer()
+                : memory(0)
+            {}
 
-        explicit allocated_buffer(size_t length) {
-            // throws std::bad_alloc upon allocation failure
-            void* buffer = operator new(sizeof(size_t) + length);
-            memory = static_cast<layout*>(buffer);
-            memory->refcount = 1;
-        }
+            explicit allocated_buffer(size_t length) {
+                // throws std::bad_alloc upon allocation failure
+                void* buffer = operator new(sizeof(size_t) + length);
+                memory = static_cast<layout*>(buffer);
+                memory->refcount = 1;
+            }
 
-        allocated_buffer(const allocated_buffer& that)
-            : memory(that.memory)
-        {
-            incref();
-        }
-
-        allocated_buffer(allocated_buffer&& that)
-            : memory(that.memory)
-        {
-            that.memory = 0;
-        }
-
-        ~allocated_buffer() {
-            decref();
-        }
-
-        allocated_buffer& operator=(const allocated_buffer& that) {
-            if (this != &that) {
-                decref();
-                memory = that.memory;
+            allocated_buffer(const allocated_buffer& that)
+                : memory(that.memory)
+            {
                 incref();
             }
-            return *this;
-        }
 
-        allocated_buffer& operator=(allocated_buffer&& that) {
-            if (this != &that) {
-                decref();
-                memory = that.memory;
+            allocated_buffer(allocated_buffer&& that)
+                : memory(that.memory)
+            {
                 that.memory = 0;
             }
-            return *this;
-        }
 
-        char* get_data() const {
-            return memory ? memory->data : 0;
-        }
-
-    private:
-        void incref() const {
-            if (memory) {
-                ++(memory->refcount);
+            ~allocated_buffer() {
+                decref();
             }
-        }
 
-        void decref() const {
-            if (memory && --(memory->refcount) == 0) {
-                operator delete(memory);
+            allocated_buffer& operator=(const allocated_buffer& that) {
+                if (this != &that) {
+                    decref();
+                    memory = that.memory;
+                    incref();
+                }
+                return *this;
             }
-        }
 
-        struct layout {
-            size_t refcount;
-            char data[];
+            allocated_buffer& operator=(allocated_buffer&& that) {
+                if (this != &that) {
+                    decref();
+                    memory = that.memory;
+                    that.memory = 0;
+                }
+                return *this;
+            }
+
+            char* get_data() const {
+                return memory ? memory->data : 0;
+            }
+
+        private:
+            void incref() const {
+                if (memory) {
+                    ++(memory->refcount);
+                }
+            }
+
+            void decref() const {
+                if (memory && --(memory->refcount) == 0) {
+                    operator delete(memory);
+                }
+            }
+
+            struct layout {
+                size_t refcount;
+                char data[];
+            };
+
+            layout* memory;
         };
-
-        layout* memory;
-    };
+    }
 
     class mutable_string_view {
     public:
@@ -369,7 +369,7 @@ namespace sajson {
     private:
         size_t length_;
         char* data;
-        allocated_buffer buffer; // may not be allocated
+        internal::allocated_buffer buffer; // may not be allocated
     };
 
     namespace integer_storage {
@@ -600,6 +600,7 @@ namespace sajson {
         size_t* p;
     };
 
+    /// Error code indicating why parse failed.
     enum error {
         ERROR_SUCCESS,
         ERROR_OUT_OF_MEMORY,
@@ -626,8 +627,140 @@ namespace sajson {
         ERROR_INVALID_UTF8,
     };
 
+    namespace internal {
+        inline const char* get_error_text(error error_code) {
+            switch (error_code) {
+                case ERROR_SUCCESS: return "no error";
+                case ERROR_OUT_OF_MEMORY: return  "out of memory";
+                case ERROR_UNEXPECTED_END: return  "unexpected end of input";
+                case ERROR_MISSING_ROOT_ELEMENT: return  "missing root element";
+                case ERROR_BAD_ROOT: return  "document root must be object or array";
+                case ERROR_EXPECTED_COMMA: return  "expected ,";
+                case ERROR_MISSING_OBJECT_KEY: return  "missing object key";
+                case ERROR_EXPECTED_COLON: return  "expected :";
+                case ERROR_EXPECTED_END_OF_INPUT: return  "expected end of input";
+                case ERROR_UNEXPECTED_COMMA: return  "unexpected comma";
+                case ERROR_EXPECTED_VALUE: return  "expected value";
+                case ERROR_EXPECTED_NULL: return  "expected 'null'";
+                case ERROR_EXPECTED_FALSE: return  "expected 'false'";
+                case ERROR_EXPECTED_TRUE: return  "expected 'true'";
+                case ERROR_INVALID_NUMBER: return "invalid number";
+                case ERROR_MISSING_EXPONENT: return  "missing exponent";
+                case ERROR_ILLEGAL_CODEPOINT: return  "illegal unprintable codepoint in string";
+                case ERROR_INVALID_UNICODE_ESCAPE: return  "invalid character in unicode escape";
+                case ERROR_UNEXPECTED_END_OF_UTF16: return  "unexpected end of input during UTF-16 surrogate pair";
+                case ERROR_EXPECTED_U: return  "expected \\u";
+                case ERROR_INVALID_UTF16_TRAIL_SURROGATE: return  "invalid UTF-16 trail surrogate";
+                case ERROR_UNKNOWN_ESCAPE: return  "unknown escape";
+                case ERROR_INVALID_UTF8: return  "invalid UTF-8";
+            }
+
+            SAJSON_UNREACHABLE();
+        }
+    }
+
+    /**
+     * Represents the result of a JSON parse: either is_valid() and the document
+     * contains a root value or parse error information is available.
+     *
+     * Note that the document holds a strong reference to any memory allocated:
+     * any mutable copy of the input text and any memory allocated for the
+     * AST data structure.  Thus, the document must not be deallocated while any
+     * \ref value is in use.
+     */
     class document {
     public:
+        document(document&& rhs)
+            : input(rhs.input)
+            , structure(std::move(rhs.structure))
+            , root_type(rhs.root_type)
+            , root(rhs.root)
+            , error_line(rhs.error_line)
+            , error_column(rhs.error_column)
+            , error_code(rhs.error_code)
+            , error_arg(rhs.error_arg)
+        {
+            // Yikes... but strcpy is okay here because formatted_error is
+            // guaranteed to be null-terminated.
+            strcpy(formatted_error_message, rhs.formatted_error_message);
+            // should rhs's fields be zeroed too?
+        }
+
+        /**
+         * Returns true if the document was parsed successfully.
+         * If true, call get_root() to access the document's root value.
+         * If false, call get_error_line(), get_error_column(), and
+         * get_error_message_as_cstring() to see why the parse failed.
+         */
+        bool is_valid() const {
+            return root_type == TYPE_ARRAY || root_type == TYPE_OBJECT;
+        }
+
+        /// If is_valid(), returns the document's root \ref value.
+        value get_root() const {
+            return value(root_type, root, input.get_data());
+        }
+
+        /// If not is_valid(), returns the one-based line number where the parse failed.
+        size_t get_error_line() const {
+            return error_line;
+        }
+
+        /// If not is_valid(), returns the one-based column number where the parse failed.
+        size_t get_error_column() const {
+            return error_column;
+        }
+
+#ifndef SAJSON_NO_STD_STRING
+        /// If not is_valid(), returns a std::string indicating why the parse failed.
+        std::string get_error_message_as_string() const {
+            return formatted_error_message;
+        }
+#endif
+
+        /// If not is_valid(), returns a null-terminated C string indicating why the parse failed.
+        const char* get_error_message_as_cstring() const {
+            return formatted_error_message;
+        }
+
+        /// \cond INTERNAL
+
+        // WARNING: Internal function which is subject to change
+        error _internal_get_error_code() const {
+            return error_code;
+        }
+
+        // WARNING: Internal function which is subject to change
+        int _internal_get_error_argument() const {
+            return error_arg;
+        }
+
+        // WARNING: Internal function which is subject to change
+        const char* _internal_get_error_text() const {
+            return internal::get_error_text(error_code);
+        }
+
+        // WARNING: Internal function exposed only for high-performance language bindings.
+        type _internal_get_root_type() const {
+            return root_type;
+        }
+
+        // WARNING: Internal function exposed only for high-performance language bindings.
+        const size_t* _internal_get_root() const {
+            return root;
+        }
+
+        // WARNING: Internal function exposed only for high-performance language bindings.
+        const mutable_string_view& _internal_get_input() const {
+            return input;
+        }
+
+        /// \endcond
+
+    private:
+        document(const document&) = delete;
+        void operator=(const document&) = delete;
+
         explicit document(const mutable_string_view& input, ownership&& structure, type root_type, const size_t* root)
             : input(input)
             , structure(std::move(structure))
@@ -659,107 +792,6 @@ namespace sajson {
             assert(written >= 0 && written < ERROR_BUFFER_LENGTH);
         }
 
-        document(const document&) = delete;
-        void operator=(const document&) = delete;
-
-        document(document&& rhs)
-            : input(rhs.input)
-            , structure(std::move(rhs.structure))
-            , root_type(rhs.root_type)
-            , root(rhs.root)
-            , error_line(rhs.error_line)
-            , error_column(rhs.error_column)
-            , error_code(rhs.error_code)
-            , error_arg(rhs.error_arg)
-        {
-            // Yikes... but strcpy is okay here because formatted_error is
-            // guaranteed to be null-terminated.
-            strcpy(formatted_error_message, rhs.formatted_error_message);
-            // should rhs's fields be zeroed too?
-        }
-
-        bool is_valid() const {
-            return root_type == TYPE_ARRAY || root_type == TYPE_OBJECT;
-        }
-
-        value get_root() const {
-            return value(root_type, root, input.get_data());
-        }
-
-        size_t get_error_line() const {
-            return error_line;
-        }
-
-        size_t get_error_column() const {
-            return error_column;
-        }
-
-#ifndef SAJSON_NO_STD_STRING
-        std::string get_error_message_as_string() const {
-            return formatted_error_message;
-        }
-#endif
-
-        const char* get_error_message_as_cstring() const {
-            return formatted_error_message;
-        }
-
-        /// WARNING: Internal function which is subject to change
-        error _internal_get_error_code() const {
-            return error_code;
-        }
-
-        /// WARNING: Internal function which is subject to change
-        int _internal_get_error_argument() const {
-            return error_arg;
-        }
-
-        /// WARNING: Internal function which is subject to change
-        const char* _internal_get_error_text() const {
-            switch (error_code) {
-                case ERROR_SUCCESS: return "no error";
-                case ERROR_OUT_OF_MEMORY: return  "out of memory";
-                case ERROR_UNEXPECTED_END: return  "unexpected end of input";
-                case ERROR_MISSING_ROOT_ELEMENT: return  "missing root element";
-                case ERROR_BAD_ROOT: return  "document root must be object or array";
-                case ERROR_EXPECTED_COMMA: return  "expected ,";
-                case ERROR_MISSING_OBJECT_KEY: return  "missing object key";
-                case ERROR_EXPECTED_COLON: return  "expected :";
-                case ERROR_EXPECTED_END_OF_INPUT: return  "expected end of input";
-                case ERROR_UNEXPECTED_COMMA: return  "unexpected comma";
-                case ERROR_EXPECTED_VALUE: return  "expected value";
-                case ERROR_EXPECTED_NULL: return  "expected 'null'";
-                case ERROR_EXPECTED_FALSE: return  "expected 'false'";
-                case ERROR_EXPECTED_TRUE: return  "expected 'true'";
-                case ERROR_INVALID_NUMBER: return "invalid number";
-                case ERROR_MISSING_EXPONENT: return  "missing exponent";
-                case ERROR_ILLEGAL_CODEPOINT: return  "illegal unprintable codepoint in string";
-                case ERROR_INVALID_UNICODE_ESCAPE: return  "invalid character in unicode escape";
-                case ERROR_UNEXPECTED_END_OF_UTF16: return  "unexpected end of input during UTF-16 surrogate pair";
-                case ERROR_EXPECTED_U: return  "expected \\u";
-                case ERROR_INVALID_UTF16_TRAIL_SURROGATE: return  "invalid UTF-16 trail surrogate";
-                case ERROR_UNKNOWN_ESCAPE: return  "unknown escape";
-                case ERROR_INVALID_UTF8: return  "invalid UTF-8";
-            }
-
-            SAJSON_UNREACHABLE();
-        }
-
-        /// WARNING: Internal function exposed only for high-performance language bindings.
-        type _internal_get_root_type() const {
-            return root_type;
-        }
-
-        /// WARNING: Internal function exposed only for high-performance language bindings.
-        const size_t* _internal_get_root() const {
-            return root;
-        }
-
-        const mutable_string_view& _internal_get_input() const {
-            return input;
-        }
-
-    private:
         bool has_significant_error_arg() const {
             return error_code == ERROR_ILLEGAL_CODEPOINT;
         }
@@ -775,6 +807,11 @@ namespace sajson {
 
         enum { ERROR_BUFFER_LENGTH = 128 };
         char formatted_error_message[ERROR_BUFFER_LENGTH];
+
+        template<typename AllocationStrategy, typename StringType>
+        friend document parse(const AllocationStrategy& strategy, const StringType& string);
+        template<typename Allocator>
+        friend class parser;
     };
 
     class single_allocation {
@@ -2290,6 +2327,17 @@ namespace sajson {
         int error_arg; // optional argument for the error
     };
 
+    /**
+     * Parses a string of JSON bytes into a \ref document, given an allocation
+     * strategy instance.  Any kind of string type is valid as long as a
+     * mutable_string_view can be constructed from it.
+     *
+     * Valid allocation strategies are \ref single_allocation,
+     * \ref dynamic_allocation, and \ref bounded_allocation.
+     *
+     * A \ref document is returned whether or not the parse succeeds: success
+     * state is available by calling document::is_valid().
+     */
     template<typename AllocationStrategy, typename StringType>
     document parse(const AllocationStrategy& strategy, const StringType& string) {
         mutable_string_view input(string);
