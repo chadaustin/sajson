@@ -69,10 +69,10 @@ size_t sajson_find_object_key(const size_t* const payload, const char* key, size
     sajson::string key_string = sajson::string(key, length);
     size_t value_length = payload[0];
 
-    const sajson::object_key_record* start = reinterpret_cast<const sajson::object_key_record*>(payload + 1);
-    const sajson::object_key_record* end = start + value_length;
-    const sajson::object_key_record* i =
-        std::lower_bound(start, end, key_string, sajson::object_key_comparator(inputCasted));
+    const sajson::internal::object_key_record* start = reinterpret_cast<const sajson::internal::object_key_record*>(payload + 1);
+    const sajson::internal::object_key_record* end = start + value_length;
+    const sajson::internal::object_key_record* i =
+        std::lower_bound(start, end, key_string, sajson::internal::object_key_comparator(inputCasted));
     return (i != end
             && (i->key_end - i->key_start) == key_string.length()
             && memcmp(key_string.data(), input + i->key_start, key_string.length()) == 0)? i - start : value_length;
