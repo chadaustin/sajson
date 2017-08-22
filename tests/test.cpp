@@ -640,6 +640,7 @@ SUITE(objects) {
         CHECK_EQUAL(0, element.get_integer_value());
     }
 
+#ifndef SAJSON_UNSORTED_OBJECT_KEYS
     ABSTRACT_TEST(object_keys_are_sorted) {
         const sajson::document& document = parse(literal(" { \"b\" : 1 , \"a\" : 0 } "));
         assert(success(document));
@@ -683,8 +684,9 @@ SUITE(objects) {
         CHECK_EQUAL(TYPE_INTEGER, e1.get_type());
         CHECK_EQUAL(0, e1.get_integer_value());
     }
+#endif // not SAJSON_UNSORTED_OBJECT_KEYS
 
-    ABSTRACT_TEST(binary_search_for_keys) {
+    ABSTRACT_TEST(search_for_keys) {
         const sajson::document& document = parse(literal(" { \"b\" : 1 , \"aa\" : 0 } "));
         assert(success(document));
         const value& root = document.get_root();

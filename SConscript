@@ -25,9 +25,8 @@ unittestpp_env.Library(
       'third-party/UnitTest++/src/Posix/TimeHelpers.cpp' ])
 
 test_env = env.Clone(tools=[unittestpp, sajson])
-test_env.Program('test', ['tests/test.cpp',
-                          'tests/test_no_stl.cpp',
-                          'tests/test_unsorted.cpp'])
+#test_env.Append(CPPDEFINES=['SAJSON_UNSORTED_OBJECT_KEYS'])
+test_env.Program('test', ['tests/test.cpp', 'tests/test_no_stl.cpp'])
 
 bench_env = env.Clone(tools=[sajson])
 bench_env.Append(CPPDEFINES=['NDEBUG'])
