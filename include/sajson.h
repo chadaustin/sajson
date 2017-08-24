@@ -506,10 +506,17 @@ namespace sajson {
             assert_type(TYPE_OBJECT);
             const object_key_record* start = reinterpret_cast<const object_key_record*>(payload + 1);
             const object_key_record* end = start + get_length();
+#ifdef SAJSON_UNSORTED_OBJECT_KEYS
+            for (const object_key_record* i = start; i != end; ++i)
+#else
             const object_key_record* i = std::lower_bound(start, end, key, object_key_comparator(text));
-            return (i != end
+#endif
+            if (i != end
                     && (i->key_end - i->key_start) == key.length()
-                    && memcmp(key.data(), text + i->key_start, key.length()) == 0)? i - start : get_length();
+                    && memcmp(key.data(), text + i->key_start, key.length()) == 0) {
+                return i - start;
+            }
+            return get_length();
         }
 
         /// If a numeric value was parsed as a 32-bit integer, returns it.
@@ -2169,10 +2176,12 @@ namespace sajson {
 
             assert((object_end - object_base) % 3 == 0);
             const size_t length_times_3 = object_end - object_base;
+#ifndef SAJSON_UNSORTED_OBJECT_KEYS
             std::sort(
                 reinterpret_cast<object_key_record*>(object_base),
                 reinterpret_cast<object_key_record*>(object_end),
                 object_key_comparator(input.get_data()));
+#endif
 
             bool success;
             size_t* const new_base = allocator.reserve(length_times_3 + 1, &success);

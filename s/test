@@ -9,5 +9,6 @@ set -e
 for a in $(ls build); do
     echo "$a:"
     valgrind -q build/$a/test
+    valgrind -q build/$a/test_unsorted
     echo
 done

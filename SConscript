@@ -27,6 +27,12 @@ unittestpp_env.Library(
 test_env = env.Clone(tools=[unittestpp, sajson])
 test_env.Program('test', ['tests/test.cpp', 'tests/test_no_stl.cpp'])
 
+test_unsorted_env = test_env.Clone()
+test_unsorted_env.Append(CPPDEFINES=['SAJSON_UNSORTED_OBJECT_KEYS'])
+test_unsorted_env.Program('test_unsorted', [
+    test_unsorted_env.Object('tests/test_unsorted.o', 'tests/test.cpp'),
+])
+
 bench_env = env.Clone(tools=[sajson])
 bench_env.Append(CPPDEFINES=['NDEBUG'])
 bench_env.Program('bench', ['benchmark/benchmark.cpp'])
