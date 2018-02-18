@@ -754,7 +754,7 @@ SUITE(errors) {
         using namespace sajson;
         using namespace sajson::internal;
 
-        CHECK_EQUAL(get_error_text(ERROR_SUCCESS), "no error");
+        CHECK_EQUAL(get_error_text(ERROR_NO_ERROR), "no error");
         CHECK_EQUAL(get_error_text(ERROR_OUT_OF_MEMORY), "out of memory");
         CHECK_EQUAL(get_error_text(ERROR_UNEXPECTED_END), "unexpected end of input");
         CHECK_EQUAL(get_error_text(ERROR_MISSING_ROOT_ELEMENT), "missing root element");
