@@ -36,6 +36,22 @@ def opt(env):
         CCFLAGS=['-O2', '-g'],
         LINKFLAGS=['-O2', '-g'])
 
+def san(env):
+    static_opt = '-static-libasan' if env.subst('$CC') == 'gcc' else None
+    env.Append(
+        CCFLAGS=[
+            '-g',
+            # ASAN
+            '-fsanitize=address',
+            # Requires newer gcc.
+            # '-fsanitize=pointer-compare', '-fsanitize=pointer-subtract',
+            # UBSAN
+            '-fsanitize=undefined'],
+        LINKFLAGS=['-g', static_opt])
+    env.Prepend(
+        # libasan must come first.
+        LIBS=['asan', 'ubsan'])
+
 def m32(env):
     env.Append(
         CCFLAGS=['-m32'],
@@ -54,17 +70,22 @@ if sys.platform == 'darwin':
     builds = [
         ('clang-64-opt', [clang, m64, opt]),
         ('clang-64-dbg', [clang, m64, dbg]),
+        ('clang-64-san', [clang, m64, san]),
     ]
 else:
     builds = [
         ('gcc-32-opt', [gcc, m32, opt]),
         ('gcc-32-dbg', [gcc, m32, dbg]),
+        ('gcc-32-san', [gcc, m32, san]),
         ('gcc-64-opt', [gcc, m64, opt]),
         ('gcc-64-dbg', [gcc, m64, dbg]),
+        ('gcc-64-san', [gcc, m64, san]),
         ('clang-32-opt', [clang, m32, opt]),
         ('clang-32-dbg', [clang, m32, dbg]),
+        ('clang-32-san', [clang, m32, san]),
         ('clang-64-opt', [clang, m64, opt]),
         ('clang-64-dbg', [clang, m64, dbg]),
+        ('clang-64-san', [clang, m64, san]),
     ]
 
 for name, tools in builds:
