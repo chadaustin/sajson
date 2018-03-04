@@ -70,7 +70,8 @@ if sys.platform == 'darwin':
     builds = [
         ('clang-64-opt', [clang, m64, opt]),
         ('clang-64-dbg', [clang, m64, dbg]),
-        ('clang-64-san', [clang, m64, san]),
+        # Not sure how to link with libasan on the travis-ci Mac image.
+        #('clang-64-san', [clang, m64, san]),
     ]
 else:
     builds = [
