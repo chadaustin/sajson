@@ -229,6 +229,27 @@ SUITE(integers) {
         CHECK_EQUAL(3u, document.get_error_column());
         CHECK_EQUAL(sajson::ERROR_EXPECTED_COMMA, document._internal_get_error_code());
     }
+
+    ABSTRACT_TEST(exponent_overflow) {
+        // https://github.com/chadaustin/sajson/issues/37
+        const auto& document = parse(literal("[0e9999990066, 1e9999990066, 1e-9999990066]"));
+        CHECK_EQUAL(true, document.is_valid());
+        const auto& root = document.get_root();
+        CHECK_EQUAL(TYPE_ARRAY, root.get_type());
+        CHECK_EQUAL(3u, root.get_length());
+
+        const value& zero = root.get_array_element(0);
+        CHECK_EQUAL(TYPE_DOUBLE, zero.get_type());
+        CHECK_EQUAL(0.0, zero.get_double_value());
+
+        const value& inf = root.get_array_element(1);
+        CHECK_EQUAL(TYPE_DOUBLE, inf.get_type());
+        CHECK_EQUAL(std::numeric_limits<double>::infinity(), inf.get_double_value());
+
+        const value& zero2 = root.get_array_element(2);
+        CHECK_EQUAL(TYPE_DOUBLE, zero2.get_type());
+        CHECK_EQUAL(0.0, zero2.get_double_value());
+    }
 }
 
 ABSTRACT_TEST(unit_types) {
