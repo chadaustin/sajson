@@ -247,9 +247,12 @@ namespace sajson {
     /// at its first NUL character.
     class literal : public string {
     public:
-        explicit literal(const char* text_)
-            : string(text_, strlen(text_))
-        {}
+        template <size_t sz>
+        explicit literal(const char (&text_)[sz])
+            : string(text_, sz - 1)
+        {
+            static_assert(sz > 0, "!");
+        }
     };
 
     /// A pointer to a mutable buffer, its size in bytes, and strong ownership of any
