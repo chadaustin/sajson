@@ -1,6 +1,6 @@
 #include <memory>
-#include <vector>
 #include <sajson.h>
+#include <vector>
 
 const char* default_files[] = {
     "testdata/apache_builds.json",
@@ -17,7 +17,7 @@ const char* default_files[] = {
 };
 const size_t default_files_count = sizeof(default_files) / sizeof(*default_files);
 
-template<typename AllocationStrategy>
+template <typename AllocationStrategy>
 void run_benchmark(size_t max_string_length, const char* filename) {
     FILE* file = fopen(filename, "rb");
     if (!file) {
@@ -25,7 +25,7 @@ void run_benchmark(size_t max_string_length, const char* filename) {
         return;
     }
 
-    std::unique_ptr<FILE, int(*)(FILE*)> deleter(file, fclose);
+    std::unique_ptr<FILE, int (*)(FILE*)> deleter(file, fclose);
 
     if (fseek(file, 0, SEEK_END)) {
         perror("fseek failed");
@@ -61,10 +61,14 @@ void run_benchmark(size_t max_string_length, const char* filename) {
 
     double average_elapsed_ms = 1000.0 * elapsed / CLOCKS_PER_SEC / N;
     double minimum_elapsed_ms = 1000.0 * minimum_each / CLOCKS_PER_SEC;
-    printf("%*s - %0.3f ms - %0.3f ms\n", static_cast<int>(max_string_length), filename, average_elapsed_ms, minimum_elapsed_ms);
+    printf("%*s - %0.3f ms - %0.3f ms\n",
+        static_cast<int>(max_string_length),
+        filename,
+        average_elapsed_ms,
+        minimum_elapsed_ms);
 }
 
-template<typename AllocationStrategy>
+template <typename AllocationStrategy>
 void run_all(size_t files_count, const char** files) {
     size_t max_string_length = 0;
     for (size_t i = 0; i < files_count; ++i) {
@@ -79,14 +83,14 @@ void run_all(size_t files_count, const char** files) {
 
 int main(int argc, const char** argv) {
     if (argc > 1) {
-        //printf("\n=== SINGLE ALLOCATION ===\n\n");
+        // printf("\n=== SINGLE ALLOCATION ===\n\n");
         run_all<sajson::single_allocation>(argc - 1, argv + 1);
-        //printf("\n=== DYNAMIC ALLOCATION ===\n\n");
-        //run_all<sajson::dynamic_allocation>(argc - 1, argv + 1);
+        // printf("\n=== DYNAMIC ALLOCATION ===\n\n");
+        // run_all<sajson::dynamic_allocation>(argc - 1, argv + 1);
     } else {
-        //printf("\n=== SINGLE ALLOCATION ===\n\n");
+        // printf("\n=== SINGLE ALLOCATION ===\n\n");
         run_all<sajson::single_allocation>(default_files_count, default_files);
-        //printf("\n=== DYNAMIC ALLOCATION ===\n\n");
-        //run_all<sajson::dynamic_allocation>(default_files_count, default_files);
+        // printf("\n=== DYNAMIC ALLOCATION ===\n\n");
+        // run_all<sajson::dynamic_allocation>(default_files_count, default_files);
     }
 }
