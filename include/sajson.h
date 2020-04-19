@@ -86,7 +86,9 @@ static const size_t VALUE_MASK = size_t(-1) >> TYPE_BITS;
 
 static const size_t ROOT_MARKER = VALUE_MASK;
 
-inline type get_element_type(size_t s) { return static_cast<type>(s & TYPE_MASK); }
+inline type get_element_type(size_t s) {
+    return static_cast<type>(s & TYPE_MASK);
+}
 
 inline size_t get_element_value(size_t s) { return s >> TYPE_BITS; }
 
@@ -346,9 +348,12 @@ struct object_key_comparator {
         return memcmp(data + lhs.key_start, rhs.data(), lhs_length) < 0;
     }
 
-    bool operator()(const string& lhs, const object_key_record& rhs) const { return !(*this)(rhs, lhs); }
+    bool operator()(const string& lhs, const object_key_record& rhs) const {
+        return !(*this)(rhs, lhs);
+    }
 
-    bool operator()(const object_key_record& lhs, const object_key_record& rhs) {
+    bool
+    operator()(const object_key_record& lhs, const object_key_record& rhs) {
         const size_t lhs_length = lhs.key_end - lhs.key_start;
         const size_t rhs_length = rhs.key_end - rhs.key_start;
         if (lhs_length < rhs_length) {
@@ -356,7 +361,8 @@ struct object_key_comparator {
         } else if (lhs_length > rhs_length) {
             return false;
         }
-        return memcmp(data + lhs.key_start, data + rhs.key_start, lhs_length) < 0;
+        return memcmp(data + lhs.key_start, data + rhs.key_start, lhs_length)
+            < 0;
     }
 
     const char* data;
@@ -376,7 +382,9 @@ inline void store(size_t* location, int value) {
     // NOTE: Most modern compilers optimize away this constant-size
     // memcpy into a single instruction. If any don't, and treat
     // punning through a union as legal, they can be special-cased.
-    static_assert(sizeof(value) <= sizeof(*location), "size_t must not be smaller than int");
+    static_assert(
+        sizeof(value) <= sizeof(*location),
+        "size_t must not be smaller than int");
     memcpy(location, &value, sizeof(value));
 }
 } // namespace integer_storage
@@ -423,7 +431,10 @@ public:
         using namespace internal;
         assert_type(TYPE_ARRAY);
         size_t element = payload[1 + index];
-        return value(get_element_type(element), payload + get_element_value(element), text);
+        return value(
+            get_element_type(element),
+            payload + get_element_value(element),
+            text);
     }
 
     /// Returns the nth key of an object.  Calling with an out-of-bound
@@ -441,7 +452,10 @@ public:
         using namespace internal;
         assert_type(TYPE_OBJECT);
         size_t element = payload[3 + index * 3];
-        return value(get_element_type(element), payload + get_element_value(element), text);
+        return value(
+            get_element_type(element),
+            payload + get_element_value(element),
+            text);
     }
 
     /// Given a string key, returns the value with that key or a null value
@@ -464,12 +478,14 @@ public:
     size_t find_object_key(const string& key) const {
         using namespace internal;
         assert_type(TYPE_OBJECT);
-        const object_key_record* start = reinterpret_cast<const object_key_record*>(payload + 1);
+        const object_key_record* start
+            = reinterpret_cast<const object_key_record*>(payload + 1);
         const object_key_record* end = start + get_length();
 #ifdef SAJSON_UNSORTED_OBJECT_KEYS
         for (const object_key_record* i = start; i != end; ++i)
 #else
-        const object_key_record* i = std::lower_bound(start, end, key, object_key_comparator(text));
+        const object_key_record* i
+            = std::lower_bound(start, end, key, object_key_comparator(text));
 #endif
             if (i != end && (i->key_end - i->key_start) == key.length()
                 && memcmp(key.data(), text + i->key_start, key.length()) == 0) {
@@ -575,7 +591,9 @@ private:
 
     void assert_type(type expected) const { assert(expected == get_type()); }
 
-    void assert_type_2(type e1, type e2) const { assert(e1 == get_type() || e2 == get_type()); }
+    void assert_type_2(type e1, type e2) const {
+        assert(e1 == get_type() || e2 == get_type());
+    }
 
     void assert_in_bounds(size_t i) const { assert(i < get_length()); }
 
@@ -722,7 +740,9 @@ public:
      * If false, call get_error_line(), get_error_column(), and
      * get_error_message_as_cstring() to see why the parse failed.
      */
-    bool is_valid() const { return root_type == TYPE_ARRAY || root_type == TYPE_OBJECT; }
+    bool is_valid() const {
+        return root_type == TYPE_ARRAY || root_type == TYPE_OBJECT;
+    }
 
     /// If is_valid(), returns the document's root \ref value.
     value get_root() const { return value(root_type, root, input.get_data()); }
@@ -736,13 +756,18 @@ public:
     size_t get_error_column() const { return error_column; }
 
 #ifndef SAJSON_NO_STD_STRING
-    /// If not is_valid(), returns a std::string indicating why the parse failed.
-    std::string get_error_message_as_string() const { return formatted_error_message; }
+    /// If not is_valid(), returns a std::string indicating why the parse
+    /// failed.
+    std::string get_error_message_as_string() const {
+        return formatted_error_message;
+    }
 #endif
 
     /// If not is_valid(), returns a null-terminated C string indicating why the
     /// parse failed.
-    const char* get_error_message_as_cstring() const { return formatted_error_message; }
+    const char* get_error_message_as_cstring() const {
+        return formatted_error_message;
+    }
 
     /// \cond INTERNAL
 
@@ -753,7 +778,9 @@ public:
     int _internal_get_error_argument() const { return error_arg; }
 
     // WARNING: Internal function which is subject to change
-    const char* _internal_get_error_text() const { return internal::get_error_text(error_code); }
+    const char* _internal_get_error_text() const {
+        return internal::get_error_text(error_code);
+    }
 
     // WARNING: Internal function exposed only for high-performance language
     // bindings.
@@ -774,7 +801,10 @@ private:
     void operator=(const document&) = delete;
 
     explicit document(
-        const mutable_string_view& input_, internal::ownership&& structure_, type root_type_, const size_t* root_)
+        const mutable_string_view& input_,
+        internal::ownership&& structure_,
+        type root_type_,
+        const size_t* root_)
         : input(input_)
         , structure(std::move(structure_))
         , root_type(root_type_)
@@ -786,7 +816,8 @@ private:
         formatted_error_message[0] = 0;
     }
 
-    explicit document(const mutable_string_view& input_,
+    explicit document(
+        const mutable_string_view& input_,
         size_t error_line_,
         size_t error_column_,
         const error error_code_,
@@ -802,13 +833,23 @@ private:
         formatted_error_message[ERROR_BUFFER_LENGTH - 1] = 0;
         int written = has_significant_error_arg()
             ? SAJSON_snprintf(
-                  formatted_error_message, ERROR_BUFFER_LENGTH - 1, "%s: %d", _internal_get_error_text(), error_arg)
-            : SAJSON_snprintf(formatted_error_message, ERROR_BUFFER_LENGTH - 1, "%s", _internal_get_error_text());
+                  formatted_error_message,
+                  ERROR_BUFFER_LENGTH - 1,
+                  "%s: %d",
+                  _internal_get_error_text(),
+                  error_arg)
+            : SAJSON_snprintf(
+                  formatted_error_message,
+                  ERROR_BUFFER_LENGTH - 1,
+                  "%s",
+                  _internal_get_error_text());
         (void)written;
         assert(written >= 0 && written < ERROR_BUFFER_LENGTH);
     }
 
-    bool has_significant_error_arg() const { return error_code == ERROR_ILLEGAL_CODEPOINT; }
+    bool has_significant_error_arg() const {
+        return error_code == ERROR_ILLEGAL_CODEPOINT;
+    }
 
     mutable_string_view input;
     internal::ownership structure;
@@ -823,7 +864,8 @@ private:
     char formatted_error_message[ERROR_BUFFER_LENGTH];
 
     template <typename AllocationStrategy, typename StringType>
-    friend document parse(const AllocationStrategy& strategy, const StringType& string);
+    friend document
+    parse(const AllocationStrategy& strategy, const StringType& string);
     template <typename Allocator>
     friend class parser;
 };
@@ -866,7 +908,9 @@ public:
 
         size_t* get_top() { return stack_top; }
 
-        size_t* get_pointer_from_offset(size_t offset) { return stack_bottom + offset; }
+        size_t* get_pointer_from_offset(size_t offset) {
+            return stack_bottom + offset;
+        }
 
     private:
         stack_head() = delete;
@@ -889,7 +933,8 @@ public:
         allocator(const allocator&) = delete;
         void operator=(const allocator&) = delete;
 
-        explicit allocator(size_t* buffer, size_t input_size, bool should_deallocate_)
+        explicit allocator(
+            size_t* buffer, size_t input_size, bool should_deallocate_)
             : structure(buffer)
             , structure_end(buffer ? buffer + input_size : 0)
             , write_cursor(structure_end)
@@ -980,16 +1025,19 @@ public:
 
     /// \cond INTERNAL
 
-    allocator make_allocator(size_t input_document_size_in_bytes, bool* succeeded) const {
+    allocator
+    make_allocator(size_t input_document_size_in_bytes, bool* succeeded) const {
         if (has_existing_buffer) {
             if (existing_buffer_size < input_document_size_in_bytes) {
                 *succeeded = false;
                 return allocator(nullptr);
             }
             *succeeded = true;
-            return allocator(existing_buffer, input_document_size_in_bytes, false);
+            return allocator(
+                existing_buffer, input_document_size_in_bytes, false);
         } else {
-            size_t* buffer = new (std::nothrow) size_t[input_document_size_in_bytes];
+            size_t* buffer
+                = new (std::nothrow) size_t[input_document_size_in_bytes];
             if (!buffer) {
                 *succeeded = false;
                 return allocator(nullptr);
@@ -1054,7 +1102,9 @@ public:
 
         size_t* get_top() { return stack_top; }
 
-        size_t* get_pointer_from_offset(size_t offset) { return stack_bottom + offset; }
+        size_t* get_pointer_from_offset(size_t offset) {
+            return stack_bottom + offset;
+        }
 
     private:
         stack_head(const stack_head&) = delete;
@@ -1073,7 +1123,8 @@ public:
         }
 
         bool can_grow(size_t amount) {
-            if (SAJSON_LIKELY(amount <= static_cast<size_t>(stack_limit - stack_top))) {
+            if (SAJSON_LIKELY(
+                    amount <= static_cast<size_t>(stack_limit - stack_top))) {
                 return true;
             }
 
@@ -1112,7 +1163,10 @@ public:
         allocator(const allocator&) = delete;
         void operator=(const allocator&) = delete;
 
-        explicit allocator(size_t* buffer_, size_t current_capacity, size_t initial_stack_capacity_)
+        explicit allocator(
+            size_t* buffer_,
+            size_t current_capacity,
+            size_t initial_stack_capacity_)
             : ast_buffer_bottom(buffer_)
             , ast_buffer_top(buffer_ + current_capacity)
             , ast_write_head(ast_buffer_top)
@@ -1136,7 +1190,9 @@ public:
 
         ~allocator() { delete[] ast_buffer_bottom; }
 
-        stack_head get_stack_head(bool* success) { return stack_head(initial_stack_capacity, success); }
+        stack_head get_stack_head(bool* success) {
+            return stack_head(initial_stack_capacity, success);
+        }
 
         size_t get_write_offset() { return ast_buffer_top - ast_write_head; }
 
@@ -1165,7 +1221,9 @@ public:
 
     private:
         bool can_grow(size_t amount) {
-            if (SAJSON_LIKELY(amount <= static_cast<size_t>(ast_write_head - ast_buffer_bottom))) {
+            if (SAJSON_LIKELY(
+                    amount <= static_cast<size_t>(
+                                  ast_write_head - ast_buffer_bottom))) {
                 return true;
             }
             size_t current_capacity = ast_buffer_top - ast_buffer_bottom;
@@ -1189,13 +1247,15 @@ public:
             ast_buffer_bottom = new_buffer;
             ast_buffer_top = new_buffer + new_capacity;
             ast_write_head = ast_buffer_top - current_size;
-            memcpy(ast_write_head, old_write_head, current_size * sizeof(size_t));
+            memcpy(
+                ast_write_head, old_write_head, current_size * sizeof(size_t));
             delete[] old_buffer;
 
             return true;
         }
 
-        size_t* ast_buffer_bottom; // base address of the ast buffer - it grows down
+        size_t*
+            ast_buffer_bottom; // base address of the ast buffer - it grows down
         size_t* ast_buffer_top;
         size_t* ast_write_head;
         size_t initial_stack_capacity;
@@ -1205,13 +1265,15 @@ public:
 
     /// Creates a dynamic_allocation policy with the given initial AST
     /// and stack buffer sizes.
-    dynamic_allocation(size_t initial_ast_capacity_ = 0, size_t initial_stack_capacity_ = 0)
+    dynamic_allocation(
+        size_t initial_ast_capacity_ = 0, size_t initial_stack_capacity_ = 0)
         : initial_ast_capacity(initial_ast_capacity_)
         , initial_stack_capacity(initial_stack_capacity_) {}
 
     /// \cond INTERNAL
 
-    allocator make_allocator(size_t input_document_size_in_bytes, bool* succeeded) const {
+    allocator
+    make_allocator(size_t input_document_size_in_bytes, bool* succeeded) const {
         size_t capacity = initial_ast_capacity;
         if (!capacity) {
             // TODO: guess based on input document size
@@ -1278,13 +1340,19 @@ public:
             }
         }
 
-        void reset(size_t new_top) { source_allocator->stack_top = source_allocator->structure + new_top; }
+        void reset(size_t new_top) {
+            source_allocator->stack_top = source_allocator->structure + new_top;
+        }
 
-        size_t get_size() { return source_allocator->stack_top - source_allocator->structure; }
+        size_t get_size() {
+            return source_allocator->stack_top - source_allocator->structure;
+        }
 
         size_t* get_top() { return source_allocator->stack_top; }
 
-        size_t* get_pointer_from_offset(size_t offset) { return source_allocator->structure + offset; }
+        size_t* get_pointer_from_offset(size_t offset) {
+            return source_allocator->structure + offset;
+        }
 
     private:
         stack_head(const stack_head&) = delete;
@@ -1382,7 +1450,8 @@ public:
 
     /// \cond INTERNAL
 
-    allocator make_allocator(size_t input_document_size_in_bytes, bool* succeeded) const {
+    allocator
+    make_allocator(size_t input_document_size_in_bytes, bool* succeeded) const {
         *succeeded = true;
         return allocator(existing_buffer, existing_buffer_size);
     }
@@ -1411,9 +1480,11 @@ public:
     document get_document() {
         if (parse()) {
             size_t* ast_root = allocator.get_ast_root();
-            return document(input, allocator.transfer_ownership(), root_type, ast_root);
+            return document(
+                input, allocator.transfer_ownership(), root_type, ast_root);
         } else {
-            return document(input, error_line, error_column, error_code, error_arg);
+            return document(
+                input, error_line, error_column, error_code, error_arg);
         }
     }
 
@@ -1445,9 +1516,13 @@ private:
 
     error_result oom(char* p) { return make_error(p, ERROR_OUT_OF_MEMORY); }
 
-    error_result unexpected_end() { return make_error(0, ERROR_UNEXPECTED_END); }
+    error_result unexpected_end() {
+        return make_error(0, ERROR_UNEXPECTED_END);
+    }
 
-    error_result unexpected_end(char* p) { return make_error(p, ERROR_UNEXPECTED_END); }
+    error_result unexpected_end(char* p) {
+        return make_error(p, ERROR_UNEXPECTED_END);
+    }
 
     error_result make_error(char* p, error code, int arg = 0) {
         if (!p) {
@@ -1500,20 +1575,22 @@ private:
             return make_error(p, ERROR_MISSING_ROOT_ELEMENT);
         }
 
-        // current_base is an offset to the first element of the current structure
-        // (object or array)
+        // current_base is an offset to the first element of the current
+        // structure (object or array)
         size_t current_base = stack.get_size();
         type current_structure_type;
         if (*p == '[') {
             current_structure_type = TYPE_ARRAY;
-            bool s = stack.push(make_element(current_structure_type, ROOT_MARKER));
+            bool s
+                = stack.push(make_element(current_structure_type, ROOT_MARKER));
             if (SAJSON_UNLIKELY(!s)) {
                 return oom(p);
             }
             goto array_close_or_element;
         } else if (*p == '{') {
             current_structure_type = TYPE_OBJECT;
-            bool s = stack.push(make_element(current_structure_type, ROOT_MARKER));
+            bool s
+                = stack.push(make_element(current_structure_type, ROOT_MARKER));
             if (SAJSON_UNLIKELY(!s)) {
                 return oom(p);
             }
@@ -1590,7 +1667,8 @@ private:
             ++p;
             size_t* base_ptr = stack.get_pointer_from_offset(current_base);
             pop_element = *base_ptr;
-            if (SAJSON_UNLIKELY(!install_object(base_ptr + 1, stack.get_top()))) {
+            if (SAJSON_UNLIKELY(
+                    !install_object(base_ptr + 1, stack.get_top()))) {
                 return oom(p);
             }
             goto pop;
@@ -1601,7 +1679,8 @@ private:
             ++p;
             size_t* base_ptr = stack.get_pointer_from_offset(current_base);
             pop_element = *base_ptr;
-            if (SAJSON_UNLIKELY(!install_array(base_ptr + 1, stack.get_top()))) {
+            if (SAJSON_UNLIKELY(
+                    !install_array(base_ptr + 1, stack.get_top()))) {
                 return oom(p);
             }
             goto pop;
@@ -1701,7 +1780,8 @@ private:
             case '[': {
                 size_t previous_base = current_base;
                 current_base = stack.get_size();
-                bool s = stack.push(make_element(current_structure_type, previous_base));
+                bool s = stack.push(
+                    make_element(current_structure_type, previous_base));
                 if (SAJSON_UNLIKELY(!s)) {
                     return oom(p);
                 }
@@ -1711,7 +1791,8 @@ private:
             case '{': {
                 size_t previous_base = current_base;
                 current_base = stack.get_size();
-                bool s = stack.push(make_element(current_structure_type, previous_base));
+                bool s = stack.push(
+                    make_element(current_structure_type, previous_base));
                 if (SAJSON_UNLIKELY(!s)) {
                     return oom(p);
                 }
@@ -1741,7 +1822,8 @@ private:
                 return make_error(p, ERROR_EXPECTED_VALUE);
             }
 
-            bool s = stack.push(make_element(value_type_result, allocator.get_write_offset()));
+            bool s = stack.push(
+                make_element(value_type_result, allocator.get_write_offset()));
             if (SAJSON_UNLIKELY(!s)) {
                 return oom(p);
             }
@@ -1752,7 +1834,9 @@ private:
         SAJSON_UNREACHABLE();
     }
 
-    bool has_remaining_characters(char* p, ptrdiff_t remaining) { return input_end - p >= remaining; }
+    bool has_remaining_characters(char* p, ptrdiff_t remaining) {
+        return input_end - p >= remaining;
+    }
 
     char* parse_null(char* p) {
         if (SAJSON_UNLIKELY(!has_remaining_characters(p, 4))) {
@@ -1873,30 +1957,34 @@ private:
             negative = true;
 
             if (SAJSON_UNLIKELY(at_eof(p))) {
-                return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                return std::make_pair(
+                    make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
             }
         }
 
         bool try_double = false;
 
         int i = 0;
-        double d = 0.0; // gcc complains that d might be used uninitialized which
-                        // isn't true. appease the warning anyway.
+        double d = 0.0; // gcc complains that d might be used uninitialized
+                        // which isn't true. appease the warning anyway.
         if (*p == '0') {
             ++p;
             if (SAJSON_UNLIKELY(at_eof(p))) {
-                return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                return std::make_pair(
+                    make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
             }
         } else {
             unsigned char c = *p;
             if (c < '0' || c > '9') {
-                return std::make_pair(make_error(p, ERROR_INVALID_NUMBER), TYPE_NULL);
+                return std::make_pair(
+                    make_error(p, ERROR_INVALID_NUMBER), TYPE_NULL);
             }
 
             do {
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
-                    return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                    return std::make_pair(
+                        make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
                 }
 
                 unsigned char digit = c - '0';
@@ -1925,17 +2013,20 @@ private:
             }
             ++p;
             if (SAJSON_UNLIKELY(at_eof(p))) {
-                return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                return std::make_pair(
+                    make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
             }
             char c = *p;
             if (c < '0' || c > '9') {
-                return std::make_pair(make_error(p, ERROR_INVALID_NUMBER), TYPE_NULL);
+                return std::make_pair(
+                    make_error(p, ERROR_INVALID_NUMBER), TYPE_NULL);
             }
 
             do {
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
-                    return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                    return std::make_pair(
+                        make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
                 }
                 d = d * 10 + (c - '0');
                 // One option to avoid underflow would be to clamp
@@ -1959,7 +2050,8 @@ private:
             }
             ++p;
             if (SAJSON_UNLIKELY(at_eof(p))) {
-                return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                return std::make_pair(
+                    make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
             }
 
             bool negativeExponent = false;
@@ -1967,12 +2059,14 @@ private:
                 negativeExponent = true;
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
-                    return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                    return std::make_pair(
+                        make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
                 }
             } else if ('+' == *p) {
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
-                    return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                    return std::make_pair(
+                        make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
                 }
             }
 
@@ -1980,7 +2074,8 @@ private:
 
             char c = *p;
             if (SAJSON_UNLIKELY(c < '0' || c > '9')) {
-                return std::make_pair(make_error(p, ERROR_MISSING_EXPONENT), TYPE_NULL);
+                return std::make_pair(
+                    make_error(p, ERROR_MISSING_EXPONENT), TYPE_NULL);
             }
             for (;;) {
                 // c guaranteed to be between '0' and '9', inclusive
@@ -1996,7 +2091,8 @@ private:
 
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
-                    return std::make_pair(make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                    return std::make_pair(
+                        make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
                 }
 
                 c = *p;
@@ -2004,7 +2100,8 @@ private:
                     break;
                 }
             }
-            static_assert(-INT_MAX >= INT_MIN, "exp can be negated without loss or UB");
+            static_assert(
+                -INT_MAX >= INT_MIN, "exp can be negated without loss or UB");
             exponent += (negativeExponent ? -exp : exp);
         }
 
@@ -2026,7 +2123,8 @@ private:
         }
         if (try_double) {
             bool success;
-            size_t* out = allocator.reserve(double_storage::word_length, &success);
+            size_t* out
+                = allocator.reserve(double_storage::word_length, &success);
             if (SAJSON_UNLIKELY(!success)) {
                 return std::make_pair(oom(p), TYPE_NULL);
             }
@@ -2034,7 +2132,8 @@ private:
             return std::make_pair(p, TYPE_DOUBLE);
         } else {
             bool success;
-            size_t* out = allocator.reserve(integer_storage::word_length, &success);
+            size_t* out
+                = allocator.reserve(integer_storage::word_length, &success);
             if (SAJSON_UNLIKELY(!success)) {
                 return std::make_pair(oom(p), TYPE_NULL);
             }
@@ -2072,13 +2171,15 @@ private:
         assert((object_end - object_base) % 3 == 0);
         const size_t length_times_3 = object_end - object_base;
 #ifndef SAJSON_UNSORTED_OBJECT_KEYS
-        std::sort(reinterpret_cast<object_key_record*>(object_base),
+        std::sort(
+            reinterpret_cast<object_key_record*>(object_base),
             reinterpret_cast<object_key_record*>(object_end),
             object_key_comparator(input.get_data()));
 #endif
 
         bool success;
-        size_t* const new_base = allocator.reserve(length_times_3 + 1, &success);
+        size_t* const new_base
+            = allocator.reserve(length_times_3 + 1, &success);
         if (SAJSON_UNLIKELY(!success)) {
             return false;
         }
@@ -2200,7 +2301,8 @@ private:
             }
 
             if (SAJSON_UNLIKELY(*p >= 0 && *p < 0x20)) {
-                return make_error(p, ERROR_ILLEGAL_CODEPOINT, static_cast<int>(*p));
+                return make_error(
+                    p, ERROR_ILLEGAL_CODEPOINT, static_cast<int>(*p));
             }
 
             switch (*p) {
@@ -2267,15 +2369,16 @@ private:
                             return make_error(p, ERROR_EXPECTED_U);
                         }
                         p += 2;
-                        unsigned v = 0; // gcc's complaining that this could be used
-                                        // uninitialized. wrong.
+                        unsigned v = 0; // gcc's complaining that this could be
+                                        // used uninitialized. wrong.
                         p = read_hex(p, v);
                         if (!p) {
                             return p;
                         }
 
                         if (v < 0xDC00 || v > 0xDFFF) {
-                            return make_error(p, ERROR_INVALID_UTF16_TRAIL_SURROGATE);
+                            return make_error(
+                                p, ERROR_INVALID_UTF16_TRAIL_SURROGATE);
                         }
                         u = 0x10000 + (((u - 0xD800) << 10) | (v - 0xDC00));
                     }
@@ -2384,6 +2487,8 @@ document parse(const AllocationStrategy& strategy, const StringType& string) {
         return document(input, 1, 1, ERROR_OUT_OF_MEMORY, 0);
     }
 
-    return parser<typename AllocationStrategy::allocator>(input, std::move(allocator)).get_document();
+    return parser<typename AllocationStrategy::allocator>(
+               input, std::move(allocator))
+        .get_document();
 }
 } // namespace sajson

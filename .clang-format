@@ -5,13 +5,13 @@ BasedOnStyle: WebKit
 BinPackArguments: false
 BinPackParameters: false
 NamespaceIndentation: None
-ColumnLimit:     120
+ColumnLimit: 80
 AlwaysBreakTemplateDeclarations: true
 AlignEscapedNewlines: Left
+AlignAfterOpenBracket: AlwaysBreak
 
 
 AccessModifierOffset: -4
-AlignAfterOpenBracket: DontAlign
 AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
 AlignOperands:   false

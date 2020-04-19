@@ -3,19 +3,15 @@
 #include <vector>
 
 const char* default_files[] = {
-    "testdata/apache_builds.json",
-    "testdata/github_events.json",
-    "testdata/instruments.json",
-    "testdata/mesh.json",
-    "testdata/mesh.pretty.json",
-    "testdata/nested.json",
-    "testdata/svg_menu.json",
-    "testdata/truenull.json",
-    "testdata/twitter.json",
-    "testdata/update-center.json",
+    "testdata/apache_builds.json", "testdata/github_events.json",
+    "testdata/instruments.json",   "testdata/mesh.json",
+    "testdata/mesh.pretty.json",   "testdata/nested.json",
+    "testdata/svg_menu.json",      "testdata/truenull.json",
+    "testdata/twitter.json",       "testdata/update-center.json",
     "testdata/whitespace.json",
 };
-const size_t default_files_count = sizeof(default_files) / sizeof(*default_files);
+const size_t default_files_count
+    = sizeof(default_files) / sizeof(*default_files);
 
 template <typename AllocationStrategy>
 void run_benchmark(size_t max_string_length, const char* filename) {
@@ -52,7 +48,8 @@ void run_benchmark(size_t max_string_length, const char* filename) {
     const size_t N = 1000;
     for (size_t i = 0; i < N; ++i) {
         clock_t before_each = clock();
-        sajson::parse(AllocationStrategy(), sajson::string(buffer.data(), buffer.size()));
+        sajson::parse(
+            AllocationStrategy(), sajson::string(buffer.data(), buffer.size()));
         clock_t elapsed_each = clock() - before_each;
         minimum_each = std::min(minimum_each, elapsed_each);
     }
@@ -61,7 +58,8 @@ void run_benchmark(size_t max_string_length, const char* filename) {
 
     double average_elapsed_ms = 1000.0 * elapsed / CLOCKS_PER_SEC / N;
     double minimum_elapsed_ms = 1000.0 * minimum_each / CLOCKS_PER_SEC;
-    printf("%*s - %0.3f ms - %0.3f ms\n",
+    printf(
+        "%*s - %0.3f ms - %0.3f ms\n",
         static_cast<int>(max_string_length),
         filename,
         average_elapsed_ms,
@@ -74,8 +72,18 @@ void run_all(size_t files_count, const char** files) {
     for (size_t i = 0; i < files_count; ++i) {
         max_string_length = std::max(max_string_length, strlen(files[i]));
     }
-    printf("%*s - %8s - %8s\n", static_cast<int>(max_string_length), "file", "avg", "min");
-    printf("%*s - %8s - %8s\n", static_cast<int>(max_string_length), "----", "---", "---");
+    printf(
+        "%*s - %8s - %8s\n",
+        static_cast<int>(max_string_length),
+        "file",
+        "avg",
+        "min");
+    printf(
+        "%*s - %8s - %8s\n",
+        static_cast<int>(max_string_length),
+        "----",
+        "---",
+        "---");
     for (size_t i = 0; i < files_count; ++i) {
         run_benchmark<AllocationStrategy>(max_string_length, files[i]);
     }
@@ -91,6 +99,7 @@ int main(int argc, const char** argv) {
         // printf("\n=== SINGLE ALLOCATION ===\n\n");
         run_all<sajson::single_allocation>(default_files_count, default_files);
         // printf("\n=== DYNAMIC ALLOCATION ===\n\n");
-        // run_all<sajson::dynamic_allocation>(default_files_count, default_files);
+        // run_all<sajson::dynamic_allocation>(default_files_count,
+        // default_files);
     }
 }

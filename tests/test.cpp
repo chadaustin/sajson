@@ -19,7 +19,8 @@ using sajson::value;
 
 inline bool success(const document& doc) {
     if (!doc.is_valid()) {
-        fprintf(stderr,
+        fprintf(
+            stderr,
             "parse failed at %i, %i: %s\n",
             static_cast<int>(doc.get_error_line()),
             static_cast<int>(doc.get_error_column()),
@@ -32,22 +33,28 @@ inline bool success(const document& doc) {
 static const size_t ast_buffer_size = 100;
 static size_t ast_buffer[ast_buffer_size];
 
-#define ABSTRACT_TEST(name)                                                                                       \
-    static void name##internal(sajson::document (*parse)(const sajson::literal&));                                \
-    TEST(single_allocation_##name) {                                                                              \
-        name##internal(                                                                                           \
-            [](const sajson::literal& literal) { return sajson::parse(sajson::single_allocation(), literal); });  \
-    }                                                                                                             \
-    TEST(dynamic_allocation_##name) {                                                                             \
-        name##internal(                                                                                           \
-            [](const sajson::literal& literal) { return sajson::parse(sajson::dynamic_allocation(), literal); }); \
-    }                                                                                                             \
-    TEST(bounded_allocation_##name) {                                                                             \
-        name##internal([](const sajson::literal& literal) {                                                       \
-            return sajson::parse(sajson::bounded_allocation(ast_buffer, ast_buffer_size), literal);               \
-        });                                                                                                       \
-    }                                                                                                             \
-    static void name##internal(sajson::document (*parse)(const sajson::literal&))
+#define ABSTRACT_TEST(name)                                              \
+    static void name##internal(                                          \
+        sajson::document (*parse)(const sajson::literal&));              \
+    TEST(single_allocation_##name) {                                     \
+        name##internal([](const sajson::literal& literal) {              \
+            return sajson::parse(sajson::single_allocation(), literal);  \
+        });                                                              \
+    }                                                                    \
+    TEST(dynamic_allocation_##name) {                                    \
+        name##internal([](const sajson::literal& literal) {              \
+            return sajson::parse(sajson::dynamic_allocation(), literal); \
+        });                                                              \
+    }                                                                    \
+    TEST(bounded_allocation_##name) {                                    \
+        name##internal([](const sajson::literal& literal) {              \
+            return sajson::parse(                                        \
+                sajson::bounded_allocation(ast_buffer, ast_buffer_size), \
+                literal);                                                \
+        });                                                              \
+    }                                                                    \
+    static void name##internal(                                          \
+        sajson::document (*parse)(const sajson::literal&))
 
 ABSTRACT_TEST(empty_array) {
     const sajson::document& document = parse(literal("[]"));
@@ -195,7 +202,8 @@ SUITE(integers) {
     }
 
     ABSTRACT_TEST(integers) {
-        const sajson::document& document = parse(literal("[0,1,2,3,4,5,6,7,8,9,10]"));
+        const sajson::document& document
+            = parse(literal("[0,1,2,3,4,5,6,7,8,9,10]"));
         assert(success(document));
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
@@ -224,12 +232,14 @@ SUITE(integers) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(3u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_EXPECTED_COMMA, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_EXPECTED_COMMA, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(exponent_overflow) {
         // https://github.com/chadaustin/sajson/issues/37
-        const auto& document = parse(literal("[0e9999990066, 1e9999990066, 1e-9999990066]"));
+        const auto& document
+            = parse(literal("[0e9999990066, 1e9999990066, 1e-9999990066]"));
         CHECK_EQUAL(true, document.is_valid());
         const auto& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
@@ -241,7 +251,8 @@ SUITE(integers) {
 
         const value& inf = root.get_array_element(1);
         CHECK_EQUAL(TYPE_DOUBLE, inf.get_type());
-        CHECK_EQUAL(std::numeric_limits<double>::infinity(), inf.get_double_value());
+        CHECK_EQUAL(
+            std::numeric_limits<double>::infinity(), inf.get_double_value());
 
         const value& zero2 = root.get_array_element(2);
         CHECK_EQUAL(TYPE_DOUBLE, zero2.get_type());
@@ -250,7 +261,8 @@ SUITE(integers) {
 }
 
 ABSTRACT_TEST(unit_types) {
-    const sajson::document& document = parse(literal("[ true , false , null ]"));
+    const sajson::document& document
+        = parse(literal("[ true , false , null ]"));
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
@@ -304,7 +316,8 @@ SUITE(doubles) {
     }
 
     ABSTRACT_TEST(exponents) {
-        const sajson::document& document = parse(literal("[2e+3,0.5E-5,10E+22]"));
+        const sajson::document& document
+            = parse(literal("[2e+3,0.5E-5,10E+22]"));
         assert(success(document));
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
@@ -324,7 +337,8 @@ SUITE(doubles) {
     }
 
     ABSTRACT_TEST(long_no_exponent) {
-        const sajson::document& document = parse(literal("[9999999999,99999999999]"));
+        const sajson::document& document
+            = parse(literal("[9999999999,99999999999]"));
         assert(success(document));
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
@@ -356,7 +370,9 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(4u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_MISSING_EXPONENT, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_MISSING_EXPONENT,
+            document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(missing_exponent_plus) {
@@ -364,7 +380,9 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(5u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_MISSING_EXPONENT, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_MISSING_EXPONENT,
+            document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(invalid_2_byte_utf8) {
@@ -372,7 +390,8 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(4u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_INVALID_UTF8, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_INVALID_UTF8, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(invalid_3_byte_utf8) {
@@ -380,7 +399,8 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(5u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_INVALID_UTF8, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_INVALID_UTF8, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(invalid_4_byte_utf8) {
@@ -388,7 +408,8 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(6u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_INVALID_UTF8, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_INVALID_UTF8, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(invalid_utf8_prefix) {
@@ -396,7 +417,8 @@ SUITE(doubles) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(3u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_INVALID_UTF8, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_INVALID_UTF8, document._internal_get_error_code());
     }
 }
 
@@ -438,11 +460,12 @@ SUITE(int53) {
     ABSTRACT_TEST(endpoints) {
         // TODO: What should we do about (1<<53)+1?
         // When parsed into a double it loses that last bit of precision, so
-        // sajson doesn't distinguish between 9007199254740992 and 9007199254740993.
-        // So for now ignore this boundary condition and unit test one extra value
-        // away.
-        const auto& document = parse(literal("[-9007199254740992, 9007199254740992, "
-                                             "-9007199254740994, 9007199254740994]"));
+        // sajson doesn't distinguish between 9007199254740992 and
+        // 9007199254740993. So for now ignore this boundary condition and unit
+        // test one extra value away.
+        const auto& document
+            = parse(literal("[-9007199254740992, 9007199254740992, "
+                            "-9007199254740994, 9007199254740994]"));
         assert(success(document));
         const value& root = document.get_root();
         const value& e0 = root.get_array_element(0);
@@ -469,7 +492,9 @@ SUITE(commas) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_UNEXPECTED_COMMA, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_UNEXPECTED_COMMA,
+            document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(leading_comma_object) {
@@ -477,7 +502,9 @@ SUITE(commas) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_MISSING_OBJECT_KEY, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_MISSING_OBJECT_KEY,
+            document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(trailing_comma_array) {
@@ -485,7 +512,8 @@ SUITE(commas) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(6u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_EXPECTED_VALUE, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_EXPECTED_VALUE, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(trailing_comma_object) {
@@ -493,7 +521,9 @@ SUITE(commas) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(11u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_MISSING_OBJECT_KEY, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_MISSING_OBJECT_KEY,
+            document._internal_get_error_code());
     }
 }
 
@@ -520,7 +550,8 @@ SUITE(strings) {
 
     ABSTRACT_TEST(common_escapes) {
         // \"\\\/\b\f\n\r\t
-        const sajson::document& document = parse(literal("[\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"]"));
+        const sajson::document& document
+            = parse(literal("[\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"]"));
         assert(success(document));
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
@@ -552,7 +583,8 @@ SUITE(strings) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         // CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_UNEXPECTED_END, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_UNEXPECTED_END, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(unfinished_escape) {
@@ -560,7 +592,8 @@ SUITE(strings) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         // CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_UNEXPECTED_END, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_UNEXPECTED_END, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(unprintables_are_not_valid_in_strings) {
@@ -568,22 +601,31 @@ SUITE(strings) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         // CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_ILLEGAL_CODEPOINT, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_ILLEGAL_CODEPOINT,
+            document._internal_get_error_code());
         CHECK_EQUAL(25, document._internal_get_error_argument());
-        CHECK_EQUAL("illegal unprintable codepoint in string: 25", document.get_error_message_as_string());
+        CHECK_EQUAL(
+            "illegal unprintable codepoint in string: 25",
+            document.get_error_message_as_string());
     }
 
     ABSTRACT_TEST(unprintables_are_not_valid_in_strings_after_escapes) {
         const sajson::document& document = parse(literal("[\"\\n\x01\"]"));
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_ILLEGAL_CODEPOINT, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_ILLEGAL_CODEPOINT,
+            document._internal_get_error_code());
         CHECK_EQUAL(1, document._internal_get_error_argument());
-        CHECK_EQUAL("illegal unprintable codepoint in string: 1", document.get_error_message_as_string());
+        CHECK_EQUAL(
+            "illegal unprintable codepoint in string: 1",
+            document.get_error_message_as_string());
     }
 
     ABSTRACT_TEST(utf16_surrogate_pair) {
-        const sajson::document& document = parse(literal("[\"\\ud950\\uDf21\"]"));
+        const sajson::document& document
+            = parse(literal("[\"\\ud950\\uDf21\"]"));
         assert(success(document));
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
@@ -597,7 +639,8 @@ SUITE(strings) {
     }
 
     ABSTRACT_TEST(utf8_shifting) {
-        const auto& document = parse(literal("[\"\\n\xc2\x80\xe0\xa0\x80\xf0\x90\x80\x80\"]"));
+        const auto& document
+            = parse(literal("[\"\\n\xc2\x80\xe0\xa0\x80\xf0\x90\x80\x80\"]"));
         assert(success(document));
 
         const value& root = document.get_root();
@@ -622,7 +665,8 @@ SUITE(objects) {
     }
 
     ABSTRACT_TEST(nested_object) {
-        const sajson::document& document = parse(literal("{\"a\":{\"b\":{}}} "));
+        const sajson::document& document
+            = parse(literal("{\"a\":{\"b\":{}}} "));
         assert(success(document));
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_OBJECT, root.get_type());
@@ -660,7 +704,8 @@ SUITE(objects) {
 
 #ifndef SAJSON_UNSORTED_OBJECT_KEYS
     ABSTRACT_TEST(object_keys_are_sorted) {
-        const sajson::document& document = parse(literal(" { \"b\" : 1 , \"a\" : 0 } "));
+        const sajson::document& document
+            = parse(literal(" { \"b\" : 1 , \"a\" : 0 } "));
         assert(success(document));
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_OBJECT, root.get_type());
@@ -682,7 +727,8 @@ SUITE(objects) {
     }
 
     ABSTRACT_TEST(object_keys_are_sorted_length_first) {
-        const sajson::document& document = parse(literal(" { \"b\" : 1 , \"aa\" : 0 } "));
+        const sajson::document& document
+            = parse(literal(" { \"b\" : 1 , \"aa\" : 0 } "));
         assert(success(document));
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_OBJECT, root.get_type());
@@ -705,7 +751,8 @@ SUITE(objects) {
 #endif // not SAJSON_UNSORTED_OBJECT_KEYS
 
     ABSTRACT_TEST(search_for_keys) {
-        const sajson::document& document = parse(literal(" { \"b\" : 1 , \"aa\" : 0 } "));
+        const sajson::document& document
+            = parse(literal(" { \"b\" : 1 , \"aa\" : 0 } "));
         assert(success(document));
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_OBJECT, root.get_type());
@@ -725,7 +772,8 @@ SUITE(objects) {
     }
 
     ABSTRACT_TEST(get_value) {
-        const sajson::document& document = parse(literal(" { \"b\" : 123 , \"aa\" : 456 } "));
+        const sajson::document& document
+            = parse(literal(" { \"b\" : 123 , \"aa\" : 456 } "));
         assert(success(document));
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_OBJECT, root.get_type());
@@ -756,7 +804,8 @@ SUITE(objects) {
     }
 
     ABSTRACT_TEST(binary_search_handles_prefix_keys) {
-        const sajson::document& document = parse(literal(" { \"prefix_key\" : 0 } "));
+        const sajson::document& document
+            = parse(literal(" { \"prefix_key\" : 0 } "));
         assert(success(document));
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_OBJECT, root.get_type());
@@ -774,25 +823,39 @@ SUITE(errors) {
 
         CHECK_EQUAL(get_error_text(ERROR_NO_ERROR), "no error");
         CHECK_EQUAL(get_error_text(ERROR_OUT_OF_MEMORY), "out of memory");
-        CHECK_EQUAL(get_error_text(ERROR_UNEXPECTED_END), "unexpected end of input");
-        CHECK_EQUAL(get_error_text(ERROR_MISSING_ROOT_ELEMENT), "missing root element");
-        CHECK_EQUAL(get_error_text(ERROR_BAD_ROOT), "document root must be object or array");
+        CHECK_EQUAL(
+            get_error_text(ERROR_UNEXPECTED_END), "unexpected end of input");
+        CHECK_EQUAL(
+            get_error_text(ERROR_MISSING_ROOT_ELEMENT), "missing root element");
+        CHECK_EQUAL(
+            get_error_text(ERROR_BAD_ROOT),
+            "document root must be object or array");
         CHECK_EQUAL(get_error_text(ERROR_EXPECTED_COMMA), "expected ,");
-        CHECK_EQUAL(get_error_text(ERROR_MISSING_OBJECT_KEY), "missing object key");
+        CHECK_EQUAL(
+            get_error_text(ERROR_MISSING_OBJECT_KEY), "missing object key");
         CHECK_EQUAL(get_error_text(ERROR_EXPECTED_COLON), "expected :");
-        CHECK_EQUAL(get_error_text(ERROR_EXPECTED_END_OF_INPUT), "expected end of input");
+        CHECK_EQUAL(
+            get_error_text(ERROR_EXPECTED_END_OF_INPUT),
+            "expected end of input");
         CHECK_EQUAL(get_error_text(ERROR_UNEXPECTED_COMMA), "unexpected comma");
         CHECK_EQUAL(get_error_text(ERROR_EXPECTED_VALUE), "expected value");
         CHECK_EQUAL(get_error_text(ERROR_EXPECTED_NULL), "expected 'null'");
         CHECK_EQUAL(get_error_text(ERROR_EXPECTED_FALSE), "expected 'false'");
         CHECK_EQUAL(get_error_text(ERROR_EXPECTED_TRUE), "expected 'true'");
         CHECK_EQUAL(get_error_text(ERROR_MISSING_EXPONENT), "missing exponent");
-        CHECK_EQUAL(get_error_text(ERROR_ILLEGAL_CODEPOINT), "illegal unprintable codepoint in string");
-        CHECK_EQUAL(get_error_text(ERROR_INVALID_UNICODE_ESCAPE), "invalid character in unicode escape");
         CHECK_EQUAL(
-            get_error_text(ERROR_UNEXPECTED_END_OF_UTF16), "unexpected end of input during UTF-16 surrogate pair");
+            get_error_text(ERROR_ILLEGAL_CODEPOINT),
+            "illegal unprintable codepoint in string");
+        CHECK_EQUAL(
+            get_error_text(ERROR_INVALID_UNICODE_ESCAPE),
+            "invalid character in unicode escape");
+        CHECK_EQUAL(
+            get_error_text(ERROR_UNEXPECTED_END_OF_UTF16),
+            "unexpected end of input during UTF-16 surrogate pair");
         CHECK_EQUAL(get_error_text(ERROR_EXPECTED_U), "expected \\u");
-        CHECK_EQUAL(get_error_text(ERROR_INVALID_UTF16_TRAIL_SURROGATE), "invalid UTF-16 trail surrogate");
+        CHECK_EQUAL(
+            get_error_text(ERROR_INVALID_UTF16_TRAIL_SURROGATE),
+            "invalid UTF-16 trail surrogate");
         CHECK_EQUAL(get_error_text(ERROR_UNKNOWN_ESCAPE), "unknown escape");
         CHECK_EQUAL(get_error_text(ERROR_INVALID_UTF8), "invalid UTF-8");
     }
@@ -802,7 +865,9 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(1u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_MISSING_ROOT_ELEMENT, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_MISSING_ROOT_ELEMENT,
+            document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(two_roots_are_invalid) {
@@ -810,7 +875,9 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         // CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_EXPECTED_END_OF_INPUT, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_EXPECTED_END_OF_INPUT,
+            document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(root_must_be_object_or_array) {
@@ -818,7 +885,8 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(1u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_BAD_ROOT, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_BAD_ROOT, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(incomplete_object_key) {
@@ -826,7 +894,8 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(4u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_UNKNOWN_ESCAPE, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_UNKNOWN_ESCAPE, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(commas_are_necessary_between_elements) {
@@ -834,7 +903,8 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         // CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_EXPECTED_COMMA, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_EXPECTED_COMMA, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(keys_must_be_strings) {
@@ -842,7 +912,9 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_MISSING_OBJECT_KEY, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_MISSING_OBJECT_KEY,
+            document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(objects_must_have_keys) {
@@ -850,7 +922,8 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(5u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_EXPECTED_COLON, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_EXPECTED_COLON, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(too_many_commas) {
@@ -858,7 +931,9 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(4u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_UNEXPECTED_COMMA, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_UNEXPECTED_COMMA,
+            document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(object_missing_value) {
@@ -866,7 +941,8 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(6u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_EXPECTED_VALUE, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_EXPECTED_VALUE, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(invalid_true_literal) {
@@ -874,7 +950,8 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         // CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_EXPECTED_TRUE, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_EXPECTED_TRUE, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(incomplete_true_literal) {
@@ -882,7 +959,8 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         // CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_UNEXPECTED_END, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_UNEXPECTED_END, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(must_close_array_with_square_bracket) {
@@ -890,7 +968,8 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         // CHECK_EQUAL(3, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_EXPECTED_VALUE, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_EXPECTED_VALUE, document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(must_close_object_with_curly_brace) {
@@ -898,7 +977,9 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(2u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_MISSING_OBJECT_KEY, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_MISSING_OBJECT_KEY,
+            document._internal_get_error_code());
     }
 
     ABSTRACT_TEST(incomplete_array_with_vero) {
@@ -906,7 +987,8 @@ SUITE(errors) {
         CHECK_EQUAL(false, document.is_valid());
         CHECK_EQUAL(1u, document.get_error_line());
         CHECK_EQUAL(3u, document.get_error_column());
-        CHECK_EQUAL(sajson::ERROR_UNEXPECTED_END, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_UNEXPECTED_END, document._internal_get_error_code());
     }
 
 #define CHECK_PARSE_ERROR(text, code)                                   \
@@ -947,7 +1029,8 @@ SUITE(errors) {
 }
 
 ABSTRACT_TEST(object_array_with_integers) {
-    const sajson::document& document = parse(literal("[{ \"a\": 123456 }, { \"a\": 7890 }]"));
+    const sajson::document& document
+        = parse(literal("[{ \"a\": 123456 }, { \"a\": 7890 }]"));
     assert(success(document));
     const value& root = document.get_root();
     CHECK_EQUAL(TYPE_ARRAY, root.get_type());
@@ -982,7 +1065,10 @@ SUITE(api) {
         CHECK_EQUAL(5u, one.length());
     }
 
-    static sajson::mutable_string_view&& my_move(sajson::mutable_string_view & that) { return std::move(that); }
+    static sajson::mutable_string_view&& my_move(
+        sajson::mutable_string_view & that) {
+        return std::move(that);
+    }
 
     TEST(mutable_string_view_self_move_assignment) {
         sajson::mutable_string_view one(sajson::literal("hello"));
@@ -994,7 +1080,8 @@ SUITE(api) {
 SUITE(allocator_tests) {
     TEST(single_allocation_into_existing_memory) {
         size_t buffer[2];
-        const sajson::document& document = sajson::parse(sajson::single_allocation(buffer), literal("[]"));
+        const sajson::document& document
+            = sajson::parse(sajson::single_allocation(buffer), literal("[]"));
         assert(success(document));
         const value& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
@@ -1010,7 +1097,8 @@ SUITE(allocator_tests) {
         // install_object are careful to shift back-to-front.  However,
         // the bounded allocator disallows any overlapping ranges.
         size_t buffer[5];
-        const auto& document = sajson::parse(sajson::bounded_allocation(buffer), literal("[[]]"));
+        const auto& document = sajson::parse(
+            sajson::bounded_allocation(buffer), literal("[[]]"));
         assert(success(document));
         const auto& root = document.get_root();
         CHECK_EQUAL(TYPE_ARRAY, root.get_type());
@@ -1028,9 +1116,11 @@ SUITE(allocator_tests) {
         // install_object are careful to shift back-to-front.  However,
         // the bounded allocator disallows any overlapping ranges.
         size_t buffer[4];
-        const auto& document = sajson::parse(sajson::bounded_allocation(buffer), literal("[[]]"));
+        const auto& document = sajson::parse(
+            sajson::bounded_allocation(buffer), literal("[[]]"));
         CHECK(!document.is_valid());
-        CHECK_EQUAL(sajson::ERROR_OUT_OF_MEMORY, document._internal_get_error_code());
+        CHECK_EQUAL(
+            sajson::ERROR_OUT_OF_MEMORY, document._internal_get_error_code());
     }
 }
 
