@@ -41,16 +41,12 @@ def san(env):
     env.Append(
         CCFLAGS=[
             '-g',
-            # ASAN
-            '-fsanitize=address',
+            # ASAN & UBSAN
+            '-fsanitize=address,undefined',
             # Requires newer gcc.
             # '-fsanitize=pointer-compare', '-fsanitize=pointer-subtract',
-            # UBSAN
-            '-fsanitize=undefined'],
-        LINKFLAGS=['-g', static_opt])
-    env.Prepend(
-        # libasan must come first.
-        LIBS=['asan', 'ubsan'])
+            ],
+        LINKFLAGS=['-g', static_opt, '-fsanitize=address,undefined'])
 
 def m32(env):
     env.Append(
@@ -83,7 +79,8 @@ else:
         ('gcc-64-san', [gcc, m64, san]),
         ('clang-32-opt', [clang, m32, opt]),
         ('clang-32-dbg', [clang, m32, dbg]),
-        ('clang-32-san', [clang, m32, san]),
+        # clang m32 sanitizers don't work on ubuntu
+        #('clang-32-san', [clang, m32, san]),
         ('clang-64-opt', [clang, m64, opt]),
         ('clang-64-dbg', [clang, m64, dbg]),
         ('clang-64-san', [clang, m64, san]),
