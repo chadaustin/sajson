@@ -67,35 +67,54 @@
  */
 namespace sajson {
 
-/// Tag indicating a JSON value's type.
+/**
+ * Indicates a JSON value's type.
+ *
+ * In early versions of sajson, this was the tag value directly from the parsed
+ * AST storage, but, to preserve API compabitility, it is now synthesized.
+ */
 enum type : uint8_t {
-    TYPE_INTEGER = 0,
-    TYPE_DOUBLE = 1,
-    TYPE_NULL = 2,
-    TYPE_FALSE = 3,
-    TYPE_TRUE = 4,
-    TYPE_STRING = 5,
-    TYPE_ARRAY = 6,
-    TYPE_OBJECT = 7,
+    TYPE_INTEGER,
+    TYPE_DOUBLE,
+    TYPE_NULL,
+    TYPE_FALSE,
+    TYPE_TRUE,
+    TYPE_STRING,
+    TYPE_ARRAY,
+    TYPE_OBJECT,
 };
 
 namespace internal {
-static const size_t TYPE_BITS = 3;
-static const size_t TYPE_MASK = (1 << TYPE_BITS) - 1;
-static const size_t VALUE_MASK = size_t(-1) >> TYPE_BITS;
+
+/**
+ * The low bits of every AST word indicate the value's type. This representation
+ * is internal and subject to change.
+ */
+enum class tag : uint8_t {
+    integer,
+    double_,
+    null,
+    false_,
+    true_,
+    string,
+    array,
+    object,
+};
+
+static const size_t TAG_BITS = 3;
+static const size_t TAG_MASK = (1 << TAG_BITS) - 1;
+static const size_t VALUE_MASK = ~size_t{} >> TAG_BITS;
 
 static const size_t ROOT_MARKER = VALUE_MASK;
 
-inline type get_element_type(size_t s) {
-    return static_cast<type>(s & TYPE_MASK);
-}
+inline tag get_element_tag(size_t s) { return static_cast<tag>(s & TAG_MASK); }
 
-inline size_t get_element_value(size_t s) { return s >> TYPE_BITS; }
+inline size_t get_element_value(size_t s) { return s >> TAG_BITS; }
 
-inline size_t make_element(type t, size_t value) {
+inline size_t make_element(tag t, size_t value) {
     // assert((value & ~VALUE_MASK) == 0);
     // value &= VALUE_MASK;
-    return static_cast<size_t>(t) | (value << TYPE_BITS);
+    return static_cast<size_t>(t) | (value << TAG_BITS);
 }
 
 // This template utilizes the One Definition Rule to create global arrays in a
@@ -415,12 +434,52 @@ inline void store(size_t* location, double value) {
 class value {
 public:
     /// Returns the JSON value's \ref type.
-    type get_type() const { return value_type; }
+    type get_type() const {
+        // As of 2020, current versions of MSVC generate a jump table for this
+        // conversion. If it matters, a more clever mapping with knowledge of
+        // the specific values is possible. gcc and clang generate good code --
+        // at worst a table lookup.
+        switch (value_tag) {
+        case tag::integer:
+            return TYPE_INTEGER;
+        case tag::double_:
+            return TYPE_DOUBLE;
+        case tag::null:
+            return TYPE_NULL;
+        case tag::false_:
+            return TYPE_FALSE;
+        case tag::true_:
+            return TYPE_TRUE;
+        case tag::string:
+            return TYPE_STRING;
+        case tag::array:
+            return TYPE_ARRAY;
+        case tag::object:
+            return TYPE_OBJECT;
+        }
+        SAJSON_UNREACHABLE();
+    }
+
+    bool is_boolean() const {
+        return value_tag == tag::false_ || value_tag == tag::true_;
+    }
+
+    bool get_boolean_value() const {
+        switch (value_tag) {
+        case tag::true_:
+            return true;
+        case tag::false_:
+            return false;
+        default:
+            assert(false);
+            return false;
+        }
+    }
 
     /// Returns the length of the object or array.
     /// Only legal if get_type() is TYPE_ARRAY or TYPE_OBJECT.
     size_t get_length() const {
-        assert_type_2(TYPE_ARRAY, TYPE_OBJECT);
+        assert_tag_2(tag::array, tag::object);
         return payload[0];
     }
 
@@ -429,10 +488,10 @@ public:
     /// Only legal if get_type() is TYPE_ARRAY.
     value get_array_element(size_t index) const {
         using namespace internal;
-        assert_type(TYPE_ARRAY);
+        assert_tag(tag::array);
         size_t element = payload[1 + index];
         return value(
-            get_element_type(element),
+            get_element_tag(element),
             payload + get_element_value(element),
             text);
     }
@@ -441,7 +500,7 @@ public:
     /// index is undefined behavior.
     /// Only legal if get_type() is TYPE_OBJECT.
     string get_object_key(size_t index) const {
-        assert_type(TYPE_OBJECT);
+        assert_tag(tag::object);
         const size_t* s = payload + 1 + index * 3;
         return string(text + s[0], s[1] - s[0]);
     }
@@ -450,10 +509,10 @@ public:
     /// index is undefined behavior.  Only legal if get_type() is TYPE_OBJECT.
     value get_object_value(size_t index) const {
         using namespace internal;
-        assert_type(TYPE_OBJECT);
+        assert_tag(tag::object);
         size_t element = payload[3 + index * 3];
         return value(
-            get_element_type(element),
+            get_element_tag(element),
             payload + get_element_value(element),
             text);
     }
@@ -462,12 +521,12 @@ public:
     /// if the key is not found.  Running time is O(lg N).
     /// Only legal if get_type() is TYPE_OBJECT.
     value get_value_of_key(const string& key) const {
-        assert_type(TYPE_OBJECT);
+        assert_tag(tag::object);
         size_t i = find_object_key(key);
         if (i < get_length()) {
             return get_object_value(i);
         } else {
-            return value(TYPE_NULL, 0, 0);
+            return value(tag::null, 0, 0);
         }
     }
 
@@ -477,7 +536,7 @@ public:
     /// Only legal if get_type() is TYPE_OBJECT
     size_t find_object_key(const string& key) const {
         using namespace internal;
-        assert_type(TYPE_OBJECT);
+        assert_tag(tag::object);
         const object_key_record* start
             = reinterpret_cast<const object_key_record*>(payload + 1);
         const object_key_record* end = start + get_length();
@@ -497,22 +556,22 @@ public:
     /// If a numeric value was parsed as a 32-bit integer, returns it.
     /// Only legal if get_type() is TYPE_INTEGER.
     int get_integer_value() const {
-        assert_type(TYPE_INTEGER);
+        assert_tag(tag::integer);
         return integer_storage::load(payload);
     }
 
     /// If a numeric value was parsed as a double, returns it.
     /// Only legal if get_type() is TYPE_DOUBLE.
     double get_double_value() const {
-        assert_type(TYPE_DOUBLE);
+        assert_tag(tag::double_);
         return double_storage::load(payload);
     }
 
     /// Returns a numeric value as a double-precision float.
     /// Only legal if get_type() is TYPE_INTEGER or TYPE_DOUBLE.
     double get_number_value() const {
-        assert_type_2(TYPE_INTEGER, TYPE_DOUBLE);
-        if (get_type() == TYPE_INTEGER) {
+        assert_tag_2(tag::integer, tag::double_);
+        if (value_tag == tag::integer) {
             return get_integer_value();
         } else {
             return get_double_value();
@@ -532,11 +591,12 @@ public:
         // https://gist.github.com/chadaustin/2c249cb850619ddec05b23ca42cf7a18
         *out = 0;
 
-        assert_type_2(TYPE_INTEGER, TYPE_DOUBLE);
-        if (get_type() == TYPE_INTEGER) {
+        assert_tag_2(tag::integer, tag::double_);
+        switch (value_tag) {
+        case tag::integer:
             *out = get_integer_value();
             return true;
-        } else if (get_type() == TYPE_DOUBLE) {
+        case tag::double_: {
             double v = get_double_value();
             if (v < -(1LL << 53) || v > (1LL << 53)) {
                 return false;
@@ -547,7 +607,8 @@ public:
             }
             *out = as_int;
             return true;
-        } else {
+        }
+        default:
             return false;
         }
     }
@@ -555,7 +616,7 @@ public:
     /// Returns the length of the string.
     /// Only legal if get_type() is TYPE_STRING.
     size_t get_string_length() const {
-        assert_type(TYPE_STRING);
+        assert_tag(tag::string);
         return payload[1] - payload[0];
     }
 
@@ -566,7 +627,7 @@ public:
     /// embedded NULs.
     /// Only legal if get_type() is TYPE_STRING.
     const char* as_cstring() const {
-        assert_type(TYPE_STRING);
+        assert_tag(tag::string);
         return text + payload[0];
     }
 
@@ -574,7 +635,7 @@ public:
     /// Returns a string's value as a std::string.
     /// Only legal if get_type() is TYPE_STRING.
     std::string as_string() const {
-        assert_type(TYPE_STRING);
+        assert_tag(tag::string);
         return std::string(text + payload[0], text + payload[1]);
     }
 #endif
@@ -584,20 +645,22 @@ public:
     /// \endcond
 
 private:
-    explicit value(type value_type_, const size_t* payload_, const char* text_)
-        : value_type(value_type_)
+    using tag = internal::tag;
+
+    explicit value(tag value_tag_, const size_t* payload_, const char* text_)
+        : value_tag(value_tag_)
         , payload(payload_)
         , text(text_) {}
 
-    void assert_type(type expected) const { assert(expected == get_type()); }
+    void assert_tag(tag expected) const { assert(expected == value_tag); }
 
-    void assert_type_2(type e1, type e2) const {
-        assert(e1 == get_type() || e2 == get_type());
+    void assert_tag_2(tag e1, tag e2) const {
+        assert(e1 == value_tag || e2 == value_tag);
     }
 
     void assert_in_bounds(size_t i) const { assert(i < get_length()); }
 
-    const type value_type;
+    const tag value_tag;
     const size_t* const payload;
     const char* const text;
 
@@ -722,7 +785,7 @@ public:
     document(document&& rhs)
         : input(rhs.input)
         , structure(std::move(rhs.structure))
-        , root_type(rhs.root_type)
+        , root_tag(rhs.root_tag)
         , root(rhs.root)
         , error_line(rhs.error_line)
         , error_column(rhs.error_column)
@@ -741,11 +804,11 @@ public:
      * get_error_message_as_cstring() to see why the parse failed.
      */
     bool is_valid() const {
-        return root_type == TYPE_ARRAY || root_type == TYPE_OBJECT;
+        return root_tag == tag::array || root_tag == tag::object;
     }
 
     /// If is_valid(), returns the document's root \ref value.
-    value get_root() const { return value(root_type, root, input.get_data()); }
+    value get_root() const { return value(root_tag, root, input.get_data()); }
 
     /// If not is_valid(), returns the one-based line number where the parse
     /// failed.
@@ -784,7 +847,7 @@ public:
 
     // WARNING: Internal function exposed only for high-performance language
     // bindings.
-    type _internal_get_root_type() const { return root_type; }
+    internal::tag _internal_get_root_tag() const { return root_tag; }
 
     // WARNING: Internal function exposed only for high-performance language
     // bindings.
@@ -797,17 +860,19 @@ public:
     /// \endcond
 
 private:
+    using tag = internal::tag;
+
     document(const document&) = delete;
     void operator=(const document&) = delete;
 
     explicit document(
         const mutable_string_view& input_,
         internal::ownership&& structure_,
-        type root_type_,
+        tag root_tag_,
         const size_t* root_)
         : input(input_)
         , structure(std::move(structure_))
-        , root_type(root_type_)
+        , root_tag(root_tag_)
         , root(root_)
         , error_line(0)
         , error_column(0)
@@ -824,7 +889,7 @@ private:
         int error_arg_)
         : input(input_)
         , structure(0)
-        , root_type(TYPE_NULL)
+        , root_tag(tag::null)
         , root(0)
         , error_line(error_line_)
         , error_column(error_column_)
@@ -853,7 +918,7 @@ private:
 
     mutable_string_view input;
     internal::ownership structure;
-    const type root_type;
+    const tag root_tag;
     const size_t* const root;
     const size_t error_line;
     const size_t error_column;
@@ -1473,7 +1538,7 @@ public:
         : input(msv)
         , input_end(input.get_data() + input.length())
         , allocator(std::move(allocator_))
-        , root_type(TYPE_NULL)
+        , root_tag(internal::tag::null)
         , error_line(0)
         , error_column(0) {}
 
@@ -1481,7 +1546,7 @@ public:
         if (parse()) {
             size_t* ast_root = allocator.get_ast_root();
             return document(
-                input, allocator.transfer_ownership(), root_type, ast_root);
+                input, allocator.transfer_ownership(), root_tag, ast_root);
         } else {
             return document(
                 input, error_line, error_column, error_code, error_arg);
@@ -1578,19 +1643,19 @@ private:
         // current_base is an offset to the first element of the current
         // structure (object or array)
         size_t current_base = stack.get_size();
-        type current_structure_type;
+        tag current_structure_tag;
         if (*p == '[') {
-            current_structure_type = TYPE_ARRAY;
+            current_structure_tag = tag::array;
             bool s
-                = stack.push(make_element(current_structure_type, ROOT_MARKER));
+                = stack.push(make_element(current_structure_tag, ROOT_MARKER));
             if (SAJSON_UNLIKELY(!s)) {
                 return oom(p);
             }
             goto array_close_or_element;
         } else if (*p == '{') {
-            current_structure_type = TYPE_OBJECT;
+            current_structure_tag = tag::object;
             bool s
-                = stack.push(make_element(current_structure_type, ROOT_MARKER));
+                = stack.push(make_element(current_structure_tag, ROOT_MARKER));
             if (SAJSON_UNLIKELY(!s)) {
                 return oom(p);
             }
@@ -1638,7 +1703,7 @@ private:
                 return unexpected_end();
             }
 
-            if (current_structure_type == TYPE_ARRAY) {
+            if (current_structure_tag == tag::array) {
                 if (*p == ']') {
                     goto pop_array;
                 } else {
@@ -1649,7 +1714,7 @@ private:
                     goto next_element;
                 }
             } else {
-                assert(current_structure_type == TYPE_OBJECT);
+                assert(current_structure_tag == tag::object);
                 if (*p == '}') {
                     goto pop_object;
                 } else {
@@ -1719,7 +1784,7 @@ private:
                 return unexpected_end();
             }
 
-            type value_type_result;
+            tag value_tag_result;
             switch (*p) {
             case 0:
                 return unexpected_end(p);
@@ -1728,21 +1793,21 @@ private:
                 if (!p) {
                     return false;
                 }
-                value_type_result = TYPE_NULL;
+                value_tag_result = tag::null;
                 break;
             case 'f':
                 p = parse_false(p);
                 if (!p) {
                     return false;
                 }
-                value_type_result = TYPE_FALSE;
+                value_tag_result = tag::false_;
                 break;
             case 't':
                 p = parse_true(p);
                 if (!p) {
                     return false;
                 }
-                value_type_result = TYPE_TRUE;
+                value_tag_result = tag::true_;
                 break;
             case '0':
             case '1':
@@ -1760,7 +1825,7 @@ private:
                 if (!p) {
                     return false;
                 }
-                value_type_result = result.second;
+                value_tag_result = result.second;
                 break;
             }
             case '"': {
@@ -1773,7 +1838,7 @@ private:
                 if (!p) {
                     return false;
                 }
-                value_type_result = TYPE_STRING;
+                value_tag_result = tag::string;
                 break;
             }
 
@@ -1781,28 +1846,28 @@ private:
                 size_t previous_base = current_base;
                 current_base = stack.get_size();
                 bool s = stack.push(
-                    make_element(current_structure_type, previous_base));
+                    make_element(current_structure_tag, previous_base));
                 if (SAJSON_UNLIKELY(!s)) {
                     return oom(p);
                 }
-                current_structure_type = TYPE_ARRAY;
+                current_structure_tag = tag::array;
                 goto array_close_or_element;
             }
             case '{': {
                 size_t previous_base = current_base;
                 current_base = stack.get_size();
                 bool s = stack.push(
-                    make_element(current_structure_type, previous_base));
+                    make_element(current_structure_tag, previous_base));
                 if (SAJSON_UNLIKELY(!s)) {
                     return oom(p);
                 }
-                current_structure_type = TYPE_OBJECT;
+                current_structure_tag = tag::object;
                 goto object_close_or_element;
             }
             pop : {
                 size_t parent = get_element_value(pop_element);
                 if (parent == ROOT_MARKER) {
-                    root_type = current_structure_type;
+                    root_tag = current_structure_tag;
                     p = skip_whitespace(p);
                     if (SAJSON_UNLIKELY(p)) {
                         return make_error(p, ERROR_EXPECTED_END_OF_INPUT);
@@ -1811,8 +1876,8 @@ private:
                 }
                 stack.reset(current_base);
                 current_base = parent;
-                value_type_result = current_structure_type;
-                current_structure_type = get_element_type(pop_element);
+                value_tag_result = current_structure_tag;
+                current_structure_tag = get_element_tag(pop_element);
                 break;
             }
 
@@ -1823,7 +1888,7 @@ private:
             }
 
             bool s = stack.push(
-                make_element(value_type_result, allocator.get_write_offset()));
+                make_element(value_tag_result, allocator.get_write_offset()));
             if (SAJSON_UNLIKELY(!s)) {
                 return oom(p);
             }
@@ -1950,7 +2015,9 @@ private:
         return constants[exponent + 323];
     }
 
-    std::pair<char*, type> parse_number(char* p) {
+    std::pair<char*, internal::tag> parse_number(char* p) {
+        using internal::tag;
+
         bool negative = false;
         if ('-' == *p) {
             ++p;
@@ -1958,7 +2025,7 @@ private:
 
             if (SAJSON_UNLIKELY(at_eof(p))) {
                 return std::make_pair(
-                    make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                    make_error(p, ERROR_UNEXPECTED_END), tag::null);
             }
         }
 
@@ -1971,20 +2038,20 @@ private:
             ++p;
             if (SAJSON_UNLIKELY(at_eof(p))) {
                 return std::make_pair(
-                    make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                    make_error(p, ERROR_UNEXPECTED_END), tag::null);
             }
         } else {
             unsigned char c = *p;
             if (c < '0' || c > '9') {
                 return std::make_pair(
-                    make_error(p, ERROR_INVALID_NUMBER), TYPE_NULL);
+                    make_error(p, ERROR_INVALID_NUMBER), tag::null);
             }
 
             do {
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
                     return std::make_pair(
-                        make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                        make_error(p, ERROR_UNEXPECTED_END), tag::null);
                 }
 
                 unsigned char digit = c - '0';
@@ -2014,19 +2081,19 @@ private:
             ++p;
             if (SAJSON_UNLIKELY(at_eof(p))) {
                 return std::make_pair(
-                    make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                    make_error(p, ERROR_UNEXPECTED_END), tag::null);
             }
             char c = *p;
             if (c < '0' || c > '9') {
                 return std::make_pair(
-                    make_error(p, ERROR_INVALID_NUMBER), TYPE_NULL);
+                    make_error(p, ERROR_INVALID_NUMBER), tag::null);
             }
 
             do {
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
                     return std::make_pair(
-                        make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                        make_error(p, ERROR_UNEXPECTED_END), tag::null);
                 }
                 d = d * 10 + (c - '0');
                 // One option to avoid underflow would be to clamp
@@ -2051,7 +2118,7 @@ private:
             ++p;
             if (SAJSON_UNLIKELY(at_eof(p))) {
                 return std::make_pair(
-                    make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                    make_error(p, ERROR_UNEXPECTED_END), tag::null);
             }
 
             bool negativeExponent = false;
@@ -2060,13 +2127,13 @@ private:
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
                     return std::make_pair(
-                        make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                        make_error(p, ERROR_UNEXPECTED_END), tag::null);
                 }
             } else if ('+' == *p) {
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
                     return std::make_pair(
-                        make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                        make_error(p, ERROR_UNEXPECTED_END), tag::null);
                 }
             }
 
@@ -2075,7 +2142,7 @@ private:
             char c = *p;
             if (SAJSON_UNLIKELY(c < '0' || c > '9')) {
                 return std::make_pair(
-                    make_error(p, ERROR_MISSING_EXPONENT), TYPE_NULL);
+                    make_error(p, ERROR_MISSING_EXPONENT), tag::null);
             }
             for (;;) {
                 // c guaranteed to be between '0' and '9', inclusive
@@ -2092,7 +2159,7 @@ private:
                 ++p;
                 if (SAJSON_UNLIKELY(at_eof(p))) {
                     return std::make_pair(
-                        make_error(p, ERROR_UNEXPECTED_END), TYPE_NULL);
+                        make_error(p, ERROR_UNEXPECTED_END), tag::null);
                 }
 
                 c = *p;
@@ -2126,19 +2193,19 @@ private:
             size_t* out
                 = allocator.reserve(double_storage::word_length, &success);
             if (SAJSON_UNLIKELY(!success)) {
-                return std::make_pair(oom(p), TYPE_NULL);
+                return std::make_pair(oom(p), tag::null);
             }
             double_storage::store(out, d);
-            return std::make_pair(p, TYPE_DOUBLE);
+            return std::make_pair(p, tag::double_);
         } else {
             bool success;
             size_t* out
                 = allocator.reserve(integer_storage::word_length, &success);
             if (SAJSON_UNLIKELY(!success)) {
-                return std::make_pair(oom(p), TYPE_NULL);
+                return std::make_pair(oom(p), tag::null);
             }
             integer_storage::store(out, i);
-            return std::make_pair(p, TYPE_INTEGER);
+            return std::make_pair(p, tag::integer);
         }
     }
 
@@ -2156,7 +2223,7 @@ private:
 
         while (array_end > array_base) {
             size_t element = *--array_end;
-            type element_type = get_element_type(element);
+            tag element_type = get_element_tag(element);
             size_t element_value = get_element_value(element);
             size_t* element_ptr = structure_end - element_value;
             *--out = make_element(element_type, element_ptr - new_base);
@@ -2188,7 +2255,7 @@ private:
 
         while (object_end > object_base) {
             size_t element = *--object_end;
-            type element_type = get_element_type(element);
+            tag element_type = get_element_tag(element);
             size_t element_value = get_element_value(element);
             size_t* element_ptr = structure_end - element_value;
 
@@ -2458,7 +2525,7 @@ private:
     char* const input_end;
     Allocator allocator;
 
-    type root_type;
+    internal::tag root_tag;
     size_t error_line;
     size_t error_column;
     error error_code;
