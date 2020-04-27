@@ -1137,4 +1137,10 @@ TEST(zero_initialized_value_is_null) {
     CHECK_EQUAL(TYPE_NULL, v.get_type());
 }
 
+TEST(value_is_copyable) {
+    auto v = value{};
+    auto u = v;
+    CHECK_EQUAL(TYPE_NULL, u.get_type());
+}
+
 int main() { return UnitTest::RunAllTests(); }
