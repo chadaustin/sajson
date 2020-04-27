@@ -79,9 +79,9 @@ public struct ArrayReader: Sequence {
         }
 
         let element = payload[1 + i]
-        let elementType = UInt8(element & 7)
+        let elementTag = UInt8(element & 7)
         let elementOffset = Int(element >> 3)
-        return ASTNode(type: elementType, payload: payload.advanced(by: elementOffset), input: input).valueReader
+        return ASTNode(tag: elementTag, payload: payload.advanced(by: elementOffset), input: input).valueReader
     }
 
     public var count: Int {
@@ -141,9 +141,9 @@ public struct ObjectReader: Sequence {
 
         let key = decodeString(input, start, end)
 
-        let valueType = UInt8(value & 7)
+        let valueTag = UInt8(value & 7)
         let valueOffset = Int(value >> 3)
-        return (key, ASTNode(type: valueType, payload: payload.advanced(by: valueOffset), input: input).valueReader)
+        return (key, ASTNode(tag: valueTag, payload: payload.advanced(by: valueOffset), input: input).valueReader)
     }
 
     public subscript(key: String) -> ValueReader? {
@@ -153,9 +153,9 @@ public struct ObjectReader: Sequence {
         }
 
         let element = payload[3 + objectLocation * 3]
-        let elementType = UInt8(element & 7)
+        let elementTag = UInt8(element & 7)
         let elementOffset = Int(element >> 3)
-        return ASTNode(type: elementType, payload: payload.advanced(by: elementOffset), input: input).valueReader
+        return ASTNode(tag: elementTag, payload: payload.advanced(by: elementOffset), input: input).valueReader
     }
 
     /// Returns the object as a dictionary. Should generally be avoided, as it is less efficient than directly reading
@@ -169,9 +169,9 @@ public struct ObjectReader: Sequence {
 
             let key = decodeString(input, start, end)
 
-            let valueType = UInt8(value & 7)
+            let valueTag = UInt8(value & 7)
             let valueOffset = Int(value >> 3)
-            result[key] = ASTNode(type: valueType, payload: payload.advanced(by: valueOffset), input: input).valueReader
+            result[key] = ASTNode(tag: valueTag, payload: payload.advanced(by: valueOffset), input: input).valueReader
         }
         return result
     }
@@ -224,7 +224,7 @@ public enum Value {
 // Internal type that represents a decodable sajson AST node.
 private struct ASTNode {
     // Keep this in sync with sajson::type
-    private struct RawType {
+    private struct RawTag {
         static let integer: UInt8 = 0
         static let double: UInt8 = 1
         static let null: UInt8 = 2
@@ -235,20 +235,20 @@ private struct ASTNode {
         static let object: UInt8 = 7
     }
     
-    fileprivate init(type: UInt8, payload: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
-        self.type = type
+    fileprivate init(tag: UInt8, payload: UnsafePointer<UInt>, input: UnsafeBufferPointer<UInt8>) {
+        self.tag = tag
         self.payload = payload
         self.input = input
     }
 
     public var valueReader: ValueReader {
-        switch type {
-        case RawType.integer:
+        switch tag {
+        case RawTag.integer:
             // This syntax to read the bottom bits of a UInt as an Int32 is insane.
             return payload.withMemoryRebound(to: Int32.self, capacity: 1) { p in
                 return .integer(p[0])
             }
-        case RawType.double:
+        case RawTag.double:
             if MemoryLayout<Int>.size == MemoryLayout<Int32>.size {
                 let lo = UInt64(payload[0])
                 let hi = UInt64(payload[1])
@@ -257,19 +257,19 @@ private struct ASTNode {
             } else {
                 return .double(Float64(bitPattern: UInt64(payload[0])))
             }
-        case RawType.null:
+        case RawTag.null:
             return .null
-        case RawType.bfalse:
+        case RawTag.bfalse:
             return .bool(false)
-        case RawType.btrue:
+        case RawTag.btrue:
             return .bool(true)
-        case RawType.string:
+        case RawTag.string:
             let start = Int(payload[0])
             let end = Int(payload[1])
             return .string(decodeString(input, start, end))
-        case RawType.array:
+        case RawTag.array:
             return .array(ArrayReader(payload: payload, input: input))
-        case RawType.object:
+        case RawTag.object:
             return .object(ObjectReader(payload: payload, input: input))
         default:
             fatalError("Unknown sajson value type - memory corruption detected?")
@@ -279,7 +279,7 @@ private struct ASTNode {
 
     // MARK: Private
 
-    private let type: UInt8
+    private let tag: UInt8
     private let payload: UnsafePointer<UInt>
     private let input: UnsafeBufferPointer<UInt8>
 }
@@ -299,13 +299,13 @@ public final class Document {
         self.doc = doc
         self.input = input
 
-        let rootType = sajson_get_root_type(doc)
+        let rootTag = sajson_get_root_tag(doc)
         let rootValuePaylod = sajson_get_root(doc)!
         let inputPointer = sajson_get_input(doc)!
         let inputLength = sajson_get_input_length(doc)
 
         self.rootNode = ASTNode(
-            type: rootType,
+            tag: rootTag,
             payload: rootValuePaylod,
             input: UnsafeBufferPointer(start: inputPointer, count: inputLength))
     }

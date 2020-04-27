@@ -5,12 +5,21 @@
 struct sajson_document : sajson::document {};
 struct sajson_value : sajson::value {};
 
-static sajson::document* unwrap(sajson_document* doc) {
+namespace {
+
+sajson::document* unwrap(sajson_document* doc) {
     return static_cast<sajson::document*>(doc);
 }
 
-static sajson_document* wrap(sajson::document* doc) {
+sajson_document* wrap(sajson::document* doc) {
     return static_cast<sajson_document*>(doc);
+}
+
+template<typename T>
+typename std::underlying_type<T>::type to_underlying(T value) {
+    return static_cast<typename std::underlying_type<T>::type>(value);
+}
+
 }
 
 sajson_document* sajson_parse_single_allocation(char* bytes, size_t length) {
@@ -43,8 +52,8 @@ const char* sajson_get_error_message(sajson_document* doc) {
     return unwrap(doc)->get_error_message_as_cstring();
 }
 
-uint8_t sajson_get_root_type(sajson_document* doc) {
-    return unwrap(doc)->_internal_get_root_type();
+uint8_t sajson_get_root_tag(sajson_document* doc) {
+    return to_underlying(unwrap(doc)->_internal_get_root_tag());
 }
 
 const size_t* sajson_get_root(sajson_document* doc) {
