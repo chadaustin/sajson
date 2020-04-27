@@ -697,6 +697,7 @@ enum error {
     ERROR_INVALID_UTF16_TRAIL_SURROGATE,
     ERROR_UNKNOWN_ESCAPE,
     ERROR_INVALID_UTF8,
+    ERROR_UNINITIALIZED,
 };
 
 namespace internal {
@@ -770,6 +771,8 @@ inline const char* get_error_text(error error_code) {
         return "unknown escape";
     case ERROR_INVALID_UTF8:
         return "invalid UTF-8";
+    case ERROR_UNINITIALIZED:
+        return "uninitialized document";
     }
 
     SAJSON_UNREACHABLE();
@@ -787,6 +790,9 @@ inline const char* get_error_text(error error_code) {
  */
 class document {
 public:
+    document()
+        : document{ mutable_string_view{}, 0, 0, ERROR_UNINITIALIZED, 0 } {}
+
     document(document&& rhs)
         : input(rhs.input)
         , structure(std::move(rhs.structure))

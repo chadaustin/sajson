@@ -1124,6 +1124,14 @@ SUITE(allocator_tests) {
     }
 }
 
+TEST(zero_initialized_document_is_invalid) {
+    auto d = document{};
+    CHECK(!d.is_valid());
+    CHECK_EQUAL(0u, d.get_error_line());
+    CHECK_EQUAL(0u, d.get_error_column());
+    CHECK_EQUAL("uninitialized document", d.get_error_message_as_string());
+}
+
 TEST(zero_initialized_value_is_null) {
     auto v = value{};
     CHECK_EQUAL(TYPE_NULL, v.get_type());
