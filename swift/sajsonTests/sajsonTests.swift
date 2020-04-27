@@ -86,8 +86,8 @@ class sajsonTests: XCTestCase {
             guard case .some(.double(let start)) = objectReader["start"] else { XCTFail(); return }
             guard case .some(.double(let end)) = objectReader["end"] else { XCTFail(); return }
 
-            XCTAssertEqualWithAccuracy(12.948, start, accuracy: 0.001)
-            XCTAssertEqualWithAccuracy(42.1234, end, accuracy: 0.001)
+            XCTAssertEqual(12.948, start, accuracy: 0.001)
+            XCTAssertEqual(42.1234, end, accuracy: 0.001)
         }
     }
 
