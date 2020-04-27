@@ -433,6 +433,11 @@ inline void store(size_t* location, double value) {
 /// after its \ref document has been destroyed.
 class value {
 public:
+    value()
+        : value_tag{ tag::null }
+        , payload{ nullptr }
+        , text{ nullptr } {}
+
     /// Returns the JSON value's \ref type.
     type get_type() const {
         // As of 2020, current versions of MSVC generate a jump table for this

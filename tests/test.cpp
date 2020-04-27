@@ -1124,4 +1124,9 @@ SUITE(allocator_tests) {
     }
 }
 
+TEST(zero_initialized_value_is_null) {
+    auto v = value{};
+    CHECK_EQUAL(TYPE_NULL, v.get_type());
+}
+
 int main() { return UnitTest::RunAllTests(); }
