@@ -17,6 +17,8 @@ using sajson::TYPE_STRING;
 using sajson::TYPE_TRUE;
 using sajson::value;
 
+namespace {
+
 inline bool success(const document& doc) {
     if (!doc.is_valid()) {
         fprintf(
@@ -30,8 +32,17 @@ inline bool success(const document& doc) {
     return true;
 }
 
-static const size_t ast_buffer_size = 100;
-static size_t ast_buffer[ast_buffer_size];
+const size_t ast_buffer_size = 100;
+size_t ast_buffer[ast_buffer_size];
+
+/**
+ * Modern clang complains about obvious self-assignment, but we want
+ * to do that in tests. Hide it from clang.
+ */
+template <typename T>
+const T& self_ref(const T& v) { return v; }
+
+}
 
 #define ABSTRACT_TEST(name)                                              \
     static void name##internal(                                          \
@@ -1061,7 +1072,7 @@ SUITE(api) {
 
     TEST(mutable_string_view_self_assignment) {
         sajson::mutable_string_view one(sajson::literal("hello"));
-        one = one;
+        one = self_ref(one);
         CHECK_EQUAL(5u, one.length());
     }
 
