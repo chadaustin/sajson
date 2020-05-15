@@ -122,7 +122,9 @@ static const size_t VALUE_MASK = ~size_t{} >> TAG_BITS;
 
 static const size_t ROOT_MARKER = VALUE_MASK;
 
-constexpr inline tag get_element_tag(size_t s) { return static_cast<tag>(s & TAG_MASK); }
+constexpr inline tag get_element_tag(size_t s) {
+    return static_cast<tag>(s & TAG_MASK);
+}
 
 constexpr inline size_t get_element_value(size_t s) { return s >> TAG_BITS; }
 
@@ -368,7 +370,8 @@ struct object_key_record {
 
     bool match(const char* object_data, const string& str) const {
         size_t length = key_end - key_start;
-        return length == str.length() && 0 == memcmp(str.data(), object_data + key_start, length);
+        return length == str.length()
+            && 0 == memcmp(str.data(), object_data + key_start, length);
     }
 };
 
@@ -567,8 +570,8 @@ public:
             = reinterpret_cast<const object_key_record*>(payload + 1);
         const object_key_record* end = start + length;
         if (SAJSON_UNLIKELY(should_binary_search(length))) {
-            const object_key_record* i
-                = std::lower_bound(start, end, key, object_key_comparator(text));
+            const object_key_record* i = std::lower_bound(
+                start, end, key, object_key_comparator(text));
             if (i != end && i->match(text, key)) {
                 return i - start;
             }

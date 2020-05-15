@@ -40,8 +40,9 @@ size_t ast_buffer[ast_buffer_size];
  * to do that in tests. Hide it from clang.
  */
 template <typename T>
-const T& self_ref(const T& v) { return v; }
-
+const T& self_ref(const T& v) {
+    return v;
+}
 }
 
 #define ABSTRACT_TEST(name)                                              \

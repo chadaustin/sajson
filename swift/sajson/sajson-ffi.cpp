@@ -15,11 +15,10 @@ sajson_document* wrap(sajson::document* doc) {
     return static_cast<sajson_document*>(doc);
 }
 
-template<typename T>
+template <typename T>
 typename std::underlying_type<T>::type to_underlying(T value) {
     return static_cast<typename std::underlying_type<T>::type>(value);
 }
-
 }
 
 sajson_document* sajson_parse_single_allocation(char* bytes, size_t length) {
