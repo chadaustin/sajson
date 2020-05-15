@@ -1617,7 +1617,9 @@ private:
         }
     }
 
-    error_result oom(char* p) { return make_error(p, ERROR_OUT_OF_MEMORY); }
+    error_result oom(char* p, const char* /*reason*/) {
+        return make_error(p, ERROR_OUT_OF_MEMORY);
+    }
 
     error_result unexpected_end() {
         return make_error(0, ERROR_UNEXPECTED_END);
@@ -1670,7 +1672,7 @@ private:
         bool success;
         auto stack = allocator.get_stack_head(&success);
         if (SAJSON_UNLIKELY(!success)) {
-            return oom(p);
+            return oom(p, "failed to get stack head");
         }
 
         p = skip_whitespace(p);
@@ -1687,7 +1689,7 @@ private:
             bool s
                 = stack.push(make_element(current_structure_tag, ROOT_MARKER));
             if (SAJSON_UNLIKELY(!s)) {
-                return oom(p);
+                return oom(p, "stack.push array");
             }
             goto array_close_or_element;
         } else if (*p == '{') {
@@ -1695,7 +1697,8 @@ private:
             bool s
                 = stack.push(make_element(current_structure_tag, ROOT_MARKER));
             if (SAJSON_UNLIKELY(!s)) {
-                return oom(p);
+                printf("oom 3\n");
+                return oom(p, "stack.push object");
             }
             goto object_close_or_element;
         } else {
@@ -1772,7 +1775,7 @@ private:
             pop_element = *base_ptr;
             if (SAJSON_UNLIKELY(
                     !install_object(base_ptr + 1, stack.get_top()))) {
-                return oom(p);
+                return oom(p, "install_object");
             }
             goto pop;
         }
@@ -1784,7 +1787,7 @@ private:
             pop_element = *base_ptr;
             if (SAJSON_UNLIKELY(
                     !install_array(base_ptr + 1, stack.get_top()))) {
-                return oom(p);
+                return oom(p, "install_array");
             }
             goto pop;
         }
@@ -1801,7 +1804,7 @@ private:
             bool success_;
             size_t* out = stack.reserve(2, &success_);
             if (SAJSON_UNLIKELY(!success_)) {
-                return oom(p);
+                return oom(p, "reserve for object key");
             }
             p = parse_string(p, out);
             if (SAJSON_UNLIKELY(!p)) {
@@ -1870,7 +1873,7 @@ private:
                 bool success_;
                 size_t* string_tag = allocator.reserve(2, &success_);
                 if (SAJSON_UNLIKELY(!success_)) {
-                    return oom(p);
+                    return oom(p, "reserve for string tag");
                 }
                 p = parse_string(p, string_tag);
                 if (!p) {
@@ -1886,7 +1889,7 @@ private:
                 bool s = stack.push(
                     make_element(current_structure_tag, previous_base));
                 if (SAJSON_UNLIKELY(!s)) {
-                    return oom(p);
+                    return oom(p, "stack.push array");
                 }
                 current_structure_tag = tag::array;
                 goto array_close_or_element;
@@ -1897,7 +1900,7 @@ private:
                 bool s = stack.push(
                     make_element(current_structure_tag, previous_base));
                 if (SAJSON_UNLIKELY(!s)) {
-                    return oom(p);
+                    return oom(p, "stack.push object");
                 }
                 current_structure_tag = tag::object;
                 goto object_close_or_element;
@@ -1928,7 +1931,7 @@ private:
             bool s = stack.push(
                 make_element(value_tag_result, allocator.get_write_offset()));
             if (SAJSON_UNLIKELY(!s)) {
-                return oom(p);
+                return oom(p, "stack.push value");
             }
 
             goto structure_close_or_comma;
@@ -2231,7 +2234,7 @@ private:
             size_t* out
                 = allocator.reserve(double_storage::word_length, &success);
             if (SAJSON_UNLIKELY(!success)) {
-                return std::make_pair(oom(p), tag::null);
+                return std::make_pair(oom(p, "double"), tag::null);
             }
             double_storage::store(out, d);
             return std::make_pair(p, tag::double_);
@@ -2240,7 +2243,7 @@ private:
             size_t* out
                 = allocator.reserve(integer_storage::word_length, &success);
             if (SAJSON_UNLIKELY(!success)) {
-                return std::make_pair(oom(p), tag::null);
+                return std::make_pair(oom(p, "integer"), tag::null);
             }
             integer_storage::store(out, i);
             return std::make_pair(p, tag::integer);

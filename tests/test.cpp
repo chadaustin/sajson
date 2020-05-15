@@ -32,7 +32,7 @@ inline bool success(const document& doc) {
     return true;
 }
 
-const size_t ast_buffer_size = 100;
+const size_t ast_buffer_size = 8096;
 size_t ast_buffer[ast_buffer_size];
 
 /**
@@ -47,26 +47,25 @@ const T& self_ref(const T& v) {
 
 #define ABSTRACT_TEST(name)                                              \
     static void name##internal(                                          \
-        sajson::document (*parse)(const sajson::literal&));              \
+        sajson::document (*parse)(const sajson::string&));               \
     TEST(single_allocation_##name) {                                     \
-        name##internal([](const sajson::literal& literal) {              \
+        name##internal([](const sajson::string& literal) {               \
             return sajson::parse(sajson::single_allocation(), literal);  \
         });                                                              \
     }                                                                    \
     TEST(dynamic_allocation_##name) {                                    \
-        name##internal([](const sajson::literal& literal) {              \
+        name##internal([](const sajson::string& literal) {               \
             return sajson::parse(sajson::dynamic_allocation(), literal); \
         });                                                              \
     }                                                                    \
     TEST(bounded_allocation_##name) {                                    \
-        name##internal([](const sajson::literal& literal) {              \
+        name##internal([](const sajson::string& literal) {               \
             return sajson::parse(                                        \
                 sajson::bounded_allocation(ast_buffer, ast_buffer_size), \
                 literal);                                                \
         });                                                              \
     }                                                                    \
-    static void name##internal(                                          \
-        sajson::document (*parse)(const sajson::literal&))
+    static void name##internal(sajson::document (*parse)(const sajson::string&))
 
 ABSTRACT_TEST(empty_array) {
     const sajson::document& document = parse(literal("[]"));
@@ -754,6 +753,28 @@ SUITE(objects) {
 
         int iaa = root.get_value_of_key(literal("aa")).get_integer_value();
         CHECK_EQUAL(456, iaa);
+    }
+
+    ABSTRACT_TEST(get_value_large_object) {
+        std::string contents = "{";
+        for (unsigned i = 0; i < 1024; ++i) {
+            contents += (i ? ",\"" : "\"") + std::to_string(i)
+                + "\":" + std::to_string(i);
+        }
+        contents += "}";
+        const sajson::document& document
+            = parse(string(contents.data(), contents.size()));
+        assert(success(document));
+        const value& root = document.get_root();
+        CHECK_EQUAL(TYPE_OBJECT, root.get_type());
+        CHECK_EQUAL(1024u, root.get_length());
+
+        const value& v56 = root.get_value_of_key(literal("56"));
+        CHECK_EQUAL(TYPE_INTEGER, v56.get_type());
+        CHECK_EQUAL(56, v56.get_integer_value());
+
+        const value& vnone = root.get_value_of_key(literal("5.0"));
+        CHECK_EQUAL(TYPE_NULL, vnone.get_type());
     }
 
     ABSTRACT_TEST(get_missing_value_returns_null) {
