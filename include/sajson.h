@@ -87,6 +87,17 @@ enum type : uint8_t {
 namespace internal {
 
 /**
+ * get_value_of_key for objects is O(lg N), but most objects have
+ * small, bounded key sets, and the sort adds parsing overhead when a
+ * linear scan would be fast anyway and the code consuming objects may
+ * never lookup values by name! Therefore, only binary search for
+ * large numbers of keys.
+ */
+inline bool should_binary_search(size_t length) {
+    return length > 100;
+}
+
+/**
  * The low bits of every AST word indicate the value's type. This representation
  * is internal and subject to change.
  */
@@ -350,6 +361,11 @@ struct object_key_record {
     size_t key_start;
     size_t key_end;
     size_t value;
+
+    bool match(const char* object_data, const string& str) const {
+        size_t length = key_end - key_start;
+        return length == str.length() && 0 == memcmp(str.data(), object_data + key_start, length);
+    }
 };
 
 struct object_key_comparator {
@@ -542,20 +558,31 @@ public:
     size_t find_object_key(const string& key) const {
         using namespace internal;
         assert_tag(tag::object);
+        size_t length = get_length();
         const object_key_record* start
             = reinterpret_cast<const object_key_record*>(payload + 1);
-        const object_key_record* end = start + get_length();
+        const object_key_record* end = start + length;
+        const bool linear_scan =
 #ifdef SAJSON_UNSORTED_OBJECT_KEYS
-        for (const object_key_record* i = start; i != end; ++i)
+            true
 #else
-        const object_key_record* i
-            = std::lower_bound(start, end, key, object_key_comparator(text));
+            !should_binary_search(length)
 #endif
-            if (i != end && (i->key_end - i->key_start) == key.length()
-                && memcmp(key.data(), text + i->key_start, key.length()) == 0) {
+            ;
+        if (linear_scan) {
+            for (size_t i = 0; i < length; ++i) {
+                if (start[i].match(text, key)) {
+                    return i;
+                }
+            }
+        } else {
+            const object_key_record* i
+                = std::lower_bound(start, end, key, object_key_comparator(text));
+            if (i != end && i->match(text, key)) {
                 return i - start;
             }
-        return get_length();
+        }
+        return length;
     }
 
     /// If a numeric value was parsed as a 32-bit integer, returns it.
@@ -2248,11 +2275,14 @@ private:
 
         assert((object_end - object_base) % 3 == 0);
         const size_t length_times_3 = object_end - object_base;
+        const size_t length = length_times_3 / 3;
 #ifndef SAJSON_UNSORTED_OBJECT_KEYS
-        std::sort(
-            reinterpret_cast<object_key_record*>(object_base),
-            reinterpret_cast<object_key_record*>(object_end),
-            object_key_comparator(input.get_data()));
+        if (should_binary_search(length)) {
+            std::sort(
+                reinterpret_cast<object_key_record*>(object_base),
+                reinterpret_cast<object_key_record*>(object_end),
+                object_key_comparator(input.get_data()));
+        }
 #endif
 
         bool success;
@@ -2274,7 +2304,7 @@ private:
             *--out = *--object_end;
             *--out = *--object_end;
         }
-        *--out = length_times_3 / 3;
+        *--out = length;
         return true;
     }
 

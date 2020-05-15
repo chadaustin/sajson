@@ -713,54 +713,6 @@ SUITE(objects) {
         CHECK_EQUAL(0, element.get_integer_value());
     }
 
-#ifndef SAJSON_UNSORTED_OBJECT_KEYS
-    ABSTRACT_TEST(object_keys_are_sorted) {
-        const sajson::document& document
-            = parse(literal(" { \"b\" : 1 , \"a\" : 0 } "));
-        assert(success(document));
-        const value& root = document.get_root();
-        CHECK_EQUAL(TYPE_OBJECT, root.get_type());
-        CHECK_EQUAL(2u, root.get_length());
-
-        const string& k0 = root.get_object_key(0);
-        const value& e0 = root.get_object_value(0);
-        CHECK_EQUAL("a", k0.data());
-        CHECK_EQUAL("a", k0.as_string());
-        CHECK_EQUAL(TYPE_INTEGER, e0.get_type());
-        CHECK_EQUAL(0, e0.get_integer_value());
-
-        const string& k1 = root.get_object_key(1);
-        const value& e1 = root.get_object_value(1);
-        CHECK_EQUAL("b", k1.data());
-        CHECK_EQUAL("b", k1.as_string());
-        CHECK_EQUAL(TYPE_INTEGER, e1.get_type());
-        CHECK_EQUAL(1, e1.get_integer_value());
-    }
-
-    ABSTRACT_TEST(object_keys_are_sorted_length_first) {
-        const sajson::document& document
-            = parse(literal(" { \"b\" : 1 , \"aa\" : 0 } "));
-        assert(success(document));
-        const value& root = document.get_root();
-        CHECK_EQUAL(TYPE_OBJECT, root.get_type());
-        CHECK_EQUAL(2u, root.get_length());
-
-        const string& k0 = root.get_object_key(0);
-        const value& e0 = root.get_object_value(0);
-        CHECK_EQUAL("b", k0.data());
-        CHECK_EQUAL("b", k0.as_string());
-        CHECK_EQUAL(TYPE_INTEGER, e0.get_type());
-        CHECK_EQUAL(1, e0.get_integer_value());
-
-        const string& k1 = root.get_object_key(1);
-        const value& e1 = root.get_object_value(1);
-        CHECK_EQUAL("aa", k1.data());
-        CHECK_EQUAL("aa", k1.as_string());
-        CHECK_EQUAL(TYPE_INTEGER, e1.get_type());
-        CHECK_EQUAL(0, e1.get_integer_value());
-    }
-#endif // not SAJSON_UNSORTED_OBJECT_KEYS
-
     ABSTRACT_TEST(search_for_keys) {
         const sajson::document& document
             = parse(literal(" { \"b\" : 1 , \"aa\" : 0 } "));
