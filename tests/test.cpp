@@ -4,6 +4,8 @@
 
 #include <UnitTest++.h>
 
+#include <random>
+
 using sajson::document;
 using sajson::literal;
 using sajson::string;
@@ -756,10 +758,20 @@ SUITE(objects) {
     }
 
     ABSTRACT_TEST(get_value_large_object) {
-        std::string contents = "{";
+        unsigned values[1024];
         for (unsigned i = 0; i < 1024; ++i) {
-            contents += (i ? ",\"" : "\"") + std::to_string(i)
-                + "\":" + std::to_string(i);
+            values[i] = i;
+        }
+        std::random_device rd;
+        std::mt19937 g(rd());
+        std::shuffle(std::begin(values), std::end(values), g);
+
+        bool comma = false;
+        std::string contents = "{";
+        for (unsigned v : values) {
+            contents += (comma ? ",\"" : "\"") + std::to_string(v)
+                + "\":" + std::to_string(v);
+            comma = true;
         }
         contents += "}";
         const sajson::document& document
