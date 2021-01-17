@@ -1,3 +1,5 @@
+[![Documentation](https://img.shields.io/badge/docs-docsforge-blue)](http://sajson.docsforge.com/)
+
 # sajson
 
 sajson is an extremely high-performance, in-place, DOM-style JSON parser written in C++.
