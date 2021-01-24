@@ -1,0 +1,35 @@
+sidebar:
+  Basic Tutorial:
+  - Getting Started: README.md
+  Examples:
+  - main.cpp: example/main.cpp
+  - zero-allocation.cpp: example/zero-allocation.cpp
+
+
+autodocSettings:
+  Public API:
+    language: cpp
+    INPUT: include/sajson.h
+    EXCLUDE: test tests examples
+    EXCLUDE_PATTERNS: '*/tests/* */test/*'
+    includeApi: []
+    excludeApi: []
+    documentSingleUnderscore: true
+    documentStatic: true
+    documentProtected: true
+    extractNonDocComments: false
+    extract_namespace_comments: true
+    sort_by_type: true
+    sort_alphabetically: true
+    separate_defines: false
+    star_mentioned: true
+    star_list: []
+    ENABLE_PREPROCESSING: 'YES'
+    MACRO_EXPANSION: 'NO'
+    EXPAND_ONLY_PREDEF: 'NO'
+    PREDEFINED: ''
+    SEARCH_INCLUDES: 'YES'
+    INCLUDE_PATH: ''
+    INCLUDE_FILE_PATTERNS: ''
+    ALIASES: ''
+    EXAMPLE_PATH: ''
