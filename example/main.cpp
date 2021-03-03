@@ -101,9 +101,10 @@ int main(int argc, char** argv) {
     size_t length = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-    // "leak"
     char* buffer = new char[length];
     if (length != fread(buffer, 1, length, file)) {
+        fclose(file);
+        delete[] buffer;
         fprintf(stderr, "Failed to read entire file\n");
         return 1;
     }
@@ -112,6 +113,8 @@ int main(int argc, char** argv) {
     const sajson::document& document = sajson::parse(
         sajson::dynamic_allocation(), mutable_string_view(length, buffer));
     if (!success(document)) {
+        fclose(file);
+        delete[] buffer;
         return 1;
     }
 
@@ -124,4 +127,8 @@ int main(int argc, char** argv) {
     printf("number count: %d\n", (int)stats.number_count);
     printf("string count: %d\n", (int)stats.string_count);
     printf("null count: %d\n", (int)stats.null_count);
+    
+    fclose(file);
+    delete[] buffer;
+    return 0;
 }
