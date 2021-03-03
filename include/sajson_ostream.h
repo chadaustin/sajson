@@ -23,7 +23,7 @@ inline std::ostream& operator<<(std::ostream& os, type t) {
     case TYPE_OBJECT:
         return os << "<object>";
     default:
-        return os << "<unknown type";
+        return os << "<unknown type>";
     }
 }
 } // namespace sajson
