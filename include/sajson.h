@@ -138,12 +138,17 @@ constexpr inline size_t make_element(tag t, size_t value) {
 // header. This trick courtesy of Rich Geldreich's Purple JSON parser.
 template <typename unused = void>
 struct globals_struct {
+    static const unsigned char parse_flags[256];
+};
+typedef globals_struct<> globals;
+
 // clang-format off
 
     // bit 0 (1) - set if: plain ASCII string character
     // bit 1 (2) - set if: whitespace
     // bit 4 (0x10) - set if: 0-9 e E .
-    constexpr static const uint8_t parse_flags[256] = {
+    template <typename unused>
+    constexpr uint8_t globals_struct<unused>::parse_flags[256] = {
      // 0    1    2    3    4    5    6    7      8    9    A    B    C    D    E    F
         0,   0,   0,   0,   0,   0,   0,   0,     0,   2,   2,   0,   0,   2,   0,   0, // 0
         0,   0,   0,   0,   0,   0,   0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 1
@@ -162,8 +167,6 @@ struct globals_struct {
     };
 
 // clang-format on
-};
-typedef globals_struct<> globals;
 
 constexpr inline bool is_plain_string_character(char c) {
     // return c >= 0x20 && c <= 0x7f && c != 0x22 && c != 0x5c;
