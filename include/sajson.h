@@ -148,7 +148,7 @@ typedef globals_struct<> globals;
     // bit 1 (2) - set if: whitespace
     // bit 4 (0x10) - set if: 0-9 e E .
     template <typename unused>
-    constexpr uint8_t globals_struct<unused>::parse_flags[256] = {
+    const unsigned char globals_struct<unused>::parse_flags[256] = {
      // 0    1    2    3    4    5    6    7      8    9    A    B    C    D    E    F
         0,   0,   0,   0,   0,   0,   0,   0,     0,   2,   2,   0,   0,   2,   0,   0, // 0
         0,   0,   0,   0,   0,   0,   0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 1
@@ -168,12 +168,12 @@ typedef globals_struct<> globals;
 
 // clang-format on
 
-constexpr inline bool is_plain_string_character(char c) {
+inline bool is_plain_string_character(char c) {
     // return c >= 0x20 && c <= 0x7f && c != 0x22 && c != 0x5c;
     return (globals::parse_flags[static_cast<unsigned char>(c)] & 1) != 0;
 }
 
-constexpr inline bool is_whitespace(char c) {
+inline bool is_whitespace(char c) {
     // return c == '\r' || c == '\n' || c == '\t' || c == ' ';
     return (globals::parse_flags[static_cast<unsigned char>(c)] & 2) != 0;
 }
