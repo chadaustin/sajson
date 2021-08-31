@@ -271,6 +271,28 @@ SUITE(integers) {
         CHECK_EQUAL(TYPE_DOUBLE, zero2.get_type());
         CHECK_EQUAL(0.0, zero2.get_double_value());
     }
+
+    ABSTRACT_TEST(integer_endpoints) {
+        const auto& document
+            = parse(literal("[-2147483648, 2147483647, "
+                            " -2147483649, 2147483648]"));
+        assert(success(document));
+
+        const value& root = document.get_root();
+        const value& min32 = root.get_array_element(0);
+        const value& max32 = root.get_array_element(1);
+        const value& below_min32 = root.get_array_element(2);
+        const value& above_max32 = root.get_array_element(3);
+
+        CHECK_EQUAL(TYPE_INTEGER, min32.get_type());
+        CHECK_EQUAL(INT_MIN, min32.get_integer_value());
+        CHECK_EQUAL(TYPE_INTEGER, max32.get_type());
+        CHECK_EQUAL(INT_MAX, max32.get_integer_value());
+        CHECK_EQUAL(TYPE_DOUBLE, below_min32.get_type());
+        CHECK_EQUAL(double(INT_MIN)-1., below_min32.get_double_value());
+        CHECK_EQUAL(TYPE_DOUBLE, above_max32.get_type());
+        CHECK_EQUAL(double(INT_MAX)+1., above_max32.get_double_value());
+    }
 }
 
 ABSTRACT_TEST(unit_types) {
