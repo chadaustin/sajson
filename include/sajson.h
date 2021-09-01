@@ -2056,8 +2056,9 @@ private:
     std::pair<char*, internal::tag> parse_number(char* p) {
         using internal::tag;
 
-        static constexpr unsigned RISKY = unsigned(INT_MAX) / 10;
-        unsigned max_digit_after_risky = unsigned(INT_MAX) % 10;
+        // Assume 32-bit, two's complement integers.
+        static constexpr unsigned RISKY = INT_MAX / 10u;
+        unsigned max_digit_after_risky = INT_MAX % 10u;
 
         bool negative = false;
         if ('-' == *p) {
