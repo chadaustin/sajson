@@ -2247,7 +2247,7 @@ private:
             if (SAJSON_UNLIKELY(!success)) {
                 return std::make_pair(oom(p, "integer"), tag::null);
             }
-            integer_storage::store(out, int(u));
+            integer_storage::store(out, static_cast<int>(u));
             return std::make_pair(p, tag::integer);
         }
     }
