@@ -2056,6 +2056,10 @@ private:
     std::pair<char*, internal::tag> parse_number(char* p) {
         using internal::tag;
 
+        // Assume 32-bit, two's complement integers.
+        static constexpr unsigned RISKY = INT_MAX / 10u;
+        unsigned max_digit_after_risky = INT_MAX % 10u;
+
         bool negative = false;
         if ('-' == *p) {
             ++p;
@@ -2065,11 +2069,13 @@ private:
                 return std::make_pair(
                     make_error(p, ERROR_UNEXPECTED_END), tag::null);
             }
+
+            ++max_digit_after_risky;
         }
 
         bool try_double = false;
 
-        int i = 0;
+        unsigned u = 0;
         double d = 0.0; // gcc complains that d might be used uninitialized
                         // which isn't true. appease the warning anyway.
         if (*p == '0') {
@@ -2094,15 +2100,15 @@ private:
 
                 unsigned char digit = c - '0';
 
-                if (SAJSON_UNLIKELY(!try_double && i > INT_MAX / 10 - 9)) {
+                if (SAJSON_UNLIKELY(!try_double && (u > RISKY || (u == RISKY && digit > max_digit_after_risky)))) {
                     // TODO: could split this into two loops
                     try_double = true;
-                    d = i;
+                    d = u;
                 }
                 if (SAJSON_UNLIKELY(try_double)) {
                     d = 10.0 * d + digit;
                 } else {
-                    i = 10 * i + digit;
+                    u = 10 * u + digit;
                 }
 
                 c = *p;
@@ -2114,7 +2120,7 @@ private:
         if ('.' == *p) {
             if (!try_double) {
                 try_double = true;
-                d = i;
+                d = u;
             }
             ++p;
             if (SAJSON_UNLIKELY(at_eof(p))) {
@@ -2151,7 +2157,7 @@ private:
         if ('e' == e || 'E' == e) {
             if (!try_double) {
                 try_double = true;
-                d = i;
+                d = u;
             }
             ++p;
             if (SAJSON_UNLIKELY(at_eof(p))) {
@@ -2223,7 +2229,7 @@ private:
             if (try_double) {
                 d = -d;
             } else {
-                i = -i;
+                u = 0u - u;
             }
         }
         if (try_double) {
@@ -2242,7 +2248,7 @@ private:
             if (SAJSON_UNLIKELY(!success)) {
                 return std::make_pair(oom(p, "integer"), tag::null);
             }
-            integer_storage::store(out, i);
+            integer_storage::store(out, static_cast<int>(u));
             return std::make_pair(p, tag::integer);
         }
     }
