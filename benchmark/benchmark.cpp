@@ -1,5 +1,6 @@
 #include <memory>
 #include <sajson.h>
+#include <ctime>
 #include <vector>
 
 const char* default_files[] = {
