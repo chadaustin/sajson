@@ -2,13 +2,19 @@ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
 
 cc_library(
     name = "sajson",
-    hdrs = glob(["include/**/*.h"]),
-    copts = [
-        "-std=c++11",
-        "-Wall",
-        "-Werror",
-        "-Wno-unused-private-field",
-    ],
+    hdrs = glob(["include/*.h"]),
+    copts = select({
+        "@bazel_tools//src/conditions:windows": [
+            "/W4",
+            "/WX",
+        ],
+        "//conditions:default": [
+            "-std=c++11",
+            "-Wall",
+            "-Werror",
+            "-Wno-unused-private-field",
+        ],
+    }),
     includes = ["include"],
     visibility = ["//visibility:public"],
 )
@@ -18,7 +24,10 @@ cc_test(
     srcs = ["benchmark/benchmark.cpp"],
     copts = select({
         "@bazel_tools//src/conditions:windows": ["/O2"],  # MSVC uses /O2
-        "//conditions:default": ["-O2"],  # GCC/Clang use -O2
+        "//conditions:default": [
+            "-O2",  # GCC/Clang use -O2
+            "-std=c++11",
+        ],
     }),
     data = glob(["testdata/*.json"]),
     deps = [":sajson"],
