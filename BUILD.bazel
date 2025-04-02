@@ -36,6 +36,12 @@ cc_test(
 cc_test(
     name = "test",
     srcs = ["tests/test.cpp"],
+    copts = select({
+        "@bazel_tools//src/conditions:windows": [],
+        "//conditions:default": [
+            "-std=c++17",
+        ],
+    }),
     deps = [
         ":sajson",
         "@unittest-cpp",
