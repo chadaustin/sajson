@@ -26,7 +26,7 @@ cc_test(
         "@bazel_tools//src/conditions:windows": ["/O2"],  # MSVC uses /O2
         "//conditions:default": [
             "-O2",  # GCC/Clang use -O2
-            "-std=c++11",
+            "-std=c++17",
         ],
     }),
     data = glob(["testdata/*.json"]),
