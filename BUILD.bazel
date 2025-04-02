@@ -1,0 +1,46 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
+
+cc_library(
+    name = "sajson",
+    hdrs = glob(["include/**/*.h"]),
+    copts = [
+        "-std=c++11",
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-private-field",
+    ],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "benchmark",
+    srcs = ["benchmark/benchmark.cpp"],
+    copts = select({
+        "@bazel_tools//src/conditions:windows": ["/O2"],  # MSVC uses /O2
+        "//conditions:default": ["-O2"],  # GCC/Clang use -O2
+    }),
+    data = glob(["testdata/*.json"]),
+    deps = [":sajson"],
+)
+
+cc_test(
+    name = "test",
+    srcs = ["tests/test.cpp"],
+    deps = [
+        ":sajson",
+        "@unittest-cpp",
+    ],
+)
+
+cc_binary(
+    name = "example-main",
+    srcs = ["example/main.cpp"],
+    deps = [":sajson"],
+)
+
+cc_binary(
+    name = "example-zero-allocation",
+    srcs = ["example/zero-allocation.cpp"],
+    deps = [":sajson"],
+)
