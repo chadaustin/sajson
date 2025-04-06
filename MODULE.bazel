@@ -1,0 +1,16 @@
+"""
+Module: sajson
+Purpose: Provides the sajson library compileable as a Bazel target. Includes unit and benchmark tests through Bazel
+Note: Examples included as buildable binaries
+"""
+
+module(
+    name = "sajson",
+    version = "0.0.0-20210905003841-ec644013e34f",
+    compatibility_level = 1,
+)
+
+bazel_dep(name = "rules_cc", version = "0.1.1")
+bazel_dep(name = "platforms", version = "0.0.11")
+
+bazel_dep(name = "unittest-cpp", version = "2.0.1-0.20201113052638-10e50ad70c69", dev_dependency = True)
